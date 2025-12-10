@@ -123,7 +123,7 @@ export default function WrappedContainer({ stats, clubData, onRestart }) {
 
   return (
     <div
-      className="wrapped-stage bg-navy overflow-hidden"
+      className="wrapped-stage bg-navy"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -137,7 +137,7 @@ export default function WrappedContainer({ stats, clubData, onRestart }) {
       {/* Back button */}
       <Link to="/">
         <motion.div
-          className="absolute top-4 left-4 z-50 p-2.5 rounded-full bg-white/10 backdrop-blur-sm text-cream border border-white/10"
+          className="fixed top-4 left-4 z-50 p-2.5 rounded-full bg-white/10 backdrop-blur-sm text-cream border border-white/10"
           whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,0.2)' }}
           whileTap={{ scale: 0.9 }}
           initial={{ opacity: 0, x: -20 }}
@@ -153,7 +153,7 @@ export default function WrappedContainer({ stats, clubData, onRestart }) {
       {/* Restart button */}
       <motion.button
         onClick={onRestart}
-        className="absolute top-4 right-4 z-50 p-2.5 rounded-full bg-white/10 backdrop-blur-sm text-cream border border-white/10"
+        className="fixed top-4 right-4 z-50 p-2.5 rounded-full bg-white/10 backdrop-blur-sm text-cream border border-white/10"
         title="Choose different member"
         whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,0.2)' }}
         whileTap={{ scale: 0.9 }}
@@ -188,7 +188,7 @@ export default function WrappedContainer({ stats, clubData, onRestart }) {
             scale: { type: "spring", stiffness: 300, damping: 25 },
             rotate: { type: "spring", stiffness: 300, damping: 25 }
           }}
-          className="absolute inset-0 wrapped-slide-scroll"
+          className="wrapped-slide-scroll min-h-full pt-20 pb-28"
         >
           <CurrentSlideComponent
             stats={stats}
@@ -202,7 +202,7 @@ export default function WrappedContainer({ stats, clubData, onRestart }) {
 
       {/* Navigation arrows */}
       <motion.div
-        className="absolute bottom-4 sm:bottom-8 left-0 right-0 flex justify-center items-center gap-4 z-40"
+        className="fixed bottom-4 sm:bottom-8 left-0 right-0 flex justify-center items-center gap-4 z-40"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
@@ -255,7 +255,7 @@ export default function WrappedContainer({ stats, clubData, onRestart }) {
 
       {/* Keyboard hint - hidden on mobile */}
       <motion.div
-        className="absolute bottom-1 left-0 right-0 text-center text-xs text-latte/40 hidden sm:block"
+        className="fixed bottom-1 left-0 right-0 text-center text-xs text-latte/40 hidden sm:block"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}

@@ -47,9 +47,9 @@ const CoffeeBean = ({ active, onClick, index }) => (
 
 export default function SlideProgress({ current, total, onSlideClick }) {
   return (
-    <div className="absolute top-0 left-0 right-0 z-50 p-4">
+    <div className="fixed top-0 left-0 right-0 z-50 p-4 pointer-events-none">
       <motion.div
-        className="flex gap-2.5 justify-center items-center max-w-md mx-auto py-2 px-4 rounded-full bg-black/10 backdrop-blur-sm"
+        className="flex gap-2.5 justify-center items-center max-w-md mx-auto py-2 px-4 rounded-full bg-black/10 backdrop-blur-sm pointer-events-auto"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}

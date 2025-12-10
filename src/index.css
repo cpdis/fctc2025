@@ -83,24 +83,25 @@ body {
 
 /* Fullscreen stage for Wrapped slides that extends behind iOS chrome */
 .wrapped-stage {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 100vh;
+  position: relative;
+  min-height: 100vh;
   width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   touch-action: pan-y pinch-zoom;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-@supports (height: 100dvh) {
+@supports (min-height: 100dvh) {
   .wrapped-stage {
-    height: 100dvh;
+    min-height: 100dvh;
   }
 }
 
-@supports (height: 100lvh) {
+@supports (min-height: 100lvh) {
   .wrapped-stage {
-    height: 100lvh;
+    min-height: 100lvh;
   }
 }
 
