@@ -63,7 +63,7 @@ export default function BigNumbersSlide({ stats, clubData }) {
       ]
 
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-mocha via-coffee to-terracotta relative overflow-hidden">
+    <div className="min-h-screen-ios flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-mocha via-coffee to-terracotta relative overflow-hidden">
       {/* Animated background shapes */}
       <motion.div
         className="absolute top-10 right-10 w-32 h-32 rounded-full opacity-20"

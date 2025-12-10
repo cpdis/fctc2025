@@ -47,7 +47,7 @@ export default function SpecialMomentsSlide({ stats, clubData }) {
 
   if (isClub) {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-rose-900 via-pink-800 to-purple-700">
+      <div className="min-h-screen-ios flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-rose-900 via-pink-800 to-purple-700">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -105,7 +105,7 @@ export default function SpecialMomentsSlide({ stats, clubData }) {
 
   if (memberEvents.length === 0) {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-rose-900 via-pink-800 to-purple-700">
+      <div className="min-h-screen-ios flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-rose-900 via-pink-800 to-purple-700">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -125,7 +125,7 @@ export default function SpecialMomentsSlide({ stats, clubData }) {
   }
 
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-rose-900 via-pink-800 to-purple-700">
+    <div className="min-h-screen-ios flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-rose-900 via-pink-800 to-purple-700">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}

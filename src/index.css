@@ -57,6 +57,17 @@ body {
   height: 100dvh;
 }
 
+/* Extended height for iOS Safari - covers area behind address bar */
+.min-h-screen-ios {
+  min-height: 100vh;
+  min-height: 100lvh; /* Large viewport height - includes space behind iOS address bar */
+}
+
+/* Safe area padding for iOS */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* Display font utility */
 .font-display {
   font-family: var(--font-display);

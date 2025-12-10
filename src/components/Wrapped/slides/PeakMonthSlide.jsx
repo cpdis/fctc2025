@@ -16,7 +16,7 @@ export default function PeakMonthSlide({ stats, clubData }) {
 
   if (!peakMonth) {
     return (
-      <div className="min-h-dvh flex items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-cyan-900 to-blue-700">
+      <div className="min-h-screen-ios flex items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-cyan-900 to-blue-700">
         <p className="text-cream text-xl">Not enough monthly data yet!</p>
       </div>
     )
@@ -34,7 +34,7 @@ export default function PeakMonthSlide({ stats, clubData }) {
   const maxAttendance = Math.max(...sortedMonths.map(m => m.totalAttendance))
 
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-cyan-900 via-teal-800 to-emerald-700">
+    <div className="min-h-screen-ios flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-cyan-900 via-teal-800 to-emerald-700">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}

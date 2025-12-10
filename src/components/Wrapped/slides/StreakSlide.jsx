@@ -79,7 +79,7 @@ export default function StreakSlide({ stats, clubData }) {
       .slice(0, 5)
 
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-orange-900 via-red-800 to-pink-700 relative overflow-hidden">
+      <div className="min-h-screen-ios flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-orange-900 via-red-800 to-pink-700 relative overflow-hidden">
         {/* Background flames */}
         <motion.div
           className="absolute bottom-0 left-0 right-0 h-40 opacity-20"
@@ -168,7 +168,7 @@ export default function StreakSlide({ stats, clubData }) {
   const currentStreak = data.currentStreak || 0
 
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-orange-900 via-red-800 to-pink-700 relative overflow-hidden">
+    <div className="min-h-screen-ios flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-orange-900 via-red-800 to-pink-700 relative overflow-hidden">
       {/* Ember particles */}
       {[...Array(8)].map((_, i) => (
         <Ember key={i} delay={i * 0.3} />
