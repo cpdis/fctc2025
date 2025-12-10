@@ -85,31 +85,12 @@ export default function Dashboard({ data }) {
           />
         </motion.div>
 
-        {/* Charts Row */}
+        {/* Leaderboard and Run Type Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-          >
-            <AttendanceChart runs={filteredRuns} />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <DistanceChart data={data} filteredRuns={filteredRuns} />
-          </motion.div>
-        </div>
-
-        {/* Leaderboard and Run Type Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
           >
             <Leaderboard leaderboard={data.leaderboard} distanceLeaderboard={data.distanceLeaderboard} />
           </motion.div>
@@ -117,9 +98,28 @@ export default function Dashboard({ data }) {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
+            transition={{ delay: 0.4 }}
           >
             <RunTypeBreakdown runsByType={data.runsByType} />
+          </motion.div>
+        </div>
+
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            <AttendanceChart runs={filteredRuns} />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+          >
+            <DistanceChart data={data} filteredRuns={filteredRuns} />
           </motion.div>
         </div>
 
