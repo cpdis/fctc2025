@@ -81,6 +81,27 @@ body {
   padding-right: env(safe-area-inset-right, 0px);
 }
 
+/* Fullscreen stage for Wrapped slides that extends behind iOS chrome */
+.wrapped-stage {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh;
+}
+
+@supports (height: 100dvh) {
+  .wrapped-stage {
+    height: 100dvh;
+  }
+}
+
+@supports (height: 100lvh) {
+  .wrapped-stage {
+    height: 100lvh;
+  }
+}
+
 /* Display font utility */
 .font-display {
   font-family: var(--font-display);
