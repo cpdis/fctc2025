@@ -1,5 +1,5 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
-import { runTypeColors, colors } from '../../utils/theme'
+import { runTypeColors, colors, getRunTypeDisplayName } from '../../utils/theme'
 
 // Number of top run types to show individually (rest become "Special Events")
 const TOP_TYPES_COUNT = 6
@@ -7,7 +7,8 @@ const TOP_TYPES_COUNT = 6
 export default function RunTypeBreakdown({ runsByType }) {
   const allData = Object.entries(runsByType)
     .map(([type, stats]) => ({
-      name: type,
+      name: getRunTypeDisplayName(type),
+      rawName: type,
       value: stats.count,
       km: stats.totalKm,
       attendance: stats.totalAttendance
@@ -89,7 +90,7 @@ export default function RunTypeBreakdown({ runsByType }) {
               {chartData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={runTypeColors[entry.name] || colors.coffee}
+                  fill={runTypeColors[entry.rawName] || runTypeColors[entry.name] || colors.coffee}
                   stroke="#fff"
                   strokeWidth={3}
                   style={{
@@ -136,8 +137,8 @@ export default function RunTypeBreakdown({ runsByType }) {
             <span
               className="w-3 h-3 rounded-full"
               style={{
-                backgroundColor: runTypeColors[item.name] || colors.coffee,
-                boxShadow: `0 0 0 2px ${runTypeColors[item.name] || colors.coffee}20`
+                backgroundColor: runTypeColors[item.rawName] || runTypeColors[item.name] || colors.coffee,
+                boxShadow: `0 0 0 2px ${(runTypeColors[item.rawName] || runTypeColors[item.name] || colors.coffee)}20`
               }}
             />
             <span className="text-xs text-roast font-medium">{item.name}</span>

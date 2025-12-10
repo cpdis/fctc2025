@@ -38,6 +38,23 @@ export const chartColors = [
   '#e8e4d8', // cream dark
 ]
 
+// Clean display names for run types
+export const runTypeDisplayNames = {
+  'Half- Invasion Day': 'Invasion Day (Half Marathon)',
+  '10k- Invasion Day': 'Invasion Day (10K)',
+  'Mara- Anzac Day': 'ANZAC Day (Marathon)',
+  'Half- Anzac Day': 'ANZAC Day (Half Marathon)',
+  'Half- Beer Run': 'Beer Run (Half Marathon)',
+  'Good Fri Pancake': 'Good Friday Pancake Run',
+  'FILAMENT CUP 🏆': 'Filament Cup',
+  'N/hood Loop': "N'hood Loop",
+}
+
+// Get clean display name for a run type
+export const getRunTypeDisplayName = (runType) => {
+  return runTypeDisplayNames[runType] || runType
+}
+
 // Run type colors - using FCTC palette
 export const runTypeColors = {
   'Intervals': '#ff511b',    // orange - high intensity

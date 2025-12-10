@@ -7,23 +7,7 @@ import AttendanceChart from '../components/Dashboard/AttendanceChart'
 import Leaderboard from '../components/Dashboard/Leaderboard'
 import RunTypeBreakdown from '../components/Dashboard/RunTypeBreakdown'
 import RunsTable from '../components/Dashboard/RunsTable'
-
-// Clean display names for run types
-const runTypeDisplayNames = {
-  'Half- Invasion Day': 'Invasion Day (Half Marathon)',
-  '10k- Invasion Day': 'Invasion Day (10K)',
-  'Mara- Anzac Day': 'ANZAC Day (Marathon)',
-  'Half- Anzac Day': 'ANZAC Day (Half Marathon)',
-  'Half- Beer Run': 'Beer Run (Half Marathon)',
-  'Good Fri Pancake': 'Good Friday Pancake Run',
-  'FILAMENT CUP 🏆': 'Filament Cup',
-  'N/hood Loop': "N'hood Loop",
-}
-
-// Get clean display name for a run type
-const getRunTypeDisplayName = (runType) => {
-  return runTypeDisplayNames[runType] || runType
-}
+import { getRunTypeDisplayName } from '../utils/theme'
 
 export default function Dashboard({ data }) {
   const [filters, setFilters] = useState({

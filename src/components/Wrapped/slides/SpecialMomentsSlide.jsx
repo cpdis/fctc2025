@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { getRunTypeDisplayName } from '../../../utils/theme'
 
 export default function SpecialMomentsSlide({ stats, clubData }) {
   const isClub = stats.type === 'club'
@@ -152,7 +153,7 @@ export default function SpecialMomentsSlide({ stats, clubData }) {
             >
               <span className="text-4xl">{emoji}</span>
               <div className="flex-1">
-                <div className="font-bold text-lg text-cream">{run.runType}</div>
+                <div className="font-bold text-lg text-cream">{getRunTypeDisplayName(run.runType)}</div>
                 <div className="text-sm text-rose-200">{run.date}</div>
               </div>
               <div className="text-right text-cream">

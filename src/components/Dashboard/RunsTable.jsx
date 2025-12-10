@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { runTypeColors, colors } from '../../utils/theme'
+import { runTypeColors, colors, getRunTypeDisplayName } from '../../utils/theme'
 
 export default function RunsTable({ runs, allRuns }) {
   const navigate = useNavigate()
@@ -146,7 +146,7 @@ export default function RunsTable({ runs, allRuns }) {
                       boxShadow: `0 2px 4px ${runColor}30`
                     }}
                   >
-                    {run.runType}
+                    {getRunTypeDisplayName(run.runType)}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-coffee">

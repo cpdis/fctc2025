@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { runTypeColors } from '../../../utils/theme'
+import { runTypeColors, getRunTypeDisplayName } from '../../../utils/theme'
 
 const runTypeEmojis = {
   'Intervals': '⚡',
@@ -118,7 +118,7 @@ export default function FavoriteRunSlide({ stats, clubData }) {
                 {runTypeEmojis[type] || '🏃'}
               </motion.div>
               <div className="flex-1">
-                <div className="font-display font-bold text-lg text-cream">{type}</div>
+                <div className="font-display font-bold text-lg text-cream">{getRunTypeDisplayName(type)}</div>
                 <div className="text-sm text-purple-200">{typeStats.count} runs</div>
               </div>
               <motion.div
@@ -206,7 +206,7 @@ export default function FavoriteRunSlide({ stats, clubData }) {
           animate={{ scaleY: 1, scaleX: 1 }}
           transition={{ delay: 0.7, type: "spring", stiffness: 300 }}
         >
-          {favorite.type}
+          {getRunTypeDisplayName(favorite.type)}
         </motion.p>
         <p className="text-2xl text-purple-200 font-medium">
           {favorite.count} times this year

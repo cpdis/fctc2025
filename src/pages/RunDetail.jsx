@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import Header from '../components/Layout/Header'
+import { getRunTypeDisplayName } from '../utils/theme'
 
 export default function RunDetail({ data }) {
   const { runId } = useParams()
@@ -51,7 +52,7 @@ export default function RunDetail({ data }) {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <span className="px-3 py-1 rounded-full text-sm font-medium bg-pink/20 text-pink-dark">
-                {run.runType}
+                {getRunTypeDisplayName(run.runType)}
               </span>
               <h1 className="text-2xl font-bold text-espresso mt-2">{run.date}</h1>
               <p className="text-coffee mt-1">{run.meet}</p>
