@@ -11,6 +11,11 @@ export const colors = {
   navy: '#020912',
   navyLight: '#1a2332',
 
+  // Warm accent colors
+  amber: '#d4a574',
+  amberLight: '#e8c9a4',
+  amberDark: '#b8956a',
+
   // Legacy aliases for compatibility
   coffee: '#d75b77',
   coffeeLight: '#fa688e',
@@ -92,4 +97,56 @@ export const staggerChildren = {
       staggerChildren: 0.1,
     },
   },
+}
+
+// Playful animation variants for warm/organic design
+export const bounceIn = {
+  initial: { scale: 0, opacity: 0 },
+  animate: {
+    scale: 1,
+    opacity: 1,
+    transition: { type: "spring", stiffness: 400, damping: 15 }
+  }
+}
+
+export const squashStretch = {
+  initial: { scaleY: 0.3, scaleX: 1.3, opacity: 0 },
+  animate: {
+    scaleY: 1,
+    scaleX: 1,
+    opacity: 1,
+    transition: { type: "spring", stiffness: 300, damping: 12 }
+  }
+}
+
+export const tiltHover = {
+  initial: { rotate: -1.5 },
+  hover: { rotate: 0, scale: 1.02, transition: { type: "spring", stiffness: 400 } }
+}
+
+export const floatIn = {
+  initial: { y: 30, opacity: 0 },
+  animate: {
+    y: 0,
+    opacity: 1,
+    transition: { type: "spring", stiffness: 100, damping: 15 }
+  }
+}
+
+export const wiggle = {
+  animate: {
+    rotate: [0, -3, 3, -2, 2, 0],
+    transition: { duration: 0.5 }
+  }
+}
+
+export const pulseGlow = {
+  animate: {
+    boxShadow: [
+      "0 0 0 0 rgba(250, 104, 142, 0)",
+      "0 0 20px 4px rgba(250, 104, 142, 0.3)",
+      "0 0 0 0 rgba(250, 104, 142, 0)"
+    ],
+    transition: { duration: 2, repeat: Infinity }
+  }
 }

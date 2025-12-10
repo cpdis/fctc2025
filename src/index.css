@@ -13,6 +13,11 @@
   --color-navy: #020912;
   --color-navy-light: #1a2332;
 
+  /* Warm accent colors */
+  --color-amber: #d4a574;
+  --color-amber-light: #e8c9a4;
+  --color-amber-dark: #b8956a;
+
   /* Legacy aliases for compatibility */
   --color-coffee: #d75b77;
   --color-coffee-light: #fa688e;
@@ -22,8 +27,10 @@
   --color-roast: #1a2332;
   --color-mocha: #2a3342;
 
-  --font-sans: 'Space Grotesk', system-ui, sans-serif;
-  --font-mono: 'Space Mono', monospace;
+  /* Typography - Bricolage Grotesque + DM Sans */
+  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', monospace;
 }
 
 /* Base Styles */
@@ -36,6 +43,100 @@ body {
   background-color: var(--color-cream);
   color: var(--color-roast);
   min-height: 100vh;
+}
+
+/* Display font utility */
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Warm shadows */
+.shadow-warm {
+  box-shadow: 0 4px 20px rgba(215, 91, 119, 0.08);
+}
+
+.shadow-warm-lg {
+  box-shadow: 0 8px 30px rgba(215, 91, 119, 0.12);
+}
+
+.shadow-lifted {
+  box-shadow:
+    0 1px 2px rgba(2, 9, 18, 0.04),
+    0 4px 12px rgba(2, 9, 18, 0.06),
+    0 12px 24px rgba(2, 9, 18, 0.04);
+}
+
+.shadow-lifted-hover {
+  box-shadow:
+    0 2px 4px rgba(2, 9, 18, 0.04),
+    0 8px 20px rgba(2, 9, 18, 0.08),
+    0 20px 40px rgba(2, 9, 18, 0.06);
+}
+
+/* Grain texture overlay */
+.grain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.grain-light::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.015;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Organic border radius */
+.rounded-organic {
+  border-radius: 12px 16px 14px 18px;
+}
+
+.rounded-organic-lg {
+  border-radius: 20px 28px 24px 32px;
+}
+
+/* Warm hover states */
+.hover-warm {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.hover-warm:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 2px 4px rgba(2, 9, 18, 0.04),
+    0 8px 20px rgba(2, 9, 18, 0.08),
+    0 20px 40px rgba(2, 9, 18, 0.06);
+}
+
+/* Warm focus ring */
+.focus-warm:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.4);
+}
+
+/* Card base with lifted paper effect */
+.card-warm {
+  background: white;
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px rgba(2, 9, 18, 0.04),
+    0 4px 12px rgba(2, 9, 18, 0.06);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.card-warm:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 2px 4px rgba(2, 9, 18, 0.04),
+    0 8px 20px rgba(2, 9, 18, 0.08);
 }
 
 /* Custom scrollbar */
