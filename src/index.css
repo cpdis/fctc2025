@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/* Filament Coffee Track Club Color Palette */
+@theme {
+  /* Primary Colors - from Filament & FCTC */
+  --color-pink: #fa688e;
+  --color-pink-dark: #d75b77;
+  --color-mint: #9ed1af;
+  --color-mint-dark: #4d7059;
+  --color-orange: #ff511b;
+  --color-cream: #f2eee2;
+  --color-cream-dark: #e8e4d8;
+  --color-navy: #020912;
+  --color-navy-light: #1a2332;
+
+  /* Legacy aliases for compatibility */
+  --color-coffee: #d75b77;
+  --color-coffee-light: #fa688e;
+  --color-latte: #9ed1af;
+  --color-terracotta: #ff511b;
+  --color-espresso: #020912;
+  --color-roast: #1a2332;
+  --color-mocha: #2a3342;
+
+  --font-sans: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'Space Mono', monospace;
+}
+
+/* Base Styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-cream);
+  color: var(--color-roast);
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-cream-dark);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-latte);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-coffee);
+}
+
+/* Wrapped slide transitions */
+.slide-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.slide-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slide-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slide-exit-active {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+/* Number animation */
+@keyframes countUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-count {
+  animation: countUp 0.5s ease-out forwards;
+}
+
+/* Gradient backgrounds for wrapped */
+.gradient-coffee {
+  background: linear-gradient(135deg, var(--color-espresso) 0%, var(--color-coffee) 100%);
+}
+
+.gradient-warm {
+  background: linear-gradient(135deg, var(--color-terracotta) 0%, var(--color-latte) 100%);
+}
+
+.gradient-cream {
+  background: linear-gradient(135deg, var(--color-cream) 0%, var(--color-latte) 100%);
+}

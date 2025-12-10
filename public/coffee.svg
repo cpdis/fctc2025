@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="45" fill="#6F4E37"/>
+  <circle cx="50" cy="50" r="35" fill="#C4A77D"/>
+  <circle cx="50" cy="50" r="25" fill="#FDF6EC"/>
+  <path d="M35 45 Q50 30 65 45 Q50 60 35 45" fill="#6F4E37" opacity="0.3"/>
+  <text x="50" y="58" text-anchor="middle" font-family="Arial Black" font-size="24" fill="#2C1810">FC</text>
+</svg>
