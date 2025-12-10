@@ -10,23 +10,22 @@ export default function DistanceSlide({ stats, clubData }) {
     ? data.totalClubKm / data.totalRuns
     : data.avgKmPerRun
 
-  // Fun comparisons with accurate Australian distances
-  // Sydney to Melbourne: 878 km
+  // Fun comparisons with accurate Australian road distances
+  // Sydney to Perth: 3,934 km
+  // Sydney to Melbourne: 877 km
   // Sydney to Brisbane: 918 km
   // Sydney to Canberra: 286 km
   // Great Ocean Road: 243 km
-  // Perth to Adelaide: 2,695 km
-  // Bondi to Manly: 80 km (coastal walk, not direct)
-  // Marathon: 42.2 km
+  // Marathon: 42.195 km
   const getComparison = (km) => {
-    if (km >= 9000) return { text: `That's like running from Sydney to Perth and back!`, emoji: '🦘' }
-    if (km >= 5000) return { text: `You could run from Perth to Sydney!`, emoji: '🗺️' }
-    if (km >= 2000) return { text: `That's Sydney to Perth... almost halfway there!`, emoji: '🏜️' }
+    if (km >= 7800) return { text: `That's like running from Sydney to Perth and back!`, emoji: '🦘' }
+    if (km >= 3900) return { text: `You could run from Sydney to Perth!`, emoji: '🗺️' }
+    if (km >= 1800) return { text: `That's Sydney to Brisbane and back!`, emoji: '🌴' }
     if (km >= 900) return { text: `You could run from Sydney to Brisbane!`, emoji: '🌴' }
-    if (km >= 500) return { text: `That's almost Sydney to Melbourne!`, emoji: '🏙️' }
+    if (km >= 850) return { text: `That's almost Sydney to Melbourne!`, emoji: '🏙️' }
     if (km >= 280) return { text: `You could run from Sydney to Canberra!`, emoji: '🏛️' }
     if (km >= 200) return { text: `That's almost the Great Ocean Road end to end!`, emoji: '🛣️' }
-    if (km >= 84) return { text: `That's ${Math.floor(km / 42.2)} marathons worth!`, emoji: '🏅' }
+    if (km >= 84) return { text: `That's ${Math.floor(km / 42.195)} marathons worth!`, emoji: '🏅' }
     if (km >= 42) return { text: `That's a full marathon distance!`, emoji: '🏃' }
     return { text: `Every kilometer counts!`, emoji: '💪' }
   }

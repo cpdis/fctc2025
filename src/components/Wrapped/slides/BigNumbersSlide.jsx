@@ -1,6 +1,23 @@
 import { motion } from 'framer-motion'
 import AnimatedNumber from '../AnimatedNumber'
 
+// Accurate Australian road distances (km)
+// Sydney to Perth: 3,934 km
+// Sydney to Melbourne: 877 km
+// Sydney to Brisbane: 918 km
+// Sydney to Canberra: 286 km
+// Marathon: 42.195 km
+const getDistanceComparison = (km) => {
+  if (km >= 7800) return `That's like running from Sydney to Perth and back!`
+  if (km >= 3900) return `That's enough to run from Sydney to Perth!`
+  if (km >= 1800) return `That's like running Sydney to Brisbane... twice!`
+  if (km >= 900) return `That's enough to run from Sydney to Brisbane!`
+  if (km >= 850) return `That's almost Sydney to Melbourne!`
+  if (km >= 280) return `That's enough to run from Sydney to Canberra!`
+  if (km >= 84) return `That's ${Math.floor(km / 42.195)} marathons worth!`
+  return `Every kilometer counts!`
+}
+
 // Squash and stretch animation for playful number reveals
 const squashStretch = {
   initial: { scaleY: 0.3, scaleX: 1.4, opacity: 0, y: 30 },
@@ -98,7 +115,7 @@ export default function BigNumbersSlide({ stats, clubData }) {
             initial="initial"
             animate="animate"
             whileHover={{ scale: 1.02, rotate: 1 }}
-            className="relative bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/10"
+            className="relative bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/10 overflow-hidden"
             style={{
               boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
             }}
@@ -152,7 +169,7 @@ export default function BigNumbersSlide({ stats, clubData }) {
             className="text-lg text-cream/90 bg-white/10 backdrop-blur-sm px-6 py-3 rounded-full border border-white/10"
             whileHover={{ scale: 1.05 }}
           >
-            That's enough to run from Sydney to Brisbane... twice!
+            {getDistanceComparison(data.totalClubKm)}
           </motion.p>
         </motion.div>
       )}

@@ -52,6 +52,7 @@ export const runTypeColors = {
   '10K': '#fa688e',          // pink
   'Filament Cup': '#ff511b', // orange - special
   'Special Event': '#9ed1af', // mint
+  'Special Events': '#8b7355', // warm brown - grouped special events
   'Other': '#e8e4d8',        // cream dark
 }
 

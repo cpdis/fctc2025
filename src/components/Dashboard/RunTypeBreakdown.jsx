@@ -1,8 +1,11 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { runTypeColors, colors } from '../../utils/theme'
 
+// Number of top run types to show individually (rest become "Special Events")
+const TOP_TYPES_COUNT = 6
+
 export default function RunTypeBreakdown({ runsByType }) {
-  const chartData = Object.entries(runsByType)
+  const allData = Object.entries(runsByType)
     .map(([type, stats]) => ({
       name: type,
       value: stats.count,
@@ -10,6 +13,22 @@ export default function RunTypeBreakdown({ runsByType }) {
       attendance: stats.totalAttendance
     }))
     .sort((a, b) => b.value - a.value)
+
+  // Take top types and combine the rest into "Special Events"
+  const topTypes = allData.slice(0, TOP_TYPES_COUNT)
+  const otherTypes = allData.slice(TOP_TYPES_COUNT)
+
+  // Combine "other" types into Special Events
+  const specialEvents = otherTypes.length > 0 ? {
+    name: 'Special Events',
+    value: otherTypes.reduce((sum, item) => sum + item.value, 0),
+    km: otherTypes.reduce((sum, item) => sum + item.km, 0),
+    attendance: otherTypes.reduce((sum, item) => sum + item.attendance, 0),
+    isSpecialEvents: true,
+    includedTypes: otherTypes.map(t => t.name)
+  } : null
+
+  const chartData = specialEvents ? [...topTypes, specialEvents] : topTypes
 
   const totalRuns = chartData.reduce((sum, item) => sum + item.value, 0)
 
@@ -94,6 +113,11 @@ export default function RunTypeBreakdown({ runsByType }) {
                     <div className="font-display font-bold text-espresso">{item.name}</div>
                     <div className="font-medium">{item.value} runs ({((item.value / totalRuns) * 100).toFixed(1)}%)</div>
                     <div className="text-coffee/70">{item.km.toFixed(1)} km total</div>
+                    {item.isSpecialEvents && item.includedTypes && (
+                      <div className="text-coffee/50 text-xs mt-1 pt-1 border-t border-cream">
+                        Includes: {item.includedTypes.join(', ')}
+                      </div>
+                    )}
                   </div>
                 ]
               }}

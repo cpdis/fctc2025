@@ -126,7 +126,7 @@ export default function MemberSelector({ members, memberTotals, onSelect }) {
             initial={{ scale: 0, rotate: -10 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", delay: 0.2, stiffness: 200 }}
-            className="mx-auto mb-6"
+            className="flex justify-center mb-6"
           >
             <motion.img
               src="/fctc_logo.jpeg"
