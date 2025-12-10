@@ -4,7 +4,6 @@ import Header from '../components/Layout/Header'
 import StatsCards from '../components/Dashboard/StatsCards'
 import FilterBar from '../components/Dashboard/FilterBar'
 import AttendanceChart from '../components/Dashboard/AttendanceChart'
-import DistanceChart from '../components/Dashboard/DistanceChart'
 import Leaderboard from '../components/Dashboard/Leaderboard'
 import RunTypeBreakdown from '../components/Dashboard/RunTypeBreakdown'
 import RunsTable from '../components/Dashboard/RunsTable'
@@ -104,24 +103,15 @@ export default function Dashboard({ data }) {
           </motion.div>
         </div>
 
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <AttendanceChart runs={filteredRuns} />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-          >
-            <DistanceChart data={data} filteredRuns={filteredRuns} />
-          </motion.div>
-        </div>
+        {/* Attendance Chart */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-6"
+        >
+          <AttendanceChart runs={filteredRuns} />
+        </motion.div>
 
         {/* Runs Table */}
         <motion.div
