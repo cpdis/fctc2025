@@ -26,7 +26,7 @@ export default function IntroSlide({ stats, onNext }) {
   const name = isClub ? 'FCTC' : stats.data.name
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-navy via-navy-light to-pink-dark relative overflow-hidden">
+    <div className="min-h-dvh flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-navy via-navy-light to-pink-dark relative overflow-hidden">
       {/* Animated background blobs */}
       <motion.div
         className="absolute top-20 -right-20 w-64 h-64 rounded-full opacity-20"

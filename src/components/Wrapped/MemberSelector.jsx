@@ -76,7 +76,7 @@ export default function MemberSelector({ members, memberTotals, onSelect }) {
     : sortedMembers
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-navy via-navy-light to-pink-dark flex flex-col relative overflow-hidden">
+    <div className="min-h-dvh bg-gradient-to-br from-navy via-navy-light to-pink-dark flex flex-col relative overflow-hidden">
       {/* Animated background blobs */}
       <motion.div
         className="absolute top-20 -right-20 w-64 h-64 rounded-full opacity-20"

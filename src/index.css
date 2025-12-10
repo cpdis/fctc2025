@@ -43,6 +43,18 @@ body {
   background-color: var(--color-cream);
   color: var(--color-roast);
   min-height: 100vh;
+  min-height: 100dvh; /* iOS Safari dynamic viewport */
+}
+
+/* Dynamic viewport height utilities for iOS Safari */
+.min-h-dvh {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.h-dvh {
+  height: 100vh;
+  height: 100dvh;
 }
 
 /* Display font utility */

@@ -108,7 +108,7 @@ export default function TopAttendeeSlide({ stats, clubData }) {
     const top5 = data.leaderboard.slice(0, 5)
 
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-amber-900 via-yellow-800 to-amber-600 relative overflow-hidden">
+      <div className="min-h-dvh flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-amber-900 via-yellow-800 to-amber-600 relative overflow-hidden">
         {/* Confetti for club view */}
         {confettiColors.map((color, i) =>
           [...Array(4)].map((_, j) => (
@@ -192,7 +192,7 @@ export default function TopAttendeeSlide({ stats, clubData }) {
   const title = getMemberTitle(data)
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-amber-900 via-yellow-800 to-amber-600 relative overflow-hidden">
+    <div className="min-h-dvh flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-amber-900 via-yellow-800 to-amber-600 relative overflow-hidden">
       {/* Confetti for top 3 */}
       {rank <= 3 && confettiColors.map((color, i) =>
         [...Array(5)].map((_, j) => (

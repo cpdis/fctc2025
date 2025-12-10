@@ -56,7 +56,7 @@ export default function FavoriteRunSlide({ stats, clubData }) {
       .slice(0, 5)
 
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-purple-900 via-indigo-800 to-blue-700 relative overflow-hidden">
+      <div className="min-h-dvh flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-purple-900 via-indigo-800 to-blue-700 relative overflow-hidden">
         {/* Background glow */}
         <motion.div
           className="absolute w-96 h-96 rounded-full opacity-20"
@@ -141,14 +141,14 @@ export default function FavoriteRunSlide({ stats, clubData }) {
 
   if (!favorite) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-purple-900 to-blue-700">
+      <div className="min-h-dvh flex items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-purple-900 to-blue-700">
         <p className="text-cream text-xl">Not enough data yet!</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-purple-900 via-indigo-800 to-blue-700 relative overflow-hidden">
+    <div className="min-h-dvh flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-purple-900 via-indigo-800 to-blue-700 relative overflow-hidden">
       {/* Running shoe animation */}
       <RunningShoe />
 
