@@ -123,7 +123,7 @@ export default function WrappedContainer({ stats, clubData, onRestart }) {
 
   return (
     <div
-      className="fullscreen-safe bg-navy overflow-hidden"
+      className="fixed inset-0 bg-navy overflow-hidden"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >

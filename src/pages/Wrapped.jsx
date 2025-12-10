@@ -11,6 +11,18 @@ export default function Wrapped({ data }) {
   const [showSelector, setShowSelector] = useState(!member)
   const [stats, setStats] = useState(null)
 
+  // Change body background to navy when on Wrapped pages (fixes iOS Safari chrome)
+  useEffect(() => {
+    const originalBg = document.body.style.backgroundColor
+    document.body.style.backgroundColor = '#020912' // navy
+    document.documentElement.style.backgroundColor = '#020912' // also set on html
+
+    return () => {
+      document.body.style.backgroundColor = originalBg
+      document.documentElement.style.backgroundColor = ''
+    }
+  }, [])
+
   useEffect(() => {
     if (selectedMember) {
       if (selectedMember === 'club') {
