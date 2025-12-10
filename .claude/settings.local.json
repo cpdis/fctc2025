@@ -5,7 +5,12 @@
       "Bash(npm init -y)",
       "Bash(npm install:*)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Skill(frontend-design)",
+      "mcp__plugin_compound-engineering_playwright__browser_take_screenshot",
+      "mcp__plugin_compound-engineering_playwright__browser_click",
+      "mcp__plugin_compound-engineering_playwright__browser_navigate"
     ]
   }
 }
