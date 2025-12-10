@@ -188,7 +188,7 @@ export default function WrappedContainer({ stats, clubData, onRestart }) {
             scale: { type: "spring", stiffness: 300, damping: 25 },
             rotate: { type: "spring", stiffness: 300, damping: 25 }
           }}
-          className="absolute inset-0"
+          className="absolute inset-0 wrapped-slide-scroll"
         >
           <CurrentSlideComponent
             stats={stats}
