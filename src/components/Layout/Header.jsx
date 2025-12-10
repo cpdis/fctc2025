@@ -23,20 +23,21 @@ export default function Header() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-3 group">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 group">
             <motion.div
               whileHover={{ rotate: [0, -5, 5, 0], transition: { duration: 0.5 } }}
-              className="relative"
+              className="relative flex-shrink-0"
             >
               <img
                 src="/fctc_logo.jpeg"
                 alt="FCTC Logo"
-                className="h-10 w-auto rounded-lg shadow-lg"
+                className="h-8 sm:h-10 w-auto rounded-lg shadow-lg"
               />
             </motion.div>
-            <div>
-              <h1 className="font-display font-bold text-lg leading-tight tracking-tight">
-                Filament Coffee Track Club
+            <div className="min-w-0">
+              <h1 className="font-display font-bold text-sm sm:text-lg leading-tight tracking-tight">
+                <span className="sm:hidden">FCTC</span>
+                <span className="hidden sm:inline">Filament Coffee Track Club</span>
               </h1>
               <p className="text-xs text-amber-light font-medium">2025 Season</p>
             </div>

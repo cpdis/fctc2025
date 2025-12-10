@@ -202,7 +202,7 @@ export default function WrappedContainer({ stats, clubData, onRestart }) {
 
       {/* Navigation arrows */}
       <motion.div
-        className="absolute bottom-8 left-0 right-0 flex justify-center items-center gap-4 z-40"
+        className="absolute bottom-4 sm:bottom-8 left-0 right-0 flex justify-center items-center gap-4 z-40"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
@@ -253,9 +253,9 @@ export default function WrappedContainer({ stats, clubData, onRestart }) {
         </motion.button>
       </motion.div>
 
-      {/* Keyboard hint */}
+      {/* Keyboard hint - hidden on mobile */}
       <motion.div
-        className="absolute bottom-2 left-0 right-0 text-center text-xs text-latte/40"
+        className="absolute bottom-1 left-0 right-0 text-center text-xs text-latte/40 hidden sm:block"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}

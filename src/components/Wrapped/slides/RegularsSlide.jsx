@@ -9,7 +9,7 @@ export default function RegularsSlide({ stats, clubData }) {
     const coreMembers = data.leaderboard.slice(0, 10)
 
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-br from-amber-900 via-orange-800 to-red-700">
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-amber-900 via-orange-800 to-red-700">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -64,7 +64,7 @@ export default function RegularsSlide({ stats, clubData }) {
   const topCoRunners = data.topCoRunners || []
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-br from-amber-900 via-orange-800 to-red-700">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-amber-900 via-orange-800 to-red-700">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}

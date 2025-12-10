@@ -33,7 +33,7 @@ export default function DistanceSlide({ stats, clubData }) {
   const comparison = getComparison(totalKm)
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-br from-emerald-900 via-teal-800 to-cyan-700">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 pb-20 sm:p-8 bg-gradient-to-br from-emerald-900 via-teal-800 to-cyan-700">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
