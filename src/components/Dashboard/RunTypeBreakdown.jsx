@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { runTypeColors, colors } from '../../utils/theme'
 
 export default function RunTypeBreakdown({ runsByType }) {
@@ -28,8 +28,10 @@ export default function RunTypeBreakdown({ runsByType }) {
         fill="white"
         textAnchor="middle"
         dominantBaseline="central"
-        fontSize={12}
-        fontWeight="bold"
+        fontSize={11}
+        fontWeight="600"
+        fontFamily="DM Sans"
+        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}
       >
         {`${(percent * 100).toFixed(0)}%`}
       </text>
@@ -37,8 +39,19 @@ export default function RunTypeBreakdown({ runsByType }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-md p-6">
-      <h3 className="text-lg font-bold text-espresso mb-4">Run Type Distribution</h3>
+    <div
+      className="bg-white rounded-2xl p-6 relative overflow-hidden"
+      style={{
+        boxShadow: `
+          0 1px 2px rgba(2, 9, 18, 0.04),
+          0 4px 12px rgba(2, 9, 18, 0.06)
+        `
+      }}
+    >
+      {/* Subtle accent line */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-pink via-mint to-terracotta opacity-50" />
+
+      <h3 className="font-display text-lg font-bold text-espresso mb-4">Run Type Distribution</h3>
 
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
@@ -50,33 +63,37 @@ export default function RunTypeBreakdown({ runsByType }) {
               labelLine={false}
               label={renderCustomLabel}
               outerRadius={100}
-              innerRadius={40}
-              paddingAngle={2}
+              innerRadius={45}
+              paddingAngle={3}
               dataKey="value"
             >
               {chartData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
                   fill={runTypeColors[entry.name] || colors.coffee}
-                  stroke={colors.cream}
-                  strokeWidth={2}
+                  stroke="#fff"
+                  strokeWidth={3}
+                  style={{
+                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+                  }}
                 />
               ))}
             </Pie>
             <Tooltip
               contentStyle={{
-                backgroundColor: colors.cream,
-                border: `1px solid ${colors.latte}`,
-                borderRadius: '8px',
-                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                backgroundColor: '#fff',
+                border: 'none',
+                borderRadius: '12px',
+                boxShadow: '0 4px 20px rgba(2, 9, 18, 0.12)',
+                padding: '12px 16px'
               }}
               formatter={(value, name, props) => {
                 const item = props.payload
                 return [
-                  <div key="tooltip" className="text-sm">
-                    <div className="font-bold">{item.name}</div>
-                    <div>{item.value} runs ({((item.value / totalRuns) * 100).toFixed(1)}%)</div>
-                    <div>{item.km.toFixed(1)} km total</div>
+                  <div key="tooltip" className="text-sm space-y-1">
+                    <div className="font-display font-bold text-espresso">{item.name}</div>
+                    <div className="font-medium">{item.value} runs ({((item.value / totalRuns) * 100).toFixed(1)}%)</div>
+                    <div className="text-coffee/70">{item.km.toFixed(1)} km total</div>
                   </div>
                 ]
               }}
@@ -85,15 +102,21 @@ export default function RunTypeBreakdown({ runsByType }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Legend */}
-      <div className="mt-4 flex flex-wrap gap-2 justify-center">
+      {/* Legend - warmer styling */}
+      <div className="mt-4 flex flex-wrap gap-3 justify-center">
         {chartData.slice(0, 6).map((item) => (
-          <div key={item.name} className="flex items-center gap-1.5 text-xs">
+          <div
+            key={item.name}
+            className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-cream/50 transition-colors cursor-default"
+          >
             <span
               className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: runTypeColors[item.name] || colors.coffee }}
+              style={{
+                backgroundColor: runTypeColors[item.name] || colors.coffee,
+                boxShadow: `0 0 0 2px ${runTypeColors[item.name] || colors.coffee}20`
+              }}
             />
-            <span className="text-coffee">{item.name}</span>
+            <span className="text-xs text-roast font-medium">{item.name}</span>
           </div>
         ))}
       </div>

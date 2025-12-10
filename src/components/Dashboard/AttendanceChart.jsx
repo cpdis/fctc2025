@@ -136,25 +136,36 @@ export default function AttendanceChart({ runs }) {
   })
 
   return (
-    <div className="bg-white rounded-2xl shadow-md p-6">
-      <h3 className="text-lg font-bold text-espresso mb-4">Attendance by Run Type</h3>
+    <div
+      className="bg-white rounded-2xl p-6 relative overflow-hidden"
+      style={{
+        boxShadow: `
+          0 1px 2px rgba(2, 9, 18, 0.04),
+          0 4px 12px rgba(2, 9, 18, 0.06)
+        `
+      }}
+    >
+      {/* Subtle accent line */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-mint via-pink to-terracotta opacity-50" />
+
+      <h3 className="font-display text-lg font-bold text-espresso mb-4">Attendance by Run Type</h3>
 
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={segmentedData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={colors.latte} horizontal={true} vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={colors.creamDark} horizontal={true} vertical={false} />
             <XAxis
               dataKey="date"
-              tick={{ fill: colors.roast, fontSize: 11 }}
+              tick={{ fill: colors.roast, fontSize: 11, fontFamily: 'DM Sans' }}
               tickLine={false}
-              axisLine={{ stroke: colors.latte }}
+              axisLine={{ stroke: colors.creamDark }}
               interval={0}
               tickFormatter={(value) => value}
             />
             <YAxis
-              tick={{ fill: colors.roast, fontSize: 12 }}
-              tickLine={{ stroke: colors.latte }}
-              axisLine={{ stroke: colors.latte }}
+              tick={{ fill: colors.roast, fontSize: 12, fontFamily: 'DM Sans' }}
+              tickLine={{ stroke: colors.creamDark }}
+              axisLine={{ stroke: colors.creamDark }}
               allowDecimals={false}
             />
             {TOP_RUN_TYPES.flatMap(type =>
@@ -165,10 +176,11 @@ export default function AttendanceChart({ runs }) {
                   dataKey={`${type}_${seg}`}
                   name={`${type}_${seg}`}
                   stroke={runTypeColors[type] || colors.coffee}
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: runTypeColors[type] || colors.coffee }}
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  dot={{ r: 4, fill: runTypeColors[type] || colors.coffee, strokeWidth: 2, stroke: '#fff' }}
                   connectNulls={true}
-                  activeDot={{ r: 5 }}
+                  activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }}
                   legendType="none"
                 />
               ))
@@ -177,15 +189,18 @@ export default function AttendanceChart({ runs }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Custom Legend */}
+      {/* Custom Legend - warmer styling */}
       <div className="mt-4 flex flex-wrap justify-center gap-4 text-sm">
         {TOP_RUN_TYPES.map(type => (
-          <div key={type} className="flex items-center gap-1.5">
+          <div key={type} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-cream/50 transition-colors cursor-default">
             <div
-              className="w-4 h-0.5 rounded"
-              style={{ backgroundColor: runTypeColors[type] || colors.coffee }}
+              className="w-3 h-3 rounded-full"
+              style={{
+                backgroundColor: runTypeColors[type] || colors.coffee,
+                boxShadow: `0 0 0 2px ${runTypeColors[type]}20`
+              }}
             />
-            <span className="text-roast">{type}</span>
+            <span className="text-roast font-medium">{type}</span>
           </div>
         ))}
       </div>
