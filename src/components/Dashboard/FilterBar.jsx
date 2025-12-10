@@ -27,7 +27,7 @@ export default function FilterBar({ filters, setFilters, options }) {
           >
             <option value="all">All Run Types</option>
             {options.runTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
+              <option key={type.value} value={type.value}>{type.label}</option>
             ))}
           </select>
 

@@ -8,6 +8,23 @@ import Leaderboard from '../components/Dashboard/Leaderboard'
 import RunTypeBreakdown from '../components/Dashboard/RunTypeBreakdown'
 import RunsTable from '../components/Dashboard/RunsTable'
 
+// Clean display names for run types
+const runTypeDisplayNames = {
+  'Half- Invasion Day': 'Invasion Day (Half Marathon)',
+  '10k- Invasion Day': 'Invasion Day (10K)',
+  'Mara- Anzac Day': 'ANZAC Day (Marathon)',
+  'Half- Anzac Day': 'ANZAC Day (Half Marathon)',
+  'Half- Beer Run': 'Beer Run (Half Marathon)',
+  'Good Fri Pancake': 'Good Friday Pancake Run',
+  'FILAMENT CUP 🏆': 'Filament Cup',
+  'N/hood Loop': "N'hood Loop",
+}
+
+// Get clean display name for a run type
+const getRunTypeDisplayName = (runType) => {
+  return runTypeDisplayNames[runType] || runType
+}
+
 export default function Dashboard({ data }) {
   const [filters, setFilters] = useState({
     runType: 'all',
@@ -17,7 +34,13 @@ export default function Dashboard({ data }) {
 
   // Get unique values for filters
   const filterOptions = useMemo(() => {
-    const runTypes = [...new Set(data.runs.map(r => r.runType))].sort()
+    const runTypesRaw = [...new Set(data.runs.map(r => r.runType))].sort()
+    // Create objects with value and display name
+    const runTypes = runTypesRaw.map(type => ({
+      value: type,
+      label: getRunTypeDisplayName(type)
+    })).sort((a, b) => a.label.localeCompare(b.label))
+
     const locations = [...new Set(data.runs.map(r => r.meet))].sort()
     const months = [...new Set(data.runs
       .filter(r => r.parsedDate)
