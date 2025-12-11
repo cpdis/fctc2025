@@ -49,9 +49,12 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Dashboard data={data} />} />
+      <Route path="/dashboard" element={<Dashboard data={data} />} />
       <Route path="/run/:runId" element={<RunDetail data={data} />} />
       <Route path="/wrapped" element={<Wrapped data={data} />} />
       <Route path="/wrapped/:member" element={<Wrapped data={data} />} />
+      <Route path="/2025wrapped" element={<Wrapped data={data} />} />
+      <Route path="/2025wrapped/:member" element={<Wrapped data={data} />} />
     </Routes>
   )
 }
