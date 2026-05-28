@@ -1,81 +1,112 @@
 import Papa from 'papaparse'
 
-// Member names from the CSV columns (row 10)
-const MEMBER_COLUMNS = [
-  'Aaron', 'Adam', 'Alex 👑', 'Alex Kr', 'Anna', 'Cam', 'Celeste', 'Chartt',
-  'Claire', 'Col', 'Dan', 'Darren', 'Fraser', 'Grant', 'Jack', 'Joe',
-  'Kate B', 'Laura E', 'Laura K', 'Liam', 'Ming', 'Rhys', 'Rohan', 'Sam',
-  'Scott', 'Shane', 'Tarquin', 'Tim', 'Toby', 'Wes'
-]
+// Fixed columns that precede the dynamic member list in both the 2025 and 2026 sheets.
+const FIXED_LEADING_COLS = ['Date', 'Meet', 'Run', 'Approx kms', 'Actual kms']
 
-export function parseRunData(csvText) {
-  const lines = csvText.split('\n')
+const MONTH_MAP = {
+  Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+  Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+}
 
-  // Extract member totals from rows 8-9
-  const kmRow = lines[7] // Row 8 (0-indexed = 7)
-  const attendanceRow = lines[8] // Row 9 (0-indexed = 8)
+/**
+ * Parse the FCTC attendance CSV for a given year.
+ *
+ * Both the 2025 and 2026 sheets share the same general shape:
+ *
+ *   <noise / summary rows>           (variable count, differs per year)
+ *   Date,Meet,Run,Approx kms,Actual kms,<member names...>,+1's,<trailing cols...>
+ *   "Fri, 3-Jan",Il Lido,Soft Sand,7,7.07,x,,x,...,2,8,57
+ *   ...
+ *
+ * The header row is found by content (first cell === "Date" and it contains
+ * "Run" and "Actual kms"), so a drifting number of leading noise rows does not
+ * break parsing. Member columns are everything AFTER "Actual kms" up to (but not
+ * including) the "+1's" column, so 2025 yields 30 members and 2026 yields 33.
+ *
+ * All totals are COMPUTED from the data rows. The sheets' own summary rows use
+ * COUNTUNIQUE etc. and have drifted between years, so we never read them.
+ *
+ * @param {string} csvText - raw CSV contents
+ * @param {number} year - calendar year used to build parsedDate
+ */
+export function parseRunData(csvText, year) {
+  // Parse the whole sheet once. papaparse handles quoted fields, emoji, and
+  // commas inside quotes, which a naive split(',') cannot.
+  const rows = Papa.parse(csvText, { skipEmptyLines: false }).data
 
-  const kmParts = kmRow.split(',')
-  const attendanceParts = attendanceRow.split(',')
+  // --- Locate the self-describing header row by content, not by index. ---
+  const headerIndex = rows.findIndex(
+    (row) =>
+      Array.isArray(row) &&
+      row[0]?.trim() === 'Date' &&
+      row.includes('Run') &&
+      row.includes('Actual kms')
+  )
+  if (headerIndex === -1) {
+    throw new Error('Could not locate header row (first cell "Date" with "Run" and "Actual kms")')
+  }
+  const headers = rows[headerIndex].map((h) => (h ?? '').trim())
 
-  // Member totals are in columns 5-34 (matching header: Date, Meet, Run, Approx kms, Actual kms, then members)
-  // Note: Row 8 has text in first 4 columns, but member km values still align at index 5+
+  // --- Derive the dynamic member list from the header. ---
+  // Members live between the last fixed column ("Actual kms") and the "+1's" column.
+  const actualKmIndex = headers.indexOf('Actual kms')
+  const plusOnesIndex = headers.indexOf("+1's")
+  if (actualKmIndex === -1 || plusOnesIndex === -1) {
+    throw new Error('Header missing "Actual kms" or "+1\'s" column')
+  }
+  const memberStart = actualKmIndex + 1
+  const members = headers.slice(memberStart, plusOnesIndex)
+
+  // Seed member totals so every member appears even if they attended nothing.
   const memberTotals = {}
-  MEMBER_COLUMNS.forEach((member, i) => {
-    const kmValue = parseFloat(kmParts[5 + i]) || 0
-    const attendanceValue = parseInt(attendanceParts[5 + i]) || 0
-    memberTotals[member] = {
-      name: member,
-      totalKm: kmValue,
-      totalRuns: attendanceValue
-    }
+  members.forEach((m) => {
+    memberTotals[m] = { name: m, totalKm: 0, totalRuns: 0 }
   })
 
-  // Parse header row to get column indices
-  const headerRow = lines[9] // Row 10 (0-indexed = 9)
-  const headers = Papa.parse(headerRow).data[0]
-
-  // Parse run data starting from row 11 (index 10)
+  // --- Parse data rows (everything after the header). ---
   const runData = []
-  for (let i = 10; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-
-    const parsed = Papa.parse(line).data[0]
-    if (!parsed || parsed.length < 5) continue
+  for (let i = headerIndex + 1; i < rows.length; i++) {
+    const parsed = rows[i]
+    if (!Array.isArray(parsed) || parsed.length < FIXED_LEADING_COLS.length) continue
 
     const date = parsed[0]
+    if (!date || !date.trim()) continue
+
     const meet = parsed[1]
     const runType = parsed[2]
     const approxKm = parseFloat(parsed[3]) || 0
     const actualKm = parseFloat(parsed[4]) || 0
 
-    // Skip future runs (no actual km recorded and no attendance)
-    const totalAttendance = parseInt(parsed[parsed.length - 2]) || 0
-    if (totalAttendance === 0 && !actualKm) continue
-
-    // Get attendance for each member
+    // Attendance per member, read by the member's column index.
     const attendance = {}
-    MEMBER_COLUMNS.forEach((member, idx) => {
-      const value = parsed[5 + idx]
-      // 'x' means attended, '-' might mean something specific, emoji = attended
+    members.forEach((member, idx) => {
+      const value = parsed[memberStart + idx]
       attendance[member] = value === 'x' || (value && value !== '-' && value !== '')
     })
 
-    const plusOnes = parseInt(parsed[parsed.length - 3]) || 0
-    const aggregateKm = parseFloat(parsed[parsed.length - 1]) || 0
+    const attendees = members.filter((m) => attendance[m])
+    const plusOnes = parseInt(parsed[plusOnesIndex]) || 0
+    const totalAttendance = attendees.length + plusOnes
 
-    // Parse the date
+    // Skip rows that are clearly not real runs (future/blank): nobody attended
+    // and no distance recorded.
+    if (totalAttendance === 0 && !actualKm) continue
+
+    const aggregateKm = actualKm * totalAttendance
+
+    // Parse the date, e.g. "Fri, 3-Jan".
     const dateMatch = date.match(/(\w+),\s+(\d+)-(\w+)/)
     let parsedDate = null
     if (dateMatch) {
-      const [, dayOfWeek, day, month] = dateMatch
-      const monthMap = {
-        'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
-        'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
-      }
-      parsedDate = new Date(2025, monthMap[month], parseInt(day))
+      const [, , day, month] = dateMatch
+      parsedDate = new Date(year, MONTH_MAP[month], parseInt(day))
     }
+
+    // Accumulate per-member totals from the data itself.
+    attendees.forEach((m) => {
+      memberTotals[m].totalRuns += 1
+      memberTotals[m].totalKm += actualKm
+    })
 
     runData.push({
       date,
@@ -89,19 +120,17 @@ export function parseRunData(csvText) {
       plusOnes,
       totalAttendance,
       aggregateKm,
-      attendees: Object.entries(attendance)
-        .filter(([, attended]) => attended)
-        .map(([name]) => name)
+      attendees,
     })
   }
 
-  // Calculate additional stats
+  // --- Club-wide totals, all computed from the data above. ---
   const totalClubKm = Object.values(memberTotals).reduce((sum, m) => sum + m.totalKm, 0)
   const totalAttendanceInstances = Object.values(memberTotals).reduce((sum, m) => sum + m.totalRuns, 0)
 
-  // Get runs by type
+  // Runs by type.
   const runsByType = {}
-  runData.forEach(run => {
+  runData.forEach((run) => {
     const type = normalizeRunType(run.runType)
     if (!runsByType[type]) {
       runsByType[type] = { count: 0, totalKm: 0, totalAttendance: 0 }
@@ -111,9 +140,9 @@ export function parseRunData(csvText) {
     runsByType[type].totalAttendance += run.totalAttendance
   })
 
-  // Get runs by location
+  // Runs by location.
   const runsByLocation = {}
-  runData.forEach(run => {
+  runData.forEach((run) => {
     if (!runsByLocation[run.meet]) {
       runsByLocation[run.meet] = { count: 0, totalKm: 0, totalAttendance: 0 }
     }
@@ -122,9 +151,9 @@ export function parseRunData(csvText) {
     runsByLocation[run.meet].totalAttendance += run.totalAttendance
   })
 
-  // Get runs by month
+  // Runs by month.
   const runsByMonth = {}
-  runData.forEach(run => {
+  runData.forEach((run) => {
     if (!run.parsedDate) return
     const month = run.parsedDate.toLocaleString('default', { month: 'short' })
     if (!runsByMonth[month]) {
@@ -135,19 +164,18 @@ export function parseRunData(csvText) {
     runsByMonth[month].totalAttendance += run.totalAttendance
   })
 
-  // Leaderboard
+  // Leaderboards.
   const leaderboard = Object.values(memberTotals)
-    .filter(m => m.totalRuns > 0)
+    .filter((m) => m.totalRuns > 0)
     .sort((a, b) => b.totalRuns - a.totalRuns)
 
-  // Distance leaderboard
   const distanceLeaderboard = Object.values(memberTotals)
-    .filter(m => m.totalKm > 0)
+    .filter((m) => m.totalKm > 0)
     .sort((a, b) => b.totalKm - a.totalKm)
 
   return {
     runs: runData,
-    members: MEMBER_COLUMNS,
+    members,
     memberTotals,
     leaderboard,
     distanceLeaderboard,
@@ -157,7 +185,7 @@ export function parseRunData(csvText) {
     runsByType,
     runsByLocation,
     runsByMonth,
-    avgAttendance: totalAttendanceInstances / runData.length
+    avgAttendance: runData.length > 0 ? totalAttendanceInstances / runData.length : 0,
   }
 }
 
@@ -178,5 +206,3 @@ function normalizeRunType(type) {
   if (t.includes('pancake')) return 'Special Event'
   return type
 }
-
-export { MEMBER_COLUMNS }
