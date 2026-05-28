@@ -1,14 +1,35 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { getRunTypeDisplayName } from '../../utils/theme'
-import { palette, tooltipContentStyle } from '../../utils/chartConfig'
+import { tooltipContentStyle } from '../../utils/chartConfig'
 
 // Number of top run types to show individually (rest become "Special Events")
 const TOP_TYPES_COUNT = 6
 
-// Restrained ground: cycle the dataColors palette by slice index instead of
-// per-run-type hue. Color carries order/weight, not category identity, so the
-// donut reads as one quiet object rather than a rainbow.
-const sliceColor = (index) => palette[index % palette.length]
+// One distinct tone per slice so the legend is never ambiguous (the 5-color
+// chart palette repeated once we exceed 5 slices). Restrained: dark ink + a
+// single burnt-orange accent up top where the big slices live, then a graduated
+// warm-grey ramp. Ordered so larger slices (drawn first, sorted desc) read dark
+// enough for white labels.
+const DONUT_COLORS = [
+  '#15110f', // ink
+  '#c1502e', // accent
+  '#44403c', // stone-700
+  '#78716c', // stone-500
+  '#a8a29e', // stone-400
+  '#8a3f24', // muted accent
+  '#cbc7c2', // stone-300
+  '#5f5a55', // stone-600
+]
+const sliceColor = (index) => DONUT_COLORS[index % DONUT_COLORS.length]
+
+// Relative luminance of a #rrggbb hex, for picking a readable label color.
+const isLight = (hex) => {
+  const n = parseInt(hex.slice(1), 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.6
+}
 
 export default function RunTypeBreakdown({ runsByType }) {
   const allData = Object.entries(runsByType)
@@ -39,19 +60,21 @@ export default function RunTypeBreakdown({ runsByType }) {
 
   const totalRuns = chartData.reduce((sum, item) => sum + item.value, 0)
 
-  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
     if (percent < 0.06) return null // Don't show labels for small slices
 
     const RADIAN = Math.PI / 180
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5
     const x = cx + radius * Math.cos(-midAngle * RADIAN)
     const y = cy + radius * Math.sin(-midAngle * RADIAN)
+    // Dark text on light slices, white on dark, so every label stays legible.
+    const fill = isLight(sliceColor(index)) ? 'var(--color-ink)' : '#ffffff'
 
     return (
       <text
         x={x}
         y={y}
-        fill="#ffffff"
+        fill={fill}
         textAnchor="middle"
         dominantBaseline="central"
         fontSize={11}

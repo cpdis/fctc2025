@@ -73,8 +73,16 @@ export default function AttendanceChart({ runs }) {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const year = sortedRuns.length > 0 ? sortedRuns[0].parsedDate.getFullYear() : 2025
 
+  // Only mark months within the data range. A partial season (e.g. 2026 ending
+  // in May) should not render Jun..Dec markers, which cram the right edge.
+  const firstMonthIdx = sortedRuns.length ? sortedRuns[0].parsedDate.getMonth() : 0
+  const lastMonthIdx = sortedRuns.length
+    ? sortedRuns[sortedRuns.length - 1].parsedDate.getMonth()
+    : 11
+
   const segmentedData = []
   months.forEach((month, idx) => {
+    if (idx < firstMonthIdx || idx > lastMonthIdx) return
     segmentedData.push({
       time: new Date(year, idx, 15).getTime(), // Mid-month for positioning
       date: month,
