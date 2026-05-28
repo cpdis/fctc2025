@@ -27,6 +27,14 @@
   --color-roast: #1a2332;
   --color-mocha: #2a3342;
 
+  /* Clean dashboard design tokens (light, minimal, Tufte) */
+  --color-surface: #f7f7f5;
+  --color-card: #ffffff;
+  --color-border: #e7e7e3;
+  --color-ink: #1a1a18;
+  --color-ink-muted: #71716c;
+  --color-accent: #1a1a18;
+
   /* Typography - Bricolage Grotesque + DM Sans */
   --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
   --font-sans: 'DM Sans', system-ui, sans-serif;
@@ -261,6 +269,28 @@ body {
 
 .animate-count {
   animation: countUp 0.5s ease-out forwards;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Clean dashboard utilities (light, minimal aesthetic)
+   These are additive: they do NOT touch the global body or Wrapped classes.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Soft, low shadow for the clean aesthetic */
+.shadow-soft {
+  box-shadow:
+    0 1px 2px rgba(26, 26, 24, 0.04),
+    0 2px 8px rgba(26, 26, 24, 0.05);
+}
+
+/* Clean card: white bg, hairline border, generous radius, soft shadow */
+.card-clean {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px rgba(26, 26, 24, 0.04),
+    0 2px 8px rgba(26, 26, 24, 0.05);
 }
 
 /* Gradient backgrounds for wrapped */

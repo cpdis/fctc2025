@@ -73,6 +73,39 @@ export const runTypeColors = {
   'Other': '#e8e4d8',        // cream dark
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Clean dashboard design system (Tufte-grade, light, minimal)
+//
+// A restrained, near-white palette: white cards on a soft off-white surface,
+// hairline borders, dark ink for text, and exactly ONE saturated accent for
+// active controls and the primary data series. Everything else is layered by
+// luminance (greys), not hue. This is intentionally separate from the playful
+// Wrapped palette above so the two aesthetics never bleed into each other.
+// ─────────────────────────────────────────────────────────────────────────────
+export const dashboardColors = {
+  bg: '#f7f7f5',        // app surface / page background (warm near-white)
+  surface: '#f7f7f5',   // alias for bg, used where "surface" reads clearer
+  card: '#ffffff',      // card background
+  border: '#e7e7e3',    // hairline border
+  ink: '#1a1a18',       // primary text / strongest data-ink
+  inkMuted: '#71716c',  // secondary text, axis labels, captions
+  accent: '#1a1a18',    // single dark accent for active controls (near-black)
+  accentSoft: '#33332f', // slightly lifted accent for hover states
+}
+
+// Restrained data palette: one saturated accent + muted secondaries/greys.
+// Order matters — index 0 is the primary series, the rest recede. Keep to 5.
+export const dataColors = [
+  '#1a1a18', // ink — primary series (highest data-ink)
+  '#c2410c', // burnt orange — the one saturated accent
+  '#71716c', // mid grey — secondary series
+  '#a8a8a2', // light grey
+  '#cfcfc9', // lighter grey — context / background series
+]
+
+// Neutral grey for context series (e.g. "rest of the field" behind a highlight).
+export const dataColorMuted = '#cfcfc9'
+
 // Gradient definitions for wrapped slides
 export const gradients = {
   pink: 'linear-gradient(135deg, #d75b77 0%, #fa688e 100%)',
