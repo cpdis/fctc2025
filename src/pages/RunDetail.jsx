@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import Header from '../components/Layout/Header'
-import { getRunTypeDisplayName } from '../utils/theme'
+import { getRunTypeDisplayName, dataColors } from '../utils/theme'
 
 export default function RunDetail({ data }) {
   const { runId } = useParams()
@@ -13,11 +13,11 @@ export default function RunDetail({ data }) {
 
   if (!run) {
     return (
-      <div className="min-h-screen bg-cream">
+      <div className="min-h-screen bg-surface text-ink">
         <Header />
         <main className="max-w-4xl mx-auto px-4 py-12 text-center">
-          <h1 className="text-2xl font-bold text-espresso mb-4">Run not found</h1>
-          <Link to="/" className="text-orange hover:underline">
+          <h1 className="font-display text-2xl font-semibold text-ink mb-4">Run not found</h1>
+          <Link to="/" className="text-ink-muted hover:text-ink underline">
             Back to Dashboard
           </Link>
         </main>
@@ -28,14 +28,14 @@ export default function RunDetail({ data }) {
   const attendees = run.attendees || []
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-surface text-ink">
       <Header />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back button */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-coffee hover:text-orange transition-colors mb-6"
+          className="flex items-center gap-2 text-ink-muted hover:text-ink transition-colors mb-6"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -45,28 +45,29 @@ export default function RunDetail({ data }) {
 
         {/* Run header */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-md p-6 mb-6"
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+          className="card-clean p-6 mb-6"
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <span className="px-3 py-1 rounded-full text-sm font-medium bg-pink/20 text-pink-dark">
+              <span className="px-2.5 py-1 rounded-md text-xs font-medium text-ink bg-surface border border-border">
                 {getRunTypeDisplayName(run.runType)}
               </span>
-              <h1 className="text-2xl font-bold text-espresso mt-2">{run.date}</h1>
-              <p className="text-coffee mt-1">{run.meet}</p>
+              <h1 className="font-display text-2xl font-semibold text-ink mt-2">{run.date}</h1>
+              <p className="text-ink-muted mt-1">{run.meet}</p>
             </div>
 
-            <div className="flex gap-6">
+            <div className="flex gap-8">
               <div className="text-center">
-                <div className="text-3xl font-bold text-orange">{run.totalAttendance}</div>
-                <div className="text-sm text-coffee">Runners</div>
+                <div className="font-display text-3xl font-semibold text-ink tabular-nums">{run.totalAttendance}</div>
+                <div className="text-sm text-ink-muted">Runners</div>
               </div>
               {run.actualKm && (
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-mint-dark">{run.actualKm.toFixed(1)}</div>
-                  <div className="text-sm text-coffee">Kilometers</div>
+                  <div className="font-display text-3xl font-semibold text-ink tabular-nums">{run.actualKm.toFixed(1)}</div>
+                  <div className="text-sm text-ink-muted">Kilometers</div>
                 </div>
               )}
             </div>
@@ -75,36 +76,36 @@ export default function RunDetail({ data }) {
 
         {/* Attendees list */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl shadow-md p-6"
+          transition={{ duration: 0.35, delay: 0.06, ease: 'easeOut' }}
+          className="card-clean p-6"
         >
-          <h2 className="text-lg font-bold text-espresso mb-4">Who was there</h2>
+          <h2 className="font-display text-lg font-semibold text-ink mb-4">Who was there</h2>
 
           {attendees.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {attendees.map((name, index) => (
-                <motion.div
+              {attendees.map((name) => (
+                <div
                   key={name}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.03 }}
-                  className="flex items-center gap-3 p-3 bg-cream rounded-xl"
+                  className="flex items-center gap-3 p-3 bg-surface rounded-lg border border-border"
                 >
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink to-orange flex items-center justify-center text-white font-bold text-sm">
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-card font-semibold text-sm flex-shrink-0"
+                    style={{ background: dataColors[0] }}
+                  >
                     {name.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-sm font-medium text-espresso truncate">{name}</span>
-                </motion.div>
+                  <span className="text-sm text-ink truncate">{name}</span>
+                </div>
               ))}
             </div>
           ) : (
-            <p className="text-coffee/60 text-center py-8">No attendees recorded for this run.</p>
+            <p className="text-ink-muted text-center py-8">No attendees recorded for this run.</p>
           )}
 
           {run.plusOnes > 0 && (
-            <div className="mt-4 pt-4 border-t border-cream-dark text-sm text-coffee">
+            <div className="mt-4 pt-4 border-t border-border text-sm text-ink-muted">
               + {run.plusOnes} guest{run.plusOnes > 1 ? 's' : ''}
             </div>
           )}
@@ -113,16 +114,16 @@ export default function RunDetail({ data }) {
         {/* Aggregate distance */}
         {run.aggregateKm && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white rounded-2xl shadow-md p-6 mt-6"
+            transition={{ duration: 0.35, delay: 0.12, ease: 'easeOut' }}
+            className="card-clean p-6 mt-6"
           >
-            <h2 className="text-lg font-bold text-espresso mb-2">Combined Distance</h2>
-            <p className="text-3xl font-bold text-mint-dark">
+            <h2 className="font-display text-lg font-semibold text-ink mb-2">Combined Distance</h2>
+            <p className="font-display text-3xl font-semibold text-ink tabular-nums">
               {run.aggregateKm.toFixed(1)} km
             </p>
-            <p className="text-sm text-coffee mt-1">
+            <p className="text-sm text-ink-muted mt-1">
               Total kilometers run by all {run.totalAttendance} attendees
             </p>
           </motion.div>

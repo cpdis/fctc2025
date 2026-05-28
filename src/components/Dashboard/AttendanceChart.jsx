@@ -1,8 +1,23 @@
-import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { colors, runTypeColors } from '../../utils/theme'
+import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts'
+import {
+  palette,
+  axisProps,
+  gridProps,
+  tooltipContentStyle,
+  tooltipLabelStyle,
+  tooltipItemStyle,
+  tooltipCursor,
+} from '../../utils/chartConfig'
 
 const TOP_RUN_TYPES = ['Intervals', 'Soft Sand', 'River Loop', 'Lakes Loop', 'Social']
 const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000 // ~30 days in milliseconds
+
+// One stable color per run type, drawn from the restrained data palette. Order
+// follows TOP_RUN_TYPES so the primary series (Intervals) gets the ink, and the
+// rest recede through the accent + greys.
+const TYPE_COLOR = Object.fromEntries(
+  TOP_RUN_TYPES.map((type, i) => [type, palette[i % palette.length]])
+)
 
 export default function AttendanceChart({ runs }) {
   // Filter and sort runs
@@ -25,7 +40,10 @@ export default function AttendanceChart({ runs }) {
   // Create unified timeline with all dates
   const allTimes = [...new Set(sortedRuns.map(r => r.parsedDate.getTime()))].sort((a, b) => a - b)
 
-  // For each run type, find gaps > 1 month
+  // For each run type, find gaps > 1 month. A line should NOT connect across a
+  // long absence, so we break each type's series into separate segments at those
+  // gaps and render one <Line> per segment. (connectNulls then only bridges the
+  // intervening dates belonging to OTHER types within the same segment.)
   const typeGaps = {}
   TOP_RUN_TYPES.forEach(type => {
     typeGaps[type] = new Set()
@@ -37,50 +55,12 @@ export default function AttendanceChart({ runs }) {
     }
   })
 
-  // Build chart data - one entry per unique date
-  // For connecting lines, we need to track the "last known value" for each type
-  // but insert undefined when there's a gap > 1 month
-  const chartData = []
-  const lastKnownTime = {}
-  TOP_RUN_TYPES.forEach(type => { lastKnownTime[type] = null })
-
-  allTimes.forEach(time => {
-    const matchingRuns = sortedRuns.filter(r => r.parsedDate.getTime() === time)
-    const firstMatch = matchingRuns[0]
-
-    const point = {
-      time,
-      date: firstMatch.parsedDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }),
-      fullDate: firstMatch.date
-    }
-
-    // Add attendance values for each run type that occurred at this time
-    matchingRuns.forEach(run => {
-      const type = run.runType
-      // Check if there's a gap before this point for this type
-      if (typeGaps[type].has(time)) {
-        // We'll handle this by using a segment approach below
-      }
-      point[type] = run.totalAttendance
-      lastKnownTime[type] = time
-    })
-
-    chartData.push(point)
-  })
-
-  // For gap handling with connectNulls, we need a different approach
-  // Let's create segmented data keys: e.g., "Intervals_0", "Intervals_1" for different segments
-  const segmentedData = []
-  const currentSegment = {}
-  TOP_RUN_TYPES.forEach(type => { currentSegment[type] = 0 })
-
-  // Track which segment each data point belongs to per type
+  // Assign each of a type's runs to a segment index (bumped at every gap).
   const segmentTracker = {}
   TOP_RUN_TYPES.forEach(type => {
     segmentTracker[type] = []
     let segment = 0
-    const typeRuns = runsByType[type]
-    typeRuns.forEach((run, idx) => {
+    runsByType[type].forEach((run) => {
       if (typeGaps[type].has(run.time)) {
         segment++
       }
@@ -88,11 +68,12 @@ export default function AttendanceChart({ runs }) {
     })
   })
 
-  // Create month-based x-axis with even spacing (Jan-Dec)
+  // Build chart rows: 12 evenly-spaced month markers (for the x-axis) plus one
+  // row per actual run date carrying segmented attendance keys.
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const year = sortedRuns.length > 0 ? sortedRuns[0].parsedDate.getFullYear() : 2025
 
-  // Initialize with all 12 months
+  const segmentedData = []
   months.forEach((month, idx) => {
     segmentedData.push({
       time: new Date(year, idx, 15).getTime(), // Mid-month for positioning
@@ -102,107 +83,108 @@ export default function AttendanceChart({ runs }) {
     })
   })
 
-  // Add actual data points
   allTimes.forEach(time => {
     const matchingRuns = sortedRuns.filter(r => r.parsedDate.getTime() === time)
     const firstMatch = matchingRuns[0]
 
     const point = {
       time,
-      date: '', // Don't show date labels for data points
+      date: '', // Don't show date labels for data points (months mark the axis)
       fullDate: firstMatch.date
     }
 
-    // For each type, add the value with its segment key
     TOP_RUN_TYPES.forEach(type => {
       const tracker = segmentTracker[type].find(t => t.time === time)
       if (tracker) {
         point[`${type}_${tracker.segment}`] = tracker.attendance
-        point[type] = tracker.attendance // Also keep original for tooltip
+        point[type] = tracker.attendance // Also keep original key for tooltip
       }
     })
 
     segmentedData.push(point)
   })
 
-  // Sort by time
   segmentedData.sort((a, b) => a.time - b.time)
 
-  // Get max segment count per type
+  // Number of segments per type, and the index of each type's LAST segment so we
+  // can hang a single direct end-label on it (no boxed legend needed).
   const maxSegments = {}
   TOP_RUN_TYPES.forEach(type => {
     const segments = segmentTracker[type].map(t => t.segment)
     maxSegments[type] = segments.length > 0 ? Math.max(...segments) + 1 : 0
   })
 
-  return (
-    <div
-      className="bg-white rounded-2xl p-6 relative overflow-hidden"
-      style={{
-        boxShadow: `
-          0 1px 2px rgba(2, 9, 18, 0.04),
-          0 4px 12px rgba(2, 9, 18, 0.06)
-        `
-      }}
-    >
-      {/* Subtle accent line */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-mint via-pink to-terracotta opacity-50" />
+  // Direct label renderer: prints the run-type name at the rightmost point of a
+  // line (its final, non-null value), in the line's color. Tufte: label the data
+  // directly instead of forcing the eye to a legend and back.
+  const endLabel = (type) => (props) => {
+    const { x, y, index, value } = props
+    if (value == null) return null
+    // Only draw on the very last data row that has a value for this segment key.
+    const key = props.dataKey
+    let lastIdx = -1
+    segmentedData.forEach((row, i) => {
+      if (row[key] != null) lastIdx = i
+    })
+    if (index !== lastIdx) return null
+    return (
+      <text
+        x={x + 6}
+        y={y}
+        fill={TYPE_COLOR[type]}
+        fontSize={11}
+        fontWeight={600}
+        dominantBaseline="central"
+        fontFamily="var(--font-sans)"
+      >
+        {type}
+      </text>
+    )
+  }
 
-      <h3 className="font-display text-lg font-bold text-espresso mb-4">Attendance by Run Type</h3>
+  return (
+    <div className="card-clean p-6">
+      <h3 className="font-display text-lg font-semibold text-ink mb-4">Attendance by Run Type</h3>
 
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={segmentedData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={colors.creamDark} horizontal={true} vertical={false} />
-            <XAxis
-              dataKey="date"
-              tick={{ fill: colors.roast, fontSize: 11, fontFamily: 'DM Sans' }}
-              tickLine={false}
-              axisLine={{ stroke: colors.creamDark }}
-              interval={0}
-              tickFormatter={(value) => value}
-            />
-            <YAxis
-              tick={{ fill: colors.roast, fontSize: 12, fontFamily: 'DM Sans' }}
-              tickLine={{ stroke: colors.creamDark }}
-              axisLine={{ stroke: colors.creamDark }}
-              allowDecimals={false}
+          {/* Extra right margin leaves room for the direct end-labels. */}
+          <ComposedChart data={segmentedData} margin={{ top: 12, right: 64, left: 0, bottom: 4 }}>
+            <CartesianGrid {...gridProps} />
+            <XAxis dataKey="date" interval={0} {...axisProps} />
+            <YAxis allowDecimals={false} {...axisProps} />
+            <Tooltip
+              contentStyle={tooltipContentStyle}
+              labelStyle={tooltipLabelStyle}
+              itemStyle={tooltipItemStyle}
+              cursor={tooltipCursor}
             />
             {TOP_RUN_TYPES.flatMap(type =>
-              Array.from({ length: maxSegments[type] }, (_, seg) => (
-                <Line
-                  key={`${type}_${seg}`}
-                  type="monotone"
-                  dataKey={`${type}_${seg}`}
-                  name={`${type}_${seg}`}
-                  stroke={runTypeColors[type] || colors.coffee}
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  dot={{ r: 4, fill: runTypeColors[type] || colors.coffee, strokeWidth: 2, stroke: '#fff' }}
-                  connectNulls={true}
-                  activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }}
-                  legendType="none"
-                />
-              ))
+              Array.from({ length: maxSegments[type] }, (_, seg) => {
+                const isLastSegment = seg === maxSegments[type] - 1
+                return (
+                  <Line
+                    key={`${type}_${seg}`}
+                    type="monotone"
+                    dataKey={`${type}_${seg}`}
+                    name={type}
+                    stroke={TYPE_COLOR[type]}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    dot={{ r: 3, fill: TYPE_COLOR[type], strokeWidth: 0 }}
+                    connectNulls={true}
+                    activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff', fill: TYPE_COLOR[type] }}
+                    legendType="none"
+                  >
+                    {isLastSegment && (
+                      <LabelList dataKey={`${type}_${seg}`} content={endLabel(type)} />
+                    )}
+                  </Line>
+                )
+              })
             )}
           </ComposedChart>
         </ResponsiveContainer>
-      </div>
-
-      {/* Custom Legend - warmer styling */}
-      <div className="mt-4 flex flex-wrap justify-center gap-4 text-sm">
-        {TOP_RUN_TYPES.map(type => (
-          <div key={type} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-cream/50 transition-colors cursor-default">
-            <div
-              className="w-3 h-3 rounded-full"
-              style={{
-                backgroundColor: runTypeColors[type] || colors.coffee,
-                boxShadow: `0 0 0 2px ${runTypeColors[type]}20`
-              }}
-            />
-            <span className="text-roast font-medium">{type}</span>
-          </div>
-        ))}
       </div>
     </div>
   )
