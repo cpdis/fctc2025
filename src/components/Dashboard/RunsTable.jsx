@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react'
-import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { getRunTypeDisplayName, dataColors } from '../../utils/theme'
+import { runTypeColorMap, tint } from '../../utils/runTypeColors'
 
-export default function RunsTable({ runs, allRuns }) {
+export default function RunsTable({ runs, allRuns, runsByType = {} }) {
   const navigate = useNavigate()
+  // Badge tints match the Run Type Distribution donut (same color per type).
+  const typeColors = useMemo(() => runTypeColorMap(runsByType), [runsByType])
   const [sortConfig, setSortConfig] = useState({ key: 'parsedDate', direction: 'desc' })
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -111,9 +113,17 @@ export default function RunsTable({ runs, allRuns }) {
                   {run.date}
                 </td>
                 <td className="px-6 py-3 whitespace-nowrap">
-                  <span className="px-2.5 py-1 rounded-md text-xs font-medium text-ink bg-surface border border-border">
-                    {getRunTypeDisplayName(run.runType)}
-                  </span>
+                  {(() => {
+                    const c = typeColors[run.runType] || '#78716c'
+                    return (
+                      <span
+                        className="px-2.5 py-1 rounded-md text-xs font-medium text-ink border"
+                        style={{ backgroundColor: tint(c, 0.14), borderColor: tint(c, 0.35) }}
+                      >
+                        {getRunTypeDisplayName(run.runType)}
+                      </span>
+                    )
+                  })()}
                 </td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-ink-muted">
                   {run.meet}

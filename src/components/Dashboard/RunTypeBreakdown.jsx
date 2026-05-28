@@ -1,35 +1,7 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { getRunTypeDisplayName } from '../../utils/theme'
 import { tooltipContentStyle } from '../../utils/chartConfig'
-
-// Number of top run types to show individually (rest become "Special Events")
-const TOP_TYPES_COUNT = 6
-
-// One distinct tone per slice so the legend is never ambiguous (the 5-color
-// chart palette repeated once we exceed 5 slices). Restrained: dark ink + a
-// single burnt-orange accent up top where the big slices live, then a graduated
-// warm-grey ramp. Ordered so larger slices (drawn first, sorted desc) read dark
-// enough for white labels.
-const DONUT_COLORS = [
-  '#15110f', // ink
-  '#c1502e', // accent
-  '#44403c', // stone-700
-  '#78716c', // stone-500
-  '#a8a29e', // stone-400
-  '#8a3f24', // muted accent
-  '#cbc7c2', // stone-300
-  '#5f5a55', // stone-600
-]
-const sliceColor = (index) => DONUT_COLORS[index % DONUT_COLORS.length]
-
-// Relative luminance of a #rrggbb hex, for picking a readable label color.
-const isLight = (hex) => {
-  const n = parseInt(hex.slice(1), 16)
-  const r = (n >> 16) & 255
-  const g = (n >> 8) & 255
-  const b = n & 255
-  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.6
-}
+import { TOP_TYPES_COUNT, sliceColor, isLight } from '../../utils/runTypeColors'
 
 export default function RunTypeBreakdown({ runsByType }) {
   const allData = Object.entries(runsByType)

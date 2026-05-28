@@ -68,51 +68,39 @@ export default function AttendanceChart({ runs }) {
     })
   })
 
-  // Build chart rows: 12 evenly-spaced month markers (for the x-axis) plus one
-  // row per actual run date carrying segmented attendance keys.
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const year = sortedRuns.length > 0 ? sortedRuns[0].parsedDate.getFullYear() : 2025
-
-  // Only mark months within the data range. A partial season (e.g. 2026 ending
-  // in May) should not render Jun..Dec markers, which cram the right edge.
-  const firstMonthIdx = sortedRuns.length ? sortedRuns[0].parsedDate.getMonth() : 0
-  const lastMonthIdx = sortedRuns.length
-    ? sortedRuns[sortedRuns.length - 1].parsedDate.getMonth()
-    : 11
-
-  const segmentedData = []
-  months.forEach((month, idx) => {
-    if (idx < firstMonthIdx || idx > lastMonthIdx) return
-    segmentedData.push({
-      time: new Date(year, idx, 15).getTime(), // Mid-month for positioning
-      date: month,
-      fullDate: '',
-      isMonthMarker: true
-    })
-  })
-
-  allTimes.forEach(time => {
-    const matchingRuns = sortedRuns.filter(r => r.parsedDate.getTime() === time)
-    const firstMatch = matchingRuns[0]
-
-    const point = {
-      time,
-      date: '', // Don't show date labels for data points (months mark the axis)
-      fullDate: firstMatch.date
-    }
-
-    TOP_RUN_TYPES.forEach(type => {
-      const tracker = segmentTracker[type].find(t => t.time === time)
+  // Plot on a real time axis (x = run timestamp). This places points at their
+  // true calendar position, so the tooltip cursor maps to the right run and the
+  // month ticks land where they belong, instead of the old empty-string category
+  // axis (which collapsed every data point to the same slot and mislabeled the
+  // tooltip). One row per run date carrying the segmented attendance keys.
+  const segmentedData = allTimes.map((time) => {
+    const matchingRuns = sortedRuns.filter((r) => r.parsedDate.getTime() === time)
+    const point = { time, fullDate: matchingRuns[0].date }
+    TOP_RUN_TYPES.forEach((type) => {
+      const tracker = segmentTracker[type].find((t) => t.time === time)
       if (tracker) {
         point[`${type}_${tracker.segment}`] = tracker.attendance
-        point[type] = tracker.attendance // Also keep original key for tooltip
+        point[type] = tracker.attendance // un-segmented key, read by the tooltip
       }
     })
-
-    segmentedData.push(point)
+    return point
   })
+  // allTimes is already sorted ascending, so segmentedData is too.
 
-  segmentedData.sort((a, b) => a.time - b.time)
+  // Evenly spaced month ticks across the data range, clamped so the first tick
+  // sits at the first run rather than before the domain.
+  const firstT = segmentedData.length ? segmentedData[0].time : 0
+  const lastT = segmentedData.length ? segmentedData[segmentedData.length - 1].time : 0
+  const monthTicks = []
+  if (segmentedData.length) {
+    const cursor = new Date(firstT)
+    cursor.setDate(1)
+    while (cursor.getTime() <= lastT) {
+      monthTicks.push(Math.max(cursor.getTime(), firstT))
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
+  }
+  const fmtMonth = (t) => new Date(t).toLocaleDateString('en-AU', { month: 'short' })
 
   // Number of segments per type, and the index of each type's LAST segment so we
   // can hang a single direct end-label on it (no boxed legend needed).
@@ -121,6 +109,36 @@ export default function AttendanceChart({ runs }) {
     const segments = segmentTracker[type].map(t => t.segment)
     maxSegments[type] = segments.length > 0 ? Math.max(...segments) + 1 : 0
   })
+
+  // Custom tooltip: the default one mislabels these segmented multi-line series
+  // (it would surface whichever series matched first). Read the hovered row
+  // directly and show only the run type(s) that actually occurred on that date,
+  // each with its line color.
+  const renderTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null
+    const row = payload[0].payload
+    const items = TOP_RUN_TYPES.filter((t) => row[t] != null)
+    if (!items.length) return null
+    return (
+      <div style={tooltipContentStyle}>
+        {row.fullDate && <div style={tooltipLabelStyle}>{row.fullDate}</div>}
+        {items.map((t) => (
+          <div key={t} style={{ ...tooltipItemStyle, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 9999,
+                background: TYPE_COLOR[t],
+                flex: '0 0 auto',
+              }}
+            />
+            {t}: {row[t]}
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   // Direct label renderer: prints the run-type name at the rightmost point of a
   // line (its final, non-null value), in the line's color. Tufte: label the data
@@ -159,14 +177,17 @@ export default function AttendanceChart({ runs }) {
           {/* Extra right margin leaves room for the direct end-labels. */}
           <ComposedChart data={segmentedData} margin={{ top: 12, right: 64, left: 0, bottom: 4 }}>
             <CartesianGrid {...gridProps} />
-            <XAxis dataKey="date" interval={0} {...axisProps} />
-            <YAxis allowDecimals={false} {...axisProps} />
-            <Tooltip
-              contentStyle={tooltipContentStyle}
-              labelStyle={tooltipLabelStyle}
-              itemStyle={tooltipItemStyle}
-              cursor={tooltipCursor}
+            <XAxis
+              {...axisProps}
+              dataKey="time"
+              type="number"
+              scale="time"
+              domain={[firstT, lastT]}
+              ticks={monthTicks}
+              tickFormatter={fmtMonth}
             />
+            <YAxis allowDecimals={false} {...axisProps} />
+            <Tooltip content={renderTooltip} cursor={tooltipCursor} />
             {TOP_RUN_TYPES.flatMap(type =>
               Array.from({ length: maxSegments[type] }, (_, seg) => {
                 const isLastSegment = seg === maxSegments[type] - 1

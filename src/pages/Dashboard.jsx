@@ -158,7 +158,7 @@ export default function Dashboard({ data }) {
 
         {/* Runs Table */}
         <motion.div variants={item} className="mt-6">
-          <RunsTable runs={filteredRuns} allRuns={data.runs} />
+          <RunsTable runs={filteredRuns} allRuns={data.runs} runsByType={data.runsByType} />
         </motion.div>
       </motion.main>
 

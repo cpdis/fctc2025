@@ -27,8 +27,10 @@ export default function Slopegraph({
   ariaLabel = 'Slopegraph',
 }) {
   const padY = 28 // room for column titles up top + breathing room at bottom
-  const xLeft = width * 0.32
-  const xRight = width * 0.68
+  // Push the two columns toward the edges so the slopes have room to read; the
+  // label gutters (names left, values right) still fit comfortably.
+  const xLeft = width * 0.25
+  const xRight = width * 0.75
 
   const rows = Array.isArray(data) ? data : []
 

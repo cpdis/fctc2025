@@ -38,7 +38,7 @@ export default function SparklineLeaderboard({ data }) {
                 <th className="py-2 pr-3 font-medium">Member</th>
                 <th className="py-2 px-3 font-medium text-right">Runs</th>
                 <th className="py-2 px-3 font-medium text-right">Km</th>
-                <th className="py-2 px-3 font-medium">Jan–Dec</th>
+                <th className="py-2 px-3 font-medium w-full">Jan–Dec</th>
                 <th className="py-2 pl-3 font-medium text-right">Streak</th>
               </tr>
             </thead>
@@ -58,11 +58,11 @@ export default function SparklineLeaderboard({ data }) {
                   <td className="py-2.5 px-3 text-right text-ink tabular-nums">
                     {Math.round(m.totalKm).toLocaleString()}
                   </td>
-                  <td className="py-2.5 px-3 w-[140px]">
+                  <td className="py-2.5 px-3 w-full">
                     <Sparkline
                       data={m.monthly}
-                      width={120}
-                      height={24}
+                      width={240}
+                      height={28}
                       color={dashboardColors.ink}
                       strokeWidth={1.25}
                       ariaLabel={`${m.name} monthly attendance, ${m.monthly.join(', ')} from January to December`}

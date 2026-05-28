@@ -138,7 +138,7 @@ export default function CalendarHeatmap({ data, year }) {
             fontSize={12}
             maxLevel={4}
             labels={{
-              totalCount: `${totalAttendance.toLocaleString()} total attendances in ${resolvedYear}`,
+              totalCount: `${totalAttendance.toLocaleString()} total attendance in ${resolvedYear}`,
             }}
             aria-label={`Run frequency calendar for ${resolvedYear}`}
             hideTotalCount={false}
