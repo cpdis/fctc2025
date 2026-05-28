@@ -64,10 +64,10 @@ export default function RunTypeBreakdown({ runsByType }) {
   }
 
   return (
-    <div className="card-clean p-6 h-full">
+    <div className="card-clean p-6 h-full flex flex-col">
       <h3 className="font-display text-lg font-semibold text-ink mb-4">Run Type Distribution</h3>
 
-      <div className="h-64">
+      <div className="flex-1 min-h-64">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -76,8 +76,8 @@ export default function RunTypeBreakdown({ runsByType }) {
               cy="50%"
               labelLine={false}
               label={renderCustomLabel}
-              outerRadius={100}
-              innerRadius={48}
+              outerRadius="82%"
+              innerRadius="50%"
               paddingAngle={2}
               dataKey="value"
             >

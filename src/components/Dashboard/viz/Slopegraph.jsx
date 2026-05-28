@@ -119,13 +119,9 @@ export default function Slopegraph({
             <circle cx={xRight} cy={y2} r={2.5} fill={color} />
 
             {/* Direct labels: name + value on the left, value on the right.
-                Labels sit at dodged y positions; a faint leader connects them
-                back to the dot when displaced so the mapping stays unambiguous. */}
-            {Math.abs(ly1 - y1) > 1 && (
-              <line x1={xLeft - 6} y1={y1} x2={xLeft - 8} y2={ly1} stroke={color} strokeWidth={0.75} opacity={0.5} />
-            )}
+                Labels sit at dodged y positions so ties stay readable. */}
             <text
-              x={xLeft - 10}
+              x={xLeft - 8}
               y={ly1}
               textAnchor="end"
               dominantBaseline="middle"
@@ -134,11 +130,8 @@ export default function Slopegraph({
             >
               {d.label} {format(d.left)}
             </text>
-            {Math.abs(ly2 - y2) > 1 && (
-              <line x1={xRight + 6} y1={y2} x2={xRight + 8} y2={ly2} stroke={color} strokeWidth={0.75} opacity={0.5} />
-            )}
             <text
-              x={xRight + 10}
+              x={xRight + 8}
               y={ly2}
               textAnchor="start"
               dominantBaseline="middle"

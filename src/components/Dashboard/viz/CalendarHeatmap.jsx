@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { ActivityCalendar } from 'react-activity-calendar'
 import { dashboardColors } from '../../../utils/theme'
 import { runFrequencyByDate } from '../../../utils/dashboardMetrics'
@@ -82,6 +83,9 @@ export function buildCalendarData(frequency, year, today = new Date()) {
 // border tone; busier days lift toward the dark ink accent.
 const COLOR_SCALE = ['#ededea', '#cfcfc9', '#a8a8a2', '#5a5a55', dashboardColors.ink]
 
+const BLOCK_MARGIN = 3
+const LABEL_GUTTER = 26 // left space the weekday labels occupy
+
 export default function CalendarHeatmap({ data, year }) {
   const frequency = runFrequencyByDate(data?.runs ?? [])
   const resolvedYear =
@@ -89,6 +93,29 @@ export default function CalendarHeatmap({ data, year }) {
   const calendarData = buildCalendarData(frequency, resolvedYear)
 
   const totalAttendance = frequency.reduce((s, d) => s + d.count, 0)
+
+  // Number of week-columns the calendar will render (weeks start Sunday). Used to
+  // size each block so the whole year spans the card width instead of hugging
+  // the left edge.
+  const startOffset = new Date(resolvedYear, 0, 1).getDay()
+  const columns = Math.max(1, Math.ceil((startOffset + calendarData.length) / 7))
+
+  const wrapRef = useRef(null)
+  const [blockSize, setBlockSize] = useState(12)
+
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const measure = (width) => {
+      if (!width) return
+      const size = Math.floor((width - LABEL_GUTTER) / columns) - BLOCK_MARGIN
+      setBlockSize(Math.max(9, Math.min(28, size)))
+    }
+    const ro = new ResizeObserver((entries) => measure(entries[0].contentRect.width))
+    ro.observe(el)
+    measure(el.clientWidth)
+    return () => ro.disconnect()
+  }, [columns])
 
   return (
     <div className="card-clean p-6">
@@ -100,14 +127,14 @@ export default function CalendarHeatmap({ data, year }) {
       {frequency.length === 0 ? (
         <p className="text-sm text-ink-muted">No runs recorded yet this season.</p>
       ) : (
-        // Horizontal scroll on narrow screens so the year never squashes.
-        <div className="overflow-x-auto">
+        // Blocks are sized to the measured width so the year fills the card.
+        <div ref={wrapRef} className="overflow-x-auto">
           <ActivityCalendar
             data={calendarData}
             theme={{ light: COLOR_SCALE, dark: COLOR_SCALE }}
             colorScheme="light"
-            blockSize={12}
-            blockMargin={3}
+            blockSize={blockSize}
+            blockMargin={BLOCK_MARGIN}
             fontSize={12}
             maxLevel={4}
             labels={{

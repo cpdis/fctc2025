@@ -25,3 +25,14 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
     dispatchEvent: () => false,
   })
 }
+
+// jsdom lacks ResizeObserver, which CalendarHeatmap uses to size blocks to the
+// container width. A no-op stub lets its render-tests mount (they assert on the
+// rendered calendar, not on resize-driven sizing).
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+}
