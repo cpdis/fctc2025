@@ -37,16 +37,33 @@ import { cumulativeSeries } from '../../../utils/dashboardMetrics'
 export default function SeasonProgress({ data }) {
   const series = cumulativeSeries(data?.runs ?? [])
 
-  // Build chart rows with a short, human month/day label per run for the x-axis
-  // and the tooltip. We keep every real run as its own row (no fabricated dates).
+  // Plot against real time (not run index) so the curve's horizontal spacing
+  // reflects the calendar: a dense run week takes proportionally more width than
+  // a quiet one. Each row carries its timestamp; we keep every real run (no
+  // fabricated dates).
   const rows = series.map((p) => ({
-    label: p.parsedDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }),
+    t: p.parsedDate.getTime(),
     fullDate: p.date,
     km: Math.round(p.cumulativePersonKm),
   }))
 
   const lastIndex = rows.length - 1
   const finalKm = lastIndex >= 0 ? rows[lastIndex].km : 0
+
+  // Evenly spaced month ticks across the data range, so labels read "Jan, Feb,
+  // ..." instead of clustering on whichever run dates happen to fall there.
+  const firstT = rows.length ? rows[0].t : 0
+  const lastT = rows.length ? rows[lastIndex].t : 0
+  const monthTicks = []
+  if (rows.length) {
+    const cursor = new Date(firstT)
+    cursor.setDate(1)
+    while (cursor.getTime() <= lastT) {
+      monthTicks.push(Math.max(cursor.getTime(), firstT))
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
+  }
+  const fmtMonth = (t) => new Date(t).toLocaleDateString('en-AU', { month: 'short' })
 
   // Direct end-label: print the running total at the rightmost point only.
   const endLabel = (props) => {
@@ -92,15 +109,18 @@ export default function SeasonProgress({ data }) {
               </defs>
               <CartesianGrid {...gridProps} />
               <XAxis
-                dataKey="label"
-                interval="preserveStartEnd"
-                minTickGap={32}
                 {...axisProps}
+                dataKey="t"
+                type="number"
+                scale="time"
+                domain={[firstT, lastT]}
+                ticks={monthTicks}
+                tickFormatter={fmtMonth}
               />
               <YAxis
                 allowDecimals={false}
-                width={44}
-                tickFormatter={(v) => `${v}`}
+                width={40}
+                tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : `${v}`)}
                 {...axisProps}
               />
               <Tooltip

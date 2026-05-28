@@ -71,18 +71,20 @@ function App() {
   const dashboard = useYearData(selectedYear)
   const wrapped = useYearData(WRAPPED_YEAR)
 
-  // Wait for both data sets so every route has what it needs. (When the selected
-  // year IS 2025 these are two fetches of the same file; that's cheap and keeps
-  // the wiring dead simple.)
-  const loading = dashboard.loading || wrapped.loading
+  // Only block the whole app on the FIRST load (nothing rendered yet). On a year
+  // switch we keep the previous data on screen while the new year loads in the
+  // background (stale-while-revalidate), so the header switcher doesn't flash the
+  // full-screen spinner. Local CSV swaps are near-instant.
+  const initialLoading =
+    (dashboard.loading && !dashboard.data) || (wrapped.loading && !wrapped.data)
   const error = dashboard.error || wrapped.error
 
-  if (loading) {
+  if (initialLoading) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
+      <div className="min-h-dvh bg-surface flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-coffee border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-coffee font-medium">Loading run data...</p>
+          <div className="size-12 border-4 border-ink border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-ink-muted font-medium">Loading run data...</p>
         </div>
       </div>
     )
@@ -90,10 +92,10 @@ function App() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="text-center text-terracotta">
-          <p className="text-xl font-bold mb-2">Error loading data</p>
-          <p>{error}</p>
+      <div className="min-h-dvh bg-surface flex items-center justify-center">
+        <div className="text-center text-ink">
+          <p className="text-xl font-semibold mb-2">Error loading data</p>
+          <p className="text-ink-muted">{error}</p>
         </div>
       </div>
     )
