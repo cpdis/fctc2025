@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
+import { useSearchParams } from 'react-router-dom'
 import Header from '../components/Layout/Header'
 import StatsCards from '../components/Dashboard/StatsCards'
 import FilterBar from '../components/Dashboard/FilterBar'
@@ -7,9 +8,34 @@ import AttendanceChart from '../components/Dashboard/AttendanceChart'
 import Leaderboard from '../components/Dashboard/Leaderboard'
 import RunTypeBreakdown from '../components/Dashboard/RunTypeBreakdown'
 import RunsTable from '../components/Dashboard/RunsTable'
+import SeasonProgress from '../components/Dashboard/viz/SeasonProgress'
+import SparklineLeaderboard from '../components/Dashboard/viz/SparklineLeaderboard'
+import CalendarHeatmap from '../components/Dashboard/viz/CalendarHeatmap'
+import HalfSeasonSlopegraph from '../components/Dashboard/viz/HalfSeasonSlopegraph'
+import RunTypeSmallMultiples from '../components/Dashboard/viz/RunTypeSmallMultiples'
 import { getRunTypeDisplayName } from '../utils/theme'
+import { resolveYear } from '../config/years'
+
+// One restrained staggered reveal for the whole page: a single subtle
+// fade + small upward translate per section, children offset by a small delay.
+// This replaces the old per-element spring/scale animations (chartjunk for the
+// eye). Keep it quiet.
+const container = {
+  hidden: { opacity: 1 },
+  visible: { transition: { staggerChildren: 0.06 } },
+}
+
+const item = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+}
 
 export default function Dashboard({ data }) {
+  // The footer season label follows the selected year (?year), same source the
+  // Header switcher writes to.
+  const [searchParams] = useSearchParams()
+  const selectedYear = resolveYear(searchParams.get('year'))
+
   const [filters, setFilters] = useState({
     runType: 'all',
     month: 'all',
@@ -57,16 +83,19 @@ export default function Dashboard({ data }) {
   }, [filteredRuns])
 
   return (
-    <div className="min-h-screen bg-cream">
+    // Page-level near-white background. Set here (not on global body) so the
+    // Wrapped experience keeps its own cream background.
+    <div className="min-h-screen bg-surface text-ink">
       <Header />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <motion.main
+        variants={container}
+        initial="hidden"
+        animate="visible"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+      >
         {/* Stats Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
+        <motion.div variants={item}>
           <StatsCards
             totalRuns={data.totalRuns}
             totalKm={data.totalClubKm}
@@ -77,13 +106,33 @@ export default function Dashboard({ data }) {
           />
         </motion.div>
 
+        {/* Season Progress — cumulative distance, sits with the headline stats. */}
+        <motion.div variants={item} className="mt-6">
+          <SeasonProgress data={data} />
+        </motion.div>
+
+        {/* Sparkline leaderboard — high-density centerpiece, whole season per member. */}
+        <motion.div variants={item} className="mt-6">
+          <SparklineLeaderboard data={data} />
+        </motion.div>
+
+        {/* Calendar heatmap + half-season slopegraph as a paired insight row. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          <motion.div variants={item}>
+            <CalendarHeatmap data={data} year={selectedYear} />
+          </motion.div>
+          <motion.div variants={item}>
+            <HalfSeasonSlopegraph data={data} />
+          </motion.div>
+        </div>
+
+        {/* Run-type small multiples — seasonality across types, shared y-scale. */}
+        <motion.div variants={item} className="mt-6">
+          <RunTypeSmallMultiples data={data} />
+        </motion.div>
+
         {/* Filter Bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mt-8"
-        >
+        <motion.div variants={item} className="mt-8">
           <FilterBar
             filters={filters}
             setFilters={setFilters}
@@ -93,48 +142,30 @@ export default function Dashboard({ data }) {
 
         {/* Leaderboard and Run Type Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
+          <motion.div variants={item}>
             <Leaderboard leaderboard={data.leaderboard} distanceLeaderboard={data.distanceLeaderboard} />
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
+          <motion.div variants={item}>
             <RunTypeBreakdown runsByType={data.runsByType} />
           </motion.div>
         </div>
 
         {/* Attendance Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mt-6"
-        >
+        <motion.div variants={item} className="mt-6">
           <AttendanceChart runs={filteredRuns} />
         </motion.div>
 
         {/* Runs Table */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-          className="mt-6"
-        >
+        <motion.div variants={item} className="mt-6">
           <RunsTable runs={filteredRuns} allRuns={data.runs} />
         </motion.div>
-      </main>
+      </motion.main>
 
-      <footer className="bg-navy text-mint py-6 mt-12">
-        <div className="max-w-7xl mx-auto px-4 text-center text-sm">
-          <p>Filament Coffee Track Club - 2025 Season</p>
-          <p className="mt-1 text-cream/60">Keep running, keep caffeinating</p>
+      <footer className="border-t border-border mt-12 py-6">
+        <div className="max-w-7xl mx-auto px-4 text-center text-sm text-ink-muted">
+          <p>Filament Coffee Track Club, {selectedYear} Season</p>
+          <p className="mt-1">Keep running, keep caffeinating</p>
         </div>
       </footer>
     </div>
