@@ -32,14 +32,14 @@ export default function SparklineLeaderboard({ data }) {
         <p className="text-sm text-ink-muted">No member attendance yet this season.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse" data-testid="sparkline-leaderboard">
+          <table className="w-full min-w-[560px] table-fixed border-collapse" data-testid="sparkline-leaderboard">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-ink-muted">
-                <th className="py-2 pr-3 font-medium">Member</th>
-                <th className="py-2 px-3 font-medium text-right">Runs</th>
-                <th className="py-2 px-3 font-medium text-right">Km</th>
-                <th className="py-2 px-3 font-medium w-full">Jan–Dec</th>
-                <th className="py-2 pl-3 font-medium text-right">Streak</th>
+                <th className="py-2 pr-3 font-medium w-1/6">Member</th>
+                <th className="py-2 px-3 font-medium text-right w-1/6">Runs</th>
+                <th className="py-2 px-3 font-medium text-right w-1/6">Km</th>
+                <th className="py-2 px-3 font-medium w-1/3">Jan–Dec</th>
+                <th className="py-2 pl-3 font-medium text-right w-1/6">Streak</th>
               </tr>
             </thead>
             <tbody>
@@ -58,7 +58,7 @@ export default function SparklineLeaderboard({ data }) {
                   <td className="py-2.5 px-3 text-right text-ink tabular-nums">
                     {Math.round(m.totalKm).toLocaleString()}
                   </td>
-                  <td className="py-2.5 px-3 w-full">
+                  <td className="py-2.5 px-3">
                     <Sparkline
                       data={m.monthly}
                       width={240}
