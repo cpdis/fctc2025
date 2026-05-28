@@ -1,0 +1,91 @@
+# Weekly Google Sheets -> CSV sync for the current running season.
+#
+# Every Sunday this fetches the current season's PUBLISHED Google Sheet as CSV,
+# validates it, writes it to public/data/<CURRENT_YEAR>.csv, and commits + pushes
+# ONLY if the content changed. Vercel's own GitHub integration handles the deploy
+# on push, so there is nothing to deploy here — a no-op run makes no commit and
+# therefore triggers no deploy.
+#
+# ============================================================================
+#  COLIN: ONE-TIME SETUP — you must do these two things for this to work
+# ============================================================================
+#  1. SHARE THE SHEET so the export URL is reachable without auth. Either:
+#       - File > Share > General access > "Anyone with the link" = Viewer, OR
+#       - File > Share > Publish to web (then use the /pub?...output=csv form).
+#     If the sheet is private, the fetch returns an HTML login page and the
+#     workflow fails loudly (by design) instead of committing garbage.
+#
+#  2. SET THE gid of the CURRENT-SEASON tab below (SHEET_GID env var).
+#     To find it: open the sheet, click the season's tab, and read the number
+#     after "gid=" in the browser URL, e.g.
+#       .../edit#gid=123456789   ->  SHEET_GID: "123456789"
+#     Replace the REPLACE_ME placeholder. Until you do, the run fails on purpose.
+#
+#  3. EACH NEW SEASON: bump CURRENT_YEAR (and point SHEET_GID at the new tab).
+# ============================================================================
+
+name: Weekly Data Sync
+
+on:
+  schedule:
+    # Cron is ALWAYS in UTC. The club is Australian (AEST = UTC+10, AEDT = UTC+11).
+    # '0 9 * * 0' = Sunday 09:00 UTC = Sun 7:00pm AEST / Sun 8:00pm AEDT.
+    # Sunday evening local time: the week's runs are logged, sheet is up to date.
+    # (Note: GitHub may delay scheduled runs under load, and auto-disables the
+    #  schedule after 60 days of repo inactivity — use the manual trigger then.)
+    - cron: '0 9 * * 0'
+  # Manual trigger for testing / on-demand pulls (and the 60-day fallback).
+  workflow_dispatch:
+
+# Needed so the GITHUB_TOKEN can push the updated CSV back to the repo.
+permissions:
+  contents: write
+
+# ----------------------------------------------------------------------------
+#  Configuration — the bits Colin changes. Everything else is mechanism.
+# ----------------------------------------------------------------------------
+env:
+  # The spreadsheet ID from the sheet URL (already filled in — this is FCTC's sheet):
+  #   https://docs.google.com/spreadsheets/d/<THIS_ID>/edit
+  SHEET_ID: "1YEKXqp6A4LoGUyg7Rsm3w3MUkbfgRNIAWQkGBYulO2o"
+  # TODO(Colin): the current-season tab's gid (see setup note #2 above).
+  SHEET_GID: "REPLACE_ME"
+  # The season being synced. Bump this each new year (must match a file/entry
+  # the app knows about, i.e. public/data/<CURRENT_YEAR>.csv + src/config/years.js).
+  CURRENT_YEAR: "2026"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Fetch + validate current season CSV
+        run: |
+          # Published-CSV export endpoint for a link-viewable sheet. If you used
+          # "Publish to web" instead, swap to the /pub form:
+          #   https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv
+          CSV_URL="https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}"
+          DEST="public/data/${CURRENT_YEAR}.csv"
+          # The script does the curl --fail --location --silent --show-error fetch,
+          # validates (non-empty, not HTML, size/line floors), and writes DEST.
+          # It exits non-zero on any problem, failing the workflow loudly.
+          bash scripts/fetch-sheet.sh "$CSV_URL" "$DEST"
+
+      - name: Commit + push if changed
+        run: |
+          DEST="public/data/${CURRENT_YEAR}.csv"
+          # No change -> exit 0 without committing. This is the common case and
+          # MUST NOT create an empty commit (which would trigger a pointless deploy).
+          if git diff --quiet -- "$DEST"; then
+            echo "No change in ${DEST}; nothing to commit."
+            exit 0
+          fi
+          # Bot identity for the commit. Pushing with the default GITHUB_TOKEN;
+          # Vercel's GitHub integration deploys automatically on this push.
+          git config user.name "fctc-data-bot"
+          git config user.email "fctc-data-bot@users.noreply.github.com"
+          git add "$DEST"
+          git commit -m "chore(data): weekly sync of ${CURRENT_YEAR} season from Google Sheet"
+          git push
