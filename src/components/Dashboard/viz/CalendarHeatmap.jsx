@@ -84,7 +84,10 @@ export function buildCalendarData(frequency, year, today = new Date()) {
 const COLOR_SCALE = ['#ededea', '#cfcfc9', '#a8a8a2', '#5a5a55', dashboardColors.ink]
 
 const BLOCK_MARGIN = 3
-const LABEL_GUTTER = 26 // left space the weekday labels occupy
+// Weekday labels are hidden, so the calendar needs no left gutter — let the
+// blocks size up to span the full card width (the card's own padding supplies
+// the edge breathing room). A couple of px keeps the leftmost block off the edge.
+const LABEL_GUTTER = 2
 
 export default function CalendarHeatmap({ data, year }) {
   const frequency = runFrequencyByDate(data?.runs ?? [])
@@ -109,7 +112,7 @@ export default function CalendarHeatmap({ data, year }) {
     const measure = (width) => {
       if (!width) return
       const size = Math.floor((width - LABEL_GUTTER) / columns) - BLOCK_MARGIN
-      setBlockSize(Math.max(9, Math.min(28, size)))
+      setBlockSize(Math.max(9, Math.min(40, size)))
     }
     const ro = new ResizeObserver((entries) => measure(entries[0].contentRect.width))
     ro.observe(el)

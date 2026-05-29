@@ -13,9 +13,9 @@ const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
  * labels muted. This is Tufte's "data table as graphic": every member's whole
  * season legible at a glance, vertically scannable.
  *
- * Mobile: the sparkline ("Jan–Dec") and streak columns are hidden so the table
- * fits the viewport with no horizontal scroll — name, runs and km are what
- * matter on a small screen. From sm up the full high-density table returns.
+ * Mobile: only the sparkline ("Jan–Dec") column is hidden so the table fits the
+ * viewport with no horizontal scroll — name, runs, km and streak all stay. The
+ * sparkline column returns from sm up to complete the high-density table.
  *
  * @param {Object} data - full parseRunData output
  */
@@ -40,7 +40,7 @@ export default function SparklineLeaderboard({ data }) {
                 <th className="py-2 px-3 font-medium text-right sm:w-1/6">Runs</th>
                 <th className="py-2 px-3 font-medium text-right sm:w-1/6">Km</th>
                 <th className="hidden sm:table-cell py-2 px-3 font-medium w-1/3">Jan–Dec</th>
-                <th className="hidden sm:table-cell py-2 pl-3 font-medium text-right w-1/6">Streak</th>
+                <th className="py-2 pl-3 font-medium text-right sm:w-1/6">Streak</th>
               </tr>
             </thead>
             <tbody>
@@ -69,7 +69,7 @@ export default function SparklineLeaderboard({ data }) {
                       ariaLabel={`${m.name} monthly attendance, ${m.monthly.join(', ')} from January to December`}
                     />
                   </td>
-                  <td className="hidden sm:table-cell py-2.5 pl-3 text-right tabular-nums">
+                  <td className="py-2.5 pl-3 text-right tabular-nums">
                     {m.currentStreak > 0 ? (
                       <span className="text-ink font-semibold">{m.currentStreak}</span>
                     ) : (

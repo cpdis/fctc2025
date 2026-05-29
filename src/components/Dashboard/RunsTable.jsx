@@ -73,7 +73,7 @@ export default function RunsTable({ runs, allRuns, runsByType = {} }) {
     )
   }
 
-  const thClass = "px-4 sm:px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider cursor-pointer hover:text-ink transition-colors select-none whitespace-nowrap"
+  const thClass = "px-3 sm:px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider cursor-pointer hover:text-ink transition-colors select-none whitespace-nowrap"
 
   return (
     <div className="card-clean overflow-hidden">
@@ -128,32 +128,34 @@ export default function RunsTable({ runs, allRuns, runsByType = {} }) {
                 onClick={() => navigate(`/run/${originalIndex}`)}
                 className="hover:bg-surface cursor-pointer transition-colors"
               >
-                <td className="px-4 sm:px-6 py-3 whitespace-nowrap text-sm text-ink">
+                <td className="px-3 sm:px-6 py-3 whitespace-nowrap text-sm text-ink">
                   {run.date}
                 </td>
-                <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
+                <td className="px-3 sm:px-6 py-3 whitespace-nowrap">
                   {(() => {
                     const c = typeColors[run.runType] || '#78716c'
+                    const label = getRunTypeDisplayName(run.runType)
                     return (
                       <span
-                        className="px-2.5 py-1 rounded-md text-xs font-medium text-ink border"
+                        title={label}
+                        className="inline-block max-w-[7rem] sm:max-w-none truncate align-middle px-2.5 py-1 rounded-md text-xs font-medium text-ink border"
                         style={{ backgroundColor: tint(c, 0.14), borderColor: tint(c, 0.35) }}
                       >
-                        {getRunTypeDisplayName(run.runType)}
+                        {label}
                       </span>
                     )
                   })()}
                 </td>
-                <td className="hidden md:table-cell px-4 sm:px-6 py-3 whitespace-nowrap text-sm text-ink-muted">
+                <td className="hidden md:table-cell px-3 sm:px-6 py-3 whitespace-nowrap text-sm text-ink-muted">
                   {run.meet}
                 </td>
-                <td className="hidden sm:table-cell px-4 sm:px-6 py-3 whitespace-nowrap text-sm font-medium text-ink tabular-nums">
+                <td className="hidden sm:table-cell px-3 sm:px-6 py-3 whitespace-nowrap text-sm font-medium text-ink tabular-nums">
                   {run.actualKm ? `${run.actualKm.toFixed(2)} km` : '-'}
                 </td>
-                <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-ink w-6 tabular-nums">{run.totalAttendance}</span>
-                    <div className="w-16 sm:w-20 h-1.5 rounded-full overflow-hidden bg-border">
+                <td className="px-3 sm:px-6 py-3 whitespace-nowrap">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="text-sm font-semibold text-ink w-5 sm:w-6 tabular-nums">{run.totalAttendance}</span>
+                    <div className="w-14 sm:w-20 h-1.5 rounded-full overflow-hidden bg-border">
                       <div
                         className="h-full rounded-full"
                         style={{

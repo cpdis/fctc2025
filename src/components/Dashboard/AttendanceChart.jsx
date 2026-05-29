@@ -199,7 +199,7 @@ export default function AttendanceChart({ runs }) {
           {/* On mobile the direct end-labels are dropped, so the plot can use the
               full width (tight right margin); on larger screens the extra right
               margin leaves room for the labels hung off each line's last point. */}
-          <ComposedChart data={segmentedData} margin={{ top: 12, right: isMobile ? 12 : 64, left: 0, bottom: 4 }}>
+          <ComposedChart data={segmentedData} margin={{ top: 12, right: isMobile ? 8 : 64, left: 0, bottom: 4 }}>
             <CartesianGrid {...gridProps} />
             <XAxis
               {...axisProps}
@@ -210,7 +210,7 @@ export default function AttendanceChart({ runs }) {
               ticks={monthTicks}
               tickFormatter={fmtMonth}
             />
-            <YAxis allowDecimals={false} {...axisProps} />
+            <YAxis allowDecimals={false} width={32} {...axisProps} />
             <Tooltip content={renderTooltip} cursor={tooltipCursor} />
             {TOP_RUN_TYPES.flatMap(type =>
               Array.from({ length: maxSegments[type] }, (_, seg) => {
