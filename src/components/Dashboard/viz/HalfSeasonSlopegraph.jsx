@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import Slopegraph from './Slopegraph'
 import { firstVsSecondHalf } from '../../../utils/dashboardMetrics'
 
@@ -31,29 +32,43 @@ export default function HalfSeasonSlopegraph({ data }) {
   // Height scales with row count so labels never collide; keep a sane minimum.
   const height = Math.max(180, shown.length * 22 + 56)
 
+  // Measure the container so the slopegraph fills the card width (its viewBox is
+  // sized 1:1 with the rendered px, keeping label text at a true 11px instead of
+  // scaling down). Falls back to a sensible default before the first measure.
+  const wrapRef = useRef(null)
+  const [width, setWidth] = useState(380)
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const measure = (w) => { if (w) setWidth(Math.max(320, Math.floor(w))) }
+    const ro = new ResizeObserver((entries) => measure(entries[0].contentRect.width))
+    ro.observe(el)
+    measure(el.clientWidth)
+    return () => ro.disconnect()
+  }, [])
+
   return (
     <div className="card-clean p-6">
-      <div className="flex items-baseline justify-between mb-4">
+      {/* Title stacked above the subheading — the long title crowds the muted
+          caption when they share a baseline row. */}
+      <div className="mb-4">
         <h3 className="font-display text-lg font-semibold text-ink">Showing Up More or Less</h3>
-        <span className="text-sm text-ink-muted">attendance, split at season midpoint</span>
+        <span className="text-sm text-ink-muted">Attendance, split at season midpoint</span>
       </div>
 
       {slopeData.length === 0 ? (
         <p className="text-sm text-ink-muted">Not enough runs to split the season yet.</p>
       ) : (
         <>
-          {/* Horizontal scroll keeps the two-column layout legible on phones. */}
-          <div className="overflow-x-auto">
-            <div className="min-w-[360px]">
-              <Slopegraph
-                data={slopeData}
-                width={360}
-                height={height}
-                leftTitle="First half"
-                rightTitle="Second half"
-                ariaLabel="First-half versus second-half attendance per member"
-              />
-            </div>
+          <div ref={wrapRef}>
+            <Slopegraph
+              data={slopeData}
+              width={width}
+              height={height}
+              leftTitle="First half"
+              rightTitle="Second half"
+              ariaLabel="First-half versus second-half attendance per member"
+            />
           </div>
           {hidden > 0 && (
             <p className="mt-3 text-xs text-ink-muted">

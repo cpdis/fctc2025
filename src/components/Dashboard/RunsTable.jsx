@@ -47,14 +47,33 @@ export default function RunsTable({ runs, allRuns, runsByType = {} }) {
     }))
   }
 
+  // SVG sort indicator: a stacked up/down chevron pair. The inactive column
+  // shows both chevrons muted; the active column highlights the chevron for the
+  // current direction. Drawn as SVG (not unicode arrows, which iOS renders as
+  // coloured emoji) so it stays a quiet monochrome glyph.
   const SortIcon = ({ columnKey }) => {
-    if (sortConfig.key !== columnKey) {
-      return <span className="text-ink-muted/40 ml-1">↕</span>
-    }
-    return <span className="text-ink ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+    const active = sortConfig.key === columnKey
+    const dir = active ? sortConfig.direction : null
+    return (
+      <svg
+        className="inline-block ml-1.5 -mt-0.5 h-3 w-3 align-middle"
+        viewBox="0 0 10 14"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M5 1L8 5H2L5 1Z"
+          className={dir === 'asc' ? 'fill-ink' : 'fill-ink-muted/40'}
+        />
+        <path
+          d="M5 13L2 9H8L5 13Z"
+          className={dir === 'desc' ? 'fill-ink' : 'fill-ink-muted/40'}
+        />
+      </svg>
+    )
   }
 
-  const thClass = "px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider cursor-pointer hover:text-ink transition-colors select-none"
+  const thClass = "px-3 sm:px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider cursor-pointer hover:text-ink transition-colors select-none whitespace-nowrap"
 
   return (
     <div className="card-clean overflow-hidden">
@@ -87,10 +106,10 @@ export default function RunsTable({ runs, allRuns, runsByType = {} }) {
               <th onClick={() => handleSort('runType')} className={thClass}>
                 Run Type <SortIcon columnKey="runType" />
               </th>
-              <th onClick={() => handleSort('meet')} className={thClass}>
+              <th onClick={() => handleSort('meet')} className={`${thClass} hidden md:table-cell`}>
                 Location <SortIcon columnKey="meet" />
               </th>
-              <th onClick={() => handleSort('actualKm')} className={thClass}>
+              <th onClick={() => handleSort('actualKm')} className={`${thClass} hidden sm:table-cell`}>
                 Distance <SortIcon columnKey="actualKm" />
               </th>
               <th onClick={() => handleSort('totalAttendance')} className={thClass}>
@@ -109,32 +128,34 @@ export default function RunsTable({ runs, allRuns, runsByType = {} }) {
                 onClick={() => navigate(`/run/${originalIndex}`)}
                 className="hover:bg-surface cursor-pointer transition-colors"
               >
-                <td className="px-6 py-3 whitespace-nowrap text-sm text-ink">
+                <td className="px-3 sm:px-6 py-3 whitespace-nowrap text-sm text-ink">
                   {run.date}
                 </td>
-                <td className="px-6 py-3 whitespace-nowrap">
+                <td className="px-3 sm:px-6 py-3 whitespace-nowrap">
                   {(() => {
                     const c = typeColors[run.runType] || '#78716c'
+                    const label = getRunTypeDisplayName(run.runType)
                     return (
                       <span
-                        className="px-2.5 py-1 rounded-md text-xs font-medium text-ink border"
+                        title={label}
+                        className="inline-block max-w-[7rem] sm:max-w-none truncate align-middle px-2.5 py-1 rounded-md text-xs font-medium text-ink border"
                         style={{ backgroundColor: tint(c, 0.14), borderColor: tint(c, 0.35) }}
                       >
-                        {getRunTypeDisplayName(run.runType)}
+                        {label}
                       </span>
                     )
                   })()}
                 </td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm text-ink-muted">
+                <td className="hidden md:table-cell px-3 sm:px-6 py-3 whitespace-nowrap text-sm text-ink-muted">
                   {run.meet}
                 </td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm font-medium text-ink tabular-nums">
+                <td className="hidden sm:table-cell px-3 sm:px-6 py-3 whitespace-nowrap text-sm font-medium text-ink tabular-nums">
                   {run.actualKm ? `${run.actualKm.toFixed(2)} km` : '-'}
                 </td>
-                <td className="px-6 py-3 whitespace-nowrap">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-ink w-6 tabular-nums">{run.totalAttendance}</span>
-                    <div className="w-20 h-1.5 rounded-full overflow-hidden bg-border">
+                <td className="px-3 sm:px-6 py-3 whitespace-nowrap">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="text-sm font-semibold text-ink w-5 sm:w-6 tabular-nums">{run.totalAttendance}</span>
+                    <div className="w-14 sm:w-20 h-1.5 rounded-full overflow-hidden bg-border">
                       <div
                         className="h-full rounded-full"
                         style={{
@@ -157,7 +178,7 @@ export default function RunsTable({ runs, allRuns, runsByType = {} }) {
         </div>
       )}
 
-      <div className="px-6 py-4 border-t border-border text-sm text-ink-muted">
+      <div className="px-4 sm:px-6 py-4 border-t border-border text-sm text-ink-muted">
         Showing {sortedRuns.length} of {runs.length} runs
       </div>
     </div>
