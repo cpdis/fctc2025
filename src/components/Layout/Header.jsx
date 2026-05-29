@@ -27,7 +27,9 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-card border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
+        {/* On mobile the controls drop to a second row so nothing overlaps or
+            gets clipped; from sm up everything sits on one 64px row. */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between sm:h-16 gap-2 sm:gap-4 py-2.5 sm:py-0">
           {/* Logo + name */}
           <Link to={`/?year=${selectedYear}`} className="flex items-center gap-3 min-w-0">
             <img
@@ -44,7 +46,9 @@ export default function Header() {
             </div>
           </Link>
 
-          <div className="flex items-center gap-3 sm:gap-5">
+          {/* On mobile this row spreads full width (switcher left, nav right);
+              from sm up it hugs the right edge next to the logo. */}
+          <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-5">
             {/* Year switcher */}
             <div className="flex items-center rounded-full border border-border p-0.5">
               {YEAR_LIST.map((year) => {
@@ -70,7 +74,7 @@ export default function Header() {
             <nav className="flex items-center gap-1 sm:gap-2">
               <Link
                 to={`/?year=${selectedYear}`}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                   !isWrapped
                     ? 'bg-accent text-card'
                     : 'text-ink-muted hover:text-ink'
@@ -80,7 +84,7 @@ export default function Header() {
               </Link>
               <Link
                 to="/2025wrapped"
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                   isWrapped
                     ? 'bg-accent text-card'
                     : 'text-ink-muted hover:text-ink'

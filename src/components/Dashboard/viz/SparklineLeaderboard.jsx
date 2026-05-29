@@ -13,8 +13,9 @@ const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
  * labels muted. This is Tufte's "data table as graphic": every member's whole
  * season legible at a glance, vertically scannable.
  *
- * Mobile: the table sits in a horizontal-scroll container so the sparkline and
- * streak columns never collapse; name + totals stay readable as you scroll.
+ * Mobile: the sparkline ("Jan–Dec") and streak columns are hidden so the table
+ * fits the viewport with no horizontal scroll — name, runs and km are what
+ * matter on a small screen. From sm up the full high-density table returns.
  *
  * @param {Object} data - full parseRunData output
  */
@@ -32,14 +33,14 @@ export default function SparklineLeaderboard({ data }) {
         <p className="text-sm text-ink-muted">No member attendance yet this season.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] table-fixed border-collapse" data-testid="sparkline-leaderboard">
+          <table className="w-full sm:min-w-[560px] sm:table-fixed border-collapse" data-testid="sparkline-leaderboard">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-ink-muted">
-                <th className="py-2 pr-3 font-medium w-1/6">Member</th>
-                <th className="py-2 px-3 font-medium text-right w-1/6">Runs</th>
-                <th className="py-2 px-3 font-medium text-right w-1/6">Km</th>
-                <th className="py-2 px-3 font-medium w-1/3">Jan–Dec</th>
-                <th className="py-2 pl-3 font-medium text-right w-1/6">Streak</th>
+                <th className="py-2 pr-3 font-medium sm:w-1/6">Member</th>
+                <th className="py-2 px-3 font-medium text-right sm:w-1/6">Runs</th>
+                <th className="py-2 px-3 font-medium text-right sm:w-1/6">Km</th>
+                <th className="hidden sm:table-cell py-2 px-3 font-medium w-1/3">Jan–Dec</th>
+                <th className="hidden sm:table-cell py-2 pl-3 font-medium text-right w-1/6">Streak</th>
               </tr>
             </thead>
             <tbody>
@@ -58,7 +59,7 @@ export default function SparklineLeaderboard({ data }) {
                   <td className="py-2.5 px-3 text-right text-ink tabular-nums">
                     {Math.round(m.totalKm).toLocaleString()}
                   </td>
-                  <td className="py-2.5 px-3">
+                  <td className="hidden sm:table-cell py-2.5 px-3">
                     <Sparkline
                       data={m.monthly}
                       width={240}
@@ -68,7 +69,7 @@ export default function SparklineLeaderboard({ data }) {
                       ariaLabel={`${m.name} monthly attendance, ${m.monthly.join(', ')} from January to December`}
                     />
                   </td>
-                  <td className="py-2.5 pl-3 text-right tabular-nums">
+                  <td className="hidden sm:table-cell py-2.5 pl-3 text-right tabular-nums">
                     {m.currentStreak > 0 ? (
                       <span className="text-ink font-semibold">{m.currentStreak}</span>
                     ) : (
@@ -82,8 +83,9 @@ export default function SparklineLeaderboard({ data }) {
         </div>
       )}
 
-      {/* Quiet caption clarifying the sparkline x-axis, in lieu of inline axis. */}
-      <p className="mt-3 text-xs text-ink-muted">
+      {/* Quiet caption clarifying the sparkline x-axis, in lieu of inline axis.
+          Hidden on mobile, where the sparkline/streak columns aren't shown. */}
+      <p className="hidden sm:block mt-3 text-xs text-ink-muted">
         Sparklines span <span className="font-medium text-ink">{MONTHS.join(' ')}</span>{' '}
         (January to December). Streak = consecutive most-recent runs attended.
       </p>

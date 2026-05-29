@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts'
 import {
   palette,
@@ -19,7 +20,24 @@ const TYPE_COLOR = Object.fromEntries(
   TOP_RUN_TYPES.map((type, i) => [type, palette[i % palette.length]])
 )
 
+// Tracks whether we're on a narrow (mobile) viewport. On mobile the direct
+// end-labels are dropped (they overlap and steal horizontal room from an
+// already-cramped plot); a compact swatch legend stands in for them instead.
+function useIsMobile(query = '(max-width: 640px)') {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia(query)
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [query])
+  return isMobile
+}
+
 export default function AttendanceChart({ runs }) {
+  const isMobile = useIsMobile()
+
   // Filter and sort runs
   const sortedRuns = runs
     .filter(run => run.parsedDate && TOP_RUN_TYPES.includes(run.runType))
@@ -168,14 +186,20 @@ export default function AttendanceChart({ runs }) {
     )
   }
 
+  // Run types that actually appear in the data — drives the mobile legend so we
+  // don't list series that were never plotted.
+  const presentTypes = TOP_RUN_TYPES.filter((type) => runsByType[type].length > 0)
+
   return (
     <div className="card-clean p-6">
       <h3 className="font-display text-lg font-semibold text-ink mb-4">Attendance by Run Type</h3>
 
-      <div className="h-72">
+      <div className="h-80 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          {/* Extra right margin leaves room for the direct end-labels. */}
-          <ComposedChart data={segmentedData} margin={{ top: 12, right: 64, left: 0, bottom: 4 }}>
+          {/* On mobile the direct end-labels are dropped, so the plot can use the
+              full width (tight right margin); on larger screens the extra right
+              margin leaves room for the labels hung off each line's last point. */}
+          <ComposedChart data={segmentedData} margin={{ top: 12, right: isMobile ? 12 : 64, left: 0, bottom: 4 }}>
             <CartesianGrid {...gridProps} />
             <XAxis
               {...axisProps}
@@ -205,7 +229,7 @@ export default function AttendanceChart({ runs }) {
                     activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff', fill: TYPE_COLOR[type] }}
                     legendType="none"
                   >
-                    {isLastSegment && (
+                    {isLastSegment && !isMobile && (
                       <LabelList dataKey={`${type}_${seg}`} content={endLabel(type)} />
                     )}
                   </Line>
@@ -215,6 +239,22 @@ export default function AttendanceChart({ runs }) {
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Mobile legend: stands in for the direct end-labels, which are dropped on
+          narrow screens. Only the run types present in the data are listed. */}
+      {isMobile && presentTypes.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+          {presentTypes.map((type) => (
+            <span key={type} className="flex items-center gap-1.5 text-xs text-ink-muted">
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ background: TYPE_COLOR[type] }}
+              />
+              {type}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
