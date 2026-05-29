@@ -48,8 +48,8 @@ env:
   # The spreadsheet ID from the sheet URL (already filled in — this is FCTC's sheet):
   #   https://docs.google.com/spreadsheets/d/<THIS_ID>/edit
   SHEET_ID: "1YEKXqp6A4LoGUyg7Rsm3w3MUkbfgRNIAWQkGBYulO2o"
-  # TODO(Colin): the current-season tab's gid (see setup note #2 above).
-  SHEET_GID: "REPLACE_ME"
+  # The current-season tab's gid (the "2026" tab; verified to match public/data/2026.csv).
+  SHEET_GID: "764664511"
   # The season being synced. Bump this each new year (must match a file/entry
   # the app knows about, i.e. public/data/<CURRENT_YEAR>.csv + src/config/years.js).
   CURRENT_YEAR: "2026"
