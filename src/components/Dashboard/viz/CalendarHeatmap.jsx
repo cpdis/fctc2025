@@ -110,11 +110,14 @@ function YearCalendar({ frequency, year, showYearLabel = false }) {
     .filter((d) => Number(d.date.slice(0, 4)) === year)
     .reduce((s, d) => s + d.count, 0)
 
-  // Number of week-columns the calendar will render (weeks start Sunday). Used to
-  // size each block so the whole year spans the card width instead of hugging
-  // the left edge.
-  const startOffset = new Date(year, 0, 1).getDay()
-  const columns = Math.max(1, Math.ceil((startOffset + calendarData.length) / 7))
+  // Block size is computed against a FULL year's worth of week-columns, not just
+  // the columns this year happens to render. That caps the cell size so a
+  // partial season (e.g. 2026 through May) uses the same small cells as a full
+  // year and simply stops partway across, instead of stretching its few weeks to
+  // fill the width — which made the stacked all-time grids mismatch. Weeks start
+  // Sunday; a year spans at most ceil((weekdayOfJan1 + daysInYear) / 7) columns.
+  const daysInYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365
+  const fullYearColumns = Math.ceil((new Date(year, 0, 1).getDay() + daysInYear) / 7)
 
   const wrapRef = useRef(null)
   const [blockSize, setBlockSize] = useState(12)
@@ -124,14 +127,14 @@ function YearCalendar({ frequency, year, showYearLabel = false }) {
     if (!el) return
     const measure = (width) => {
       if (!width) return
-      const size = Math.floor((width - LABEL_GUTTER) / columns) - BLOCK_MARGIN
+      const size = Math.floor((width - LABEL_GUTTER) / fullYearColumns) - BLOCK_MARGIN
       setBlockSize(Math.max(9, Math.min(40, size)))
     }
     const ro = new ResizeObserver((entries) => measure(entries[0].contentRect.width))
     ro.observe(el)
     measure(el.clientWidth)
     return () => ro.disconnect()
-  }, [columns])
+  }, [fullYearColumns])
 
   return (
     <div>
