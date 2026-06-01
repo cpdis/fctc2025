@@ -1,9 +1,15 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { getRunTypeDisplayName } from '../../utils/theme'
-import { tooltipContentStyle } from '../../utils/chartConfig'
+import { useChartTheme } from '../../utils/chartConfig'
+import { useThemeColors } from '../../utils/useThemeColors'
 import { TOP_TYPES_COUNT, sliceColor, isLight } from '../../utils/runTypeColors'
 
 export default function RunTypeBreakdown({ runsByType }) {
+  const { tooltipContentStyle } = useChartTheme()
+  // Slice separators match the card so they read as gaps in both schemes (a
+  // hardcoded white border glares on the dark card); isDark also picks the
+  // legible dark slice palette.
+  const { colors, isDark } = useThemeColors()
   const allData = Object.entries(runsByType)
     .map(([type, stats]) => ({
       name: getRunTypeDisplayName(type),
@@ -39,8 +45,10 @@ export default function RunTypeBreakdown({ runsByType }) {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5
     const x = cx + radius * Math.cos(-midAngle * RADIAN)
     const y = cy + radius * Math.sin(-midAngle * RADIAN)
-    // Dark text on light slices, white on dark, so every label stays legible.
-    const fill = isLight(sliceColor(index)) ? 'var(--color-ink)' : '#ffffff'
+    // Contrast against the SLICE (not the theme): dark text on light slices,
+    // white on dark. Fixed hex, since --color-ink flips with the theme and would
+    // invert this on the dark card.
+    const fill = isLight(sliceColor(index, isDark)) ? '#1a1a18' : '#ffffff'
 
     return (
       <text
@@ -79,8 +87,8 @@ export default function RunTypeBreakdown({ runsByType }) {
               {chartData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={sliceColor(index)}
-                  stroke="#ffffff"
+                  fill={sliceColor(index, isDark)}
+                  stroke={colors.card}
                   strokeWidth={2}
                 />
               ))}
@@ -113,7 +121,7 @@ export default function RunTypeBreakdown({ runsByType }) {
           <div key={item.name} className="flex items-center gap-2">
             <span
               className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: sliceColor(index) }}
+              style={{ backgroundColor: sliceColor(index, isDark) }}
             />
             <span className="text-xs text-ink-muted">{item.name}</span>
           </div>

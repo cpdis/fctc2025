@@ -1,24 +1,9 @@
 import { useState, useEffect } from 'react'
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts'
-import {
-  palette,
-  axisProps,
-  gridProps,
-  tooltipContentStyle,
-  tooltipLabelStyle,
-  tooltipItemStyle,
-  tooltipCursor,
-} from '../../utils/chartConfig'
+import { useChartTheme } from '../../utils/chartConfig'
 
 const TOP_RUN_TYPES = ['Intervals', 'Soft Sand', 'River Loop', 'Lakes Loop', 'Social']
 const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000 // ~30 days in milliseconds
-
-// One stable color per run type, drawn from the restrained data palette. Order
-// follows TOP_RUN_TYPES so the primary series (Intervals) gets the ink, and the
-// rest recede through the accent + greys.
-const TYPE_COLOR = Object.fromEntries(
-  TOP_RUN_TYPES.map((type, i) => [type, palette[i % palette.length]])
-)
 
 // Tracks whether we're on a narrow (mobile) viewport. On mobile the direct
 // end-labels are dropped (they overlap and steal horizontal room from an
@@ -37,6 +22,16 @@ function useIsMobile(query = '(max-width: 640px)') {
 
 export default function AttendanceChart({ runs }) {
   const isMobile = useIsMobile()
+  const { palette, axisProps, gridProps, tooltipContentStyle, tooltipLabelStyle, tooltipItemStyle, tooltipCursor } =
+    useChartTheme()
+
+  // One stable color per run type, drawn from the restrained data palette. Order
+  // follows TOP_RUN_TYPES so the primary series (Intervals) gets the ink, and the
+  // rest recede through the accent + greys. Built from the theme palette so it
+  // follows light/dark.
+  const TYPE_COLOR = Object.fromEntries(
+    TOP_RUN_TYPES.map((type, i) => [type, palette[i % palette.length]])
+  )
 
   // Filter and sort runs
   const sortedRuns = runs

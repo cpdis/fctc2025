@@ -1,5 +1,4 @@
 import Sparkline from './Sparkline'
-import { dashboardColors } from '../../../utils/theme'
 import { memberMonthlyAttendance } from '../../../utils/dashboardMetrics'
 
 const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
@@ -64,7 +63,6 @@ export default function SparklineLeaderboard({ data }) {
                       data={m.monthly}
                       width={240}
                       height={28}
-                      color={dashboardColors.ink}
                       strokeWidth={1.25}
                       ariaLabel={`${m.name} monthly attendance, ${m.monthly.join(', ')} from January to December`}
                     />

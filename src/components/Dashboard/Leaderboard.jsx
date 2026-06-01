@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { dataColors, dashboardColors } from '../../utils/theme'
+import { useThemeColors } from '../../utils/useThemeColors'
 
 // Neutral rank chip. The top spot gets the ink accent, everyone else a quiet
 // grey chip. No medals, no gradients, no springs (Tufte: rank is the data, the
@@ -19,14 +19,16 @@ const RankBadge = ({ rank }) => {
 }
 
 // Bar colors: #1 in ink (primary data-ink), #2 in the burnt-orange accent,
-// everyone else recedes into greys. Mirrors the restrained data palette.
-const barColor = (index) => {
-  if (index === 0) return dataColors[0]
-  if (index === 1) return dataColors[1]
-  return dataColors[3]
+// everyone else recedes into greys. Mirrors the restrained data palette for the
+// active scheme.
+const barColor = (data, index) => {
+  if (index === 0) return data[0]
+  if (index === 1) return data[1]
+  return data[3]
 }
 
 export default function Leaderboard({ leaderboard, distanceLeaderboard }) {
+  const { data } = useThemeColors()
   const [view, setView] = useState('attendance')
 
   const currentLeaderboard = view === 'attendance' ? leaderboard : distanceLeaderboard
@@ -81,13 +83,13 @@ export default function Leaderboard({ leaderboard, distanceLeaderboard }) {
                     </span>
                   </div>
 
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: dashboardColors.border }}>
+                  <div className="h-1.5 rounded-full overflow-hidden bg-border">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${percentage}%` }}
                       transition={{ duration: 0.5, delay: index * 0.03, ease: 'easeOut' }}
                       className="h-full rounded-full"
-                      style={{ background: barColor(index) }}
+                      style={{ background: barColor(data, index) }}
                     />
                   </div>
                 </div>

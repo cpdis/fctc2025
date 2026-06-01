@@ -17,11 +17,28 @@ export const DONUT_COLORS = [
   '#5f5a55', // stone-600
 ]
 
+// Dark-scheme variant: the near-black ink slice and dark stones would vanish on
+// the dark card, so the ramp lifts to light tones (and the accents brighten),
+// preserving the same rank order and distinctness. Index-aligned with
+// DONUT_COLORS.
+export const DONUT_COLORS_DARK = [
+  '#ededea', // primary (brightest)
+  '#e2683f', // accent (brightened orange)
+  '#b9b3ab', // light stone
+  '#8c857e', // mid stone
+  '#d4d0ca', // lighter stone
+  '#cf6f49', // muted accent (brightened)
+  '#a39c94', // mid-light stone
+  '#6f6862', // darker stone (still above the card)
+]
+
 // How many types the donut shows individually before grouping into Special Events.
 export const TOP_TYPES_COUNT = 6
 
-// Color for the slice at a given chart index (donut slices, sorted desc by count).
-export const sliceColor = (index) => DONUT_COLORS[index % DONUT_COLORS.length]
+// Color for the slice at a given chart index (donut slices, sorted desc by
+// count), in the active scheme.
+export const sliceColor = (index, isDark = false) =>
+  (isDark ? DONUT_COLORS_DARK : DONUT_COLORS)[index % DONUT_COLORS.length]
 
 // Relative luminance of a #rrggbb hex, for picking a readable label color.
 export const isLight = (hex) => {
@@ -49,15 +66,16 @@ export const tint = (hex, alpha) => {
  * @param {Object} runsByType - parser output: { [rawType]: { count, ... } }
  * @returns {Object} { [rawType]: '#hex' }
  */
-export function runTypeColorMap(runsByType = {}) {
+export function runTypeColorMap(runsByType = {}, isDark = false) {
+  const palette = isDark ? DONUT_COLORS_DARK : DONUT_COLORS
   const sorted = Object.entries(runsByType)
     .map(([raw, stats]) => ({ raw, value: stats?.count ?? 0 }))
     .sort((a, b) => b.value - a.value)
 
-  const specialColor = DONUT_COLORS[Math.min(TOP_TYPES_COUNT, DONUT_COLORS.length - 1)]
+  const specialColor = palette[Math.min(TOP_TYPES_COUNT, palette.length - 1)]
   const map = {}
   sorted.forEach((t, i) => {
-    map[t.raw] = i < TOP_TYPES_COUNT ? DONUT_COLORS[i] : specialColor
+    map[t.raw] = i < TOP_TYPES_COUNT ? palette[i] : specialColor
   })
   return map
 }
