@@ -88,7 +88,10 @@ export function buildCalendarData(frequency, year, today = new Date()) {
 // the card (no-run days blend in), and the first run-level steps hard away from
 // it for clear contrast between "ran" and "didn't".
 const LIGHT_SCALE = ['#ffffff', '#cfcfc9', '#9c9c95', '#54544f', dashboardColors.ink]
-const DARK_SCALE = ['#2c2c2a', '#4d4d49', '#777771', '#abaaa3', '#ededea']
+// Dark mirror of the light ramp: empty days sit at the (near-black) card colour
+// so no-run days blend in, then step hard into greys lifting to pure white for
+// the busiest — same ran/didn't-run contrast as light, inverted.
+const DARK_SCALE = ['#0e0e0d', '#33332f', '#666660', '#abaaa3', '#ffffff']
 
 // Track the OS/browser color scheme so the calendar ramp can follow it. The app
 // itself has no theme toggle; dark mode arrives via prefers-color-scheme (OS or
