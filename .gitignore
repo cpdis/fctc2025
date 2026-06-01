@@ -35,3 +35,4 @@ npm-debug.log*
 
 # Local review screenshots (generated ad hoc against the dev server)
 .playwright-mcp/alltime-*.png
+.playwright-mcp/calendar-*.png
