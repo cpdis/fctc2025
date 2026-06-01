@@ -76,16 +76,23 @@ jobs:
       - name: Commit + push if changed
         run: |
           DEST="public/data/${CURRENT_YEAR}.csv"
+          STAMP="public/data/last-updated.json"
           # No change -> exit 0 without committing. This is the common case and
           # MUST NOT create an empty commit (which would trigger a pointless deploy).
           if git diff --quiet -- "$DEST"; then
             echo "No change in ${DEST}; nothing to commit."
             exit 0
           fi
+          # The data actually changed, so stamp the moment of update (UTC, ISO 8601)
+          # and commit it alongside the CSV. The app reads this file to show a
+          # "Last updated" line. Writing it ONLY inside this changed branch keeps
+          # the timestamp truthful (it tracks real data changes, not every run) and
+          # preserves the no-op-run = no-commit = no-deploy contract above.
+          printf '{\n  "updatedAt": "%s"\n}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STAMP"
           # Bot identity for the commit. Pushing with the default GITHUB_TOKEN;
           # Vercel's GitHub integration deploys automatically on this push.
           git config user.name "fctc-data-bot"
           git config user.email "fctc-data-bot@users.noreply.github.com"
-          git add "$DEST"
+          git add "$DEST" "$STAMP"
           git commit -m "chore(data): weekly sync of ${CURRENT_YEAR} season from Google Sheet"
           git push

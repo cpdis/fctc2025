@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useSearchParams } from 'react-router-dom'
 import Header from '../components/Layout/Header'
@@ -35,6 +35,25 @@ export default function Dashboard({ data }) {
   // Header switcher writes to.
   const [searchParams] = useSearchParams()
   const selectedYear = resolveYear(searchParams.get('year'))
+
+  // "Last updated" timestamp, stamped by the weekly data-sync GitHub Action
+  // whenever it commits fresh data (see .github/workflows/weekly-data-sync.yml).
+  // Rendered in the viewer's local timezone. Fetched best-effort: if the file is
+  // missing or malformed we simply omit the line rather than break the footer.
+  const [lastUpdated, setLastUpdated] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch('/data/last-updated.json')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const ts = json?.updatedAt ? new Date(json.updatedAt) : null
+        if (!cancelled && ts && !Number.isNaN(ts.getTime())) setLastUpdated(ts)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [filters, setFilters] = useState({
     runType: 'all',
@@ -166,6 +185,15 @@ export default function Dashboard({ data }) {
         <div className="max-w-7xl mx-auto px-4 text-center text-sm text-ink-muted">
           <p>Filament Coffee Track Club, {selectedYear} Season</p>
           <p className="mt-1">Keep running, keep caffeinating</p>
+          {lastUpdated && (
+            <p className="mt-2 text-xs tabular-nums">
+              Last updated{' '}
+              {lastUpdated.toLocaleString(undefined, {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}
+            </p>
+          )}
         </div>
       </footer>
     </div>
