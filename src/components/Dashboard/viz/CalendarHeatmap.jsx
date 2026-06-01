@@ -79,9 +79,38 @@ export function buildCalendarData(frequency, year, today = new Date()) {
   return out
 }
 
-// Monochrome → accent ramp (5 stops, level 0..4). Empty days are the card-grey
-// border tone; busier days lift toward the dark ink accent.
-const COLOR_SCALE = ['#ededea', '#cfcfc9', '#a8a8a2', '#5a5a55', dashboardColors.ink]
+// Monochrome ramps (5 stops, level 0..4). The ramp runs from the card
+// background (empty days, level 0) up to a high-contrast tone (busiest, level
+// 4), so the SAME ramp can't serve both themes: on a light card empty days are
+// white lifting to dark ink; on a dark card that inverts — empty days are a near
+// -black grey lifting to near-white. Picking by color scheme keeps the cells
+// legible in both. Level 0 sits at the card colour so run days read as marks ON
+// the card (no-run days blend in), and the first run-level steps hard away from
+// it for clear contrast between "ran" and "didn't".
+const LIGHT_SCALE = ['#ffffff', '#cfcfc9', '#9c9c95', '#54544f', dashboardColors.ink]
+// Dark mirror of the light ramp: empty days sit at the (near-black) card colour
+// so no-run days blend in, then step hard into greys lifting to pure white for
+// the busiest — same ran/didn't-run contrast as light, inverted.
+const DARK_SCALE = ['#0e0e0d', '#33332f', '#666660', '#abaaa3', '#ffffff']
+
+// Track the OS/browser color scheme so the calendar ramp can follow it. The app
+// itself has no theme toggle; dark mode arrives via prefers-color-scheme (OS or
+// browser auto-darkening), which is exactly what this media query reports.
+function usePrefersDark() {
+  const getMatch = () =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : false
+  const [dark, setDark] = useState(getMatch)
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const onChange = (e) => setDark(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return dark
+}
 
 const BLOCK_MARGIN = 3
 // Weekday labels are hidden, so the calendar needs no left gutter — let the
@@ -101,8 +130,9 @@ const LABEL_GUTTER = 2
  * @param {Array<{date,count}>} frequency  full run-frequency series
  * @param {number} year                     the year to render
  * @param {boolean} [showYearLabel]         prefix the row with the year (all-time)
+ * @param {'light'|'dark'} colorScheme      which ramp to render
  */
-function YearCalendar({ frequency, year, showYearLabel = false }) {
+function YearCalendar({ frequency, year, showYearLabel = false, colorScheme = 'light' }) {
   const calendarData = buildCalendarData(frequency, year)
 
   // This year's total attendance (frequency is keyed YYYY-MM-DD).
@@ -145,8 +175,8 @@ function YearCalendar({ frequency, year, showYearLabel = false }) {
       <div ref={wrapRef} className="overflow-x-auto">
         <ActivityCalendar
           data={calendarData}
-          theme={{ light: COLOR_SCALE, dark: COLOR_SCALE }}
-          colorScheme="light"
+          theme={{ light: LIGHT_SCALE, dark: DARK_SCALE }}
+          colorScheme={colorScheme}
           blockSize={blockSize}
           blockMargin={BLOCK_MARGIN}
           fontSize={12}
@@ -181,6 +211,10 @@ export default function CalendarHeatmap({ data, year }) {
   const multiYear = years.length > 1
   const subtitle = multiYear ? 'daily attendance, all time' : `daily attendance, ${years[0]}`
 
+  // Pick the ramp to match the OS/browser color scheme so cells stay legible in
+  // dark mode. Computed once here and passed to every stacked YearCalendar.
+  const colorScheme = usePrefersDark() ? 'dark' : 'light'
+
   return (
     <div className="card-clean p-6">
       <div className="flex items-baseline justify-between mb-4">
@@ -193,7 +227,13 @@ export default function CalendarHeatmap({ data, year }) {
       ) : (
         <div className="space-y-4">
           {years.map((y) => (
-            <YearCalendar key={y} frequency={frequency} year={y} showYearLabel={multiYear} />
+            <YearCalendar
+              key={y}
+              frequency={frequency}
+              year={y}
+              showYearLabel={multiYear}
+              colorScheme={colorScheme}
+            />
           ))}
         </div>
       )}
