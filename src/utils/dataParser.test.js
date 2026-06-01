@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseRunData } from './dataParser'
+import { parseRunData, combineYearData } from './dataParser'
 
 // Read fixtures relative to this test file so it works regardless of cwd.
 const fixtureDir = join(import.meta.dirname, '..', 'test', 'fixtures')
@@ -64,6 +64,64 @@ describe('parseRunData - year handling', () => {
     for (const run of dated2026) {
       expect(run.parsedDate.getFullYear()).toBe(2026)
     }
+  })
+})
+
+describe('combineYearData - all time', () => {
+  const all = combineYearData([data2026, data2025])
+
+  it('returns the single dataset unchanged when given one year', () => {
+    expect(combineYearData([data2025])).toBe(data2025)
+  })
+
+  it('handles empty input without throwing', () => {
+    const empty = combineYearData([])
+    expect(empty.runs).toEqual([])
+    expect(empty.totalRuns).toBe(0)
+    expect(empty.avgAttendance).toBe(0)
+  })
+
+  it('concatenates every run across years', () => {
+    expect(all.runs.length).toBe(data2025.runs.length + data2026.runs.length)
+    expect(all.totalRuns).toBe(data2025.totalRuns + data2026.totalRuns)
+  })
+
+  it('unions members without duplicates (Alex 👑 is in both years, once combined)', () => {
+    const union = new Set([...data2025.members, ...data2026.members])
+    expect(all.members.length).toBe(union.size)
+    expect(all.members.filter((m) => m === 'Alex 👑')).toHaveLength(1)
+  })
+
+  it('sums per-member totals across years for a member who ran in both', () => {
+    const name = data2025.members.find(
+      (m) =>
+        data2026.members.includes(m) &&
+        data2025.memberTotals[m].totalRuns > 0 &&
+        data2026.memberTotals[m].totalRuns > 0
+    )
+    expect(name).toBeTruthy()
+    expect(all.memberTotals[name].totalRuns).toBe(
+      data2025.memberTotals[name].totalRuns + data2026.memberTotals[name].totalRuns
+    )
+    expect(all.memberTotals[name].totalKm).toBeCloseTo(
+      data2025.memberTotals[name].totalKm + data2026.memberTotals[name].totalKm,
+      5
+    )
+  })
+
+  it('club totals are the sum of each year', () => {
+    expect(all.totalClubKm).toBeCloseTo(data2025.totalClubKm + data2026.totalClubKm, 5)
+    expect(all.totalAttendanceInstances).toBe(
+      data2025.totalAttendanceInstances + data2026.totalAttendanceInstances
+    )
+  })
+
+  it('preserves each run year on its own parsedDate', () => {
+    const years = new Set(
+      all.runs.filter((r) => r.parsedDate).map((r) => r.parsedDate.getFullYear())
+    )
+    expect(years.has(2025)).toBe(true)
+    expect(years.has(2026)).toBe(true)
   })
 })
 

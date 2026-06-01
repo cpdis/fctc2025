@@ -3,22 +3,36 @@ import { useState, useEffect } from 'react'
 import Dashboard from './pages/Dashboard'
 import Wrapped from './pages/Wrapped'
 import RunDetail from './pages/RunDetail'
-import { parseRunData } from './utils/dataParser'
-import { YEARS, resolveYear } from './config/years'
+import { parseRunData, combineYearData } from './utils/dataParser'
+import { YEARS, YEAR_LIST, resolveYear, isAllTime } from './config/years'
 
 // The 2025 Wrapped retrospective is pinned to 2025 forever, regardless of which
 // year the dashboard is currently viewing. The Dashboard/RunDetail routes follow
 // the selected year instead (see the ?year contract below).
 const WRAPPED_YEAR = 2025
 
+// Fetch one year's CSV and parse it. Rejects with a descriptive error on a
+// non-OK HTTP response (fetch itself only rejects on network failures).
+function loadYear(year) {
+  return fetch(YEARS[year])
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Failed to load ${year} data (HTTP ${response.status})`)
+      }
+      return response.text()
+    })
+    .then((csv) => parseRunData(csv, year))
+}
+
 /**
- * Load + parse a single year's attendance CSV.
+ * Load + parse one year's attendance CSV — or, for the ALL_TIME selection,
+ * load every year and merge them into one combined dataset (combineYearData).
  *
- * Each year is fetched independently so the Dashboard (selected year) and the
- * Wrapped routes (always 2025) can hold separate data without stepping on each
- * other. Re-fetches whenever `year` changes.
+ * Each selection is fetched independently so the Dashboard (selected year) and
+ * the Wrapped routes (always 2025) can hold separate data without stepping on
+ * each other. Re-fetches whenever `year` changes.
  *
- * @param {number} year - a key in YEARS
+ * @param {number|'all'} year - a key in YEARS, or the ALL_TIME sentinel
  * @returns {{ data: object|null, loading: boolean, error: string|null }}
  */
 function useYearData(year) {
@@ -31,18 +45,16 @@ function useYearData(year) {
     setLoading(true)
     setError(null)
 
-    fetch(YEARS[year])
-      .then((response) => {
-        // fetch only rejects on network errors, not HTTP errors (e.g. a 404 for
-        // a missing per-year CSV), so surface those explicitly.
-        if (!response.ok) {
-          throw new Error(`Failed to load ${year} data (HTTP ${response.status})`)
-        }
-        return response.text()
-      })
-      .then((csv) => {
+    // All time = every year fetched in parallel, then merged. A single year is
+    // just that one fetch. Either way we end with one parsed dataset.
+    const work = isAllTime(year)
+      ? Promise.all(YEAR_LIST.map(loadYear)).then(combineYearData)
+      : loadYear(year)
+
+    work
+      .then((parsed) => {
         if (cancelled) return
-        setData(parseRunData(csv, year))
+        setData(parsed)
         setLoading(false)
       })
       .catch((err) => {
@@ -51,7 +63,7 @@ function useYearData(year) {
         setLoading(false)
       })
 
-    // Avoid setting state for a stale year if the selection changed mid-flight.
+    // Avoid setting state for a stale selection if it changed mid-flight.
     return () => {
       cancelled = true
     }

@@ -124,13 +124,29 @@ export function parseRunData(csvText, year) {
     })
   }
 
+  // Roll the parsed rows + per-member totals up into the dashboard shape. Kept
+  // as a separate step so combineYearData() can reuse the EXACT same aggregation
+  // over merged rows — there is one source of truth for every derived stat.
+  return aggregate({ runs: runData, members, memberTotals })
+}
+
+/**
+ * Roll parsed rows and per-member totals up into the full dashboard dataset.
+ *
+ * Every derived figure (club totals, leaderboards, runs-by-type/location/month,
+ * averages) is computed here from `runs` + `memberTotals` so parseRunData (one
+ * year) and combineYearData (all years merged) produce an identical shape.
+ *
+ * @param {{ runs: Array, members: string[], memberTotals: Object }} parsed
+ */
+function aggregate({ runs, members, memberTotals }) {
   // --- Club-wide totals, all computed from the data above. ---
   const totalClubKm = Object.values(memberTotals).reduce((sum, m) => sum + m.totalKm, 0)
   const totalAttendanceInstances = Object.values(memberTotals).reduce((sum, m) => sum + m.totalRuns, 0)
 
   // Runs by type.
   const runsByType = {}
-  runData.forEach((run) => {
+  runs.forEach((run) => {
     const type = normalizeRunType(run.runType)
     if (!runsByType[type]) {
       runsByType[type] = { count: 0, totalKm: 0, totalAttendance: 0 }
@@ -142,7 +158,7 @@ export function parseRunData(csvText, year) {
 
   // Runs by location.
   const runsByLocation = {}
-  runData.forEach((run) => {
+  runs.forEach((run) => {
     if (!runsByLocation[run.meet]) {
       runsByLocation[run.meet] = { count: 0, totalKm: 0, totalAttendance: 0 }
     }
@@ -153,7 +169,7 @@ export function parseRunData(csvText, year) {
 
   // Runs by month.
   const runsByMonth = {}
-  runData.forEach((run) => {
+  runs.forEach((run) => {
     if (!run.parsedDate) return
     const month = run.parsedDate.toLocaleString('default', { month: 'short' })
     if (!runsByMonth[month]) {
@@ -174,19 +190,66 @@ export function parseRunData(csvText, year) {
     .sort((a, b) => b.totalKm - a.totalKm)
 
   return {
-    runs: runData,
+    runs,
     members,
     memberTotals,
     leaderboard,
     distanceLeaderboard,
-    totalRuns: runData.length,
+    totalRuns: runs.length,
     totalClubKm,
     totalAttendanceInstances,
     runsByType,
     runsByLocation,
     runsByMonth,
-    avgAttendance: runData.length > 0 ? totalAttendanceInstances / runData.length : 0,
+    avgAttendance: runs.length > 0 ? totalAttendanceInstances / runs.length : 0,
   }
+}
+
+/**
+ * Combine several parsed-year datasets into one "all time" dataset.
+ *
+ * Merges by:
+ *  - runs:        concatenated (each run already carries its own dated
+ *                 parsedDate, so chronology across years is preserved without
+ *                 any re-dating). The weekday prefix in each run's `date` string
+ *                 ("Fri, 3-Jan") keeps same-day-different-year rows distinct.
+ *  - members:     union, preserving first-seen order (a member who joined in a
+ *                 later season still appears once).
+ *  - memberTotals: summed per member across years (totalRuns / totalKm).
+ *
+ * Everything downstream (leaderboards, totals, by-type/location/month, averages)
+ * is then recomputed by aggregate(), so an all-time view is internally
+ * consistent with each single-year view.
+ *
+ * @param {Array<ReturnType<typeof parseRunData>>} datasets
+ */
+export function combineYearData(datasets) {
+  const present = (datasets ?? []).filter(Boolean)
+  if (present.length === 0) return aggregate({ runs: [], members: [], memberTotals: {} })
+  if (present.length === 1) return present[0]
+
+  const members = []
+  const seen = new Set()
+  const memberTotals = {}
+  const runs = []
+
+  for (const data of present) {
+    for (const run of data.runs ?? []) runs.push(run)
+    for (const name of data.members ?? []) {
+      if (!seen.has(name)) {
+        seen.add(name)
+        members.push(name)
+      }
+      const yearTotals = data.memberTotals?.[name]
+      if (!memberTotals[name]) memberTotals[name] = { name, totalKm: 0, totalRuns: 0 }
+      if (yearTotals) {
+        memberTotals[name].totalKm += yearTotals.totalKm || 0
+        memberTotals[name].totalRuns += yearTotals.totalRuns || 0
+      }
+    }
+  }
+
+  return aggregate({ runs, members, memberTotals })
 }
 
 function normalizeRunType(type) {
