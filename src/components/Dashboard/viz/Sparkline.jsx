@@ -1,4 +1,4 @@
-import { dashboardColors } from '../../../utils/theme'
+import { useThemeColors } from '../../../utils/useThemeColors'
 
 /**
  * Sparkline — a tiny, word-sized SVG line chart with no axes or labels.
@@ -20,11 +20,13 @@ export default function Sparkline({
   data = [],
   width = 120,
   height = 28,
-  color = dashboardColors.ink,
+  color,
   strokeWidth = 1.5,
   lastDot = true,
   ariaLabel = 'Sparkline',
 }) {
+  const { colors } = useThemeColors()
+  const stroke = color ?? colors.ink // default: primary ink for the active scheme
   const pad = strokeWidth + 1 // keep the stroke + dot from clipping at the edges
   const innerW = width - pad * 2
   const innerH = height - pad * 2
@@ -60,7 +62,7 @@ export default function Sparkline({
           data-testid="sparkline-line"
           points={pointsAttr}
           fill="none"
-          stroke={color}
+          stroke={stroke}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -73,7 +75,7 @@ export default function Sparkline({
           cx={last[0]}
           cy={last[1]}
           r={strokeWidth + 0.5}
-          fill={color}
+          fill={stroke}
         />
       )}
     </svg>

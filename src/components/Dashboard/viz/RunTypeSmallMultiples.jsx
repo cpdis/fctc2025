@@ -1,6 +1,6 @@
-import { dashboardColors } from '../../../utils/theme'
 import { runTypeMonthlyCounts } from '../../../utils/dashboardMetrics'
 import { getRunTypeDisplayName } from '../../../utils/theme'
+import { useThemeColors } from '../../../utils/useThemeColors'
 
 /**
  * RunTypeSmallMultiples — a grid of tiny per-run-type monthly bar charts.
@@ -20,6 +20,7 @@ import { getRunTypeDisplayName } from '../../../utils/theme'
 const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
 
 function MiniBars({ monthly, globalMax, label }) {
+  const { colors } = useThemeColors()
   const W = 120
   const H = 40
   const n = monthly.length
@@ -51,7 +52,7 @@ function MiniBars({ monthly, globalMax, label }) {
             height={h}
             // Empty months still get a faint baseline tick so the panel reads as
             // a full Jan..Dec axis, not a truncated series.
-            fill={v > 0 ? dashboardColors.ink : dashboardColors.border}
+            fill={v > 0 ? colors.ink : colors.border}
             rx={0.5}
           />
         )

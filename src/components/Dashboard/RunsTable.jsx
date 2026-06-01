@@ -1,12 +1,15 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getRunTypeDisplayName, dataColors } from '../../utils/theme'
+import { getRunTypeDisplayName } from '../../utils/theme'
 import { runTypeColorMap, tint } from '../../utils/runTypeColors'
+import { usePrefersDark } from '../../utils/useThemeColors'
 
 export default function RunsTable({ runs, allRuns, runsByType = {} }) {
   const navigate = useNavigate()
-  // Badge tints match the Run Type Distribution donut (same color per type).
-  const typeColors = useMemo(() => runTypeColorMap(runsByType), [runsByType])
+  const isDark = usePrefersDark()
+  // Badge tints match the Run Type Distribution donut (same color per type, in
+  // the active scheme).
+  const typeColors = useMemo(() => runTypeColorMap(runsByType, isDark), [runsByType, isDark])
   const [sortConfig, setSortConfig] = useState({ key: 'parsedDate', direction: 'desc' })
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -157,10 +160,9 @@ export default function RunsTable({ runs, allRuns, runsByType = {} }) {
                     <span className="text-sm font-semibold text-ink w-5 sm:w-6 tabular-nums">{run.totalAttendance}</span>
                     <div className="w-14 sm:w-20 h-1.5 rounded-full overflow-hidden bg-border">
                       <div
-                        className="h-full rounded-full"
+                        className="h-full rounded-full bg-accent"
                         style={{
                           width: `${Math.min((run.totalAttendance / 20) * 100, 100)}%`,
-                          background: dataColors[0]
                         }}
                       />
                     </div>

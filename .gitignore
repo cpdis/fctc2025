@@ -33,6 +33,12 @@ npm-debug.log*
 # Vercel
 .vercel
 
-# Local review screenshots (generated ad hoc against the dev server)
+# Local review screenshots (generated ad hoc against the dev server).
+# Existing committed PNGs stay tracked; new throwaway captures are ignored.
 .playwright-mcp/alltime-*.png
 .playwright-mcp/calendar-*.png
+.playwright-mcp/dk-*.png
+.playwright-mcp/dk2-*.png
+.playwright-mcp/dk3-*.png
+.playwright-mcp/lt-*.png
+.playwright-mcp/theme-*.png

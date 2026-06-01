@@ -1,4 +1,4 @@
-import { dashboardColors, dataColors } from '../../../utils/theme'
+import { useThemeColors } from '../../../utils/useThemeColors'
 
 /**
  * DotPlot — Cleveland dot plot. One horizontal row per item with a single dot
@@ -20,11 +20,13 @@ export default function DotPlot({
   width = 320,
   rowHeight = 28,
   max,
-  color = dataColors[1],
+  color,
   format = (n) => String(n),
   labelWidth = 90,
   ariaLabel = 'Dot plot',
 }) {
+  const { colors, data: palette } = useThemeColors()
+  const dotColor = color ?? palette[1] // default: the saturated accent
   const rows = Array.isArray(data) ? data : []
   const padTop = 8
   const padBottom = 8
@@ -63,7 +65,7 @@ export default function DotPlot({
               y1={y}
               x2={cx}
               y2={y}
-              stroke={dashboardColors.border}
+              stroke={colors.border}
               strokeWidth={1}
             />
             <text
@@ -72,7 +74,7 @@ export default function DotPlot({
               textAnchor="end"
               dominantBaseline="middle"
               fontSize="11"
-              fill={dashboardColors.inkMuted}
+              fill={colors.inkMuted}
             >
               {d.label}
             </text>
@@ -81,7 +83,7 @@ export default function DotPlot({
               cx={cx}
               cy={y}
               r={4}
-              fill={color}
+              fill={dotColor}
             />
             <text
               x={cx + 8}
@@ -89,7 +91,7 @@ export default function DotPlot({
               textAnchor="start"
               dominantBaseline="middle"
               fontSize="11"
-              fill={dashboardColors.ink}
+              fill={colors.ink}
             >
               {format(d.value)}
             </text>

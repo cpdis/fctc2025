@@ -44,6 +44,11 @@
 /* Base Styles */
 html {
   scroll-behavior: smooth;
+  /* Declare that we support both schemes and render them ourselves. This stops
+     browsers from "auto-darkening" a light-only page (which they each do
+     differently and inconsistently) and makes prefers-color-scheme authoritative
+     for the dashboard's real dark theme below. */
+  color-scheme: light dark;
 }
 
 body {
@@ -304,4 +309,43 @@ body {
 
 .gradient-cream {
   background: linear-gradient(135deg, var(--color-cream) 0%, var(--color-latte) 100%);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Dark theme (dashboard)
+
+   Driven by the OS/browser setting (prefers-color-scheme: dark). Tailwind v4
+   utilities reference the --color-* tokens at runtime, so overriding the
+   dashboard tokens here re-themes every surface that uses bg-card / text-ink /
+   border-border / bg-accent etc. — no per-component changes needed for the
+   chrome. Chart and hand-rolled-SVG colors can't read CSS vars from their
+   attributes, so they mirror these values from JS via theme.js
+   (dashboardColorsDark / dataColorsDark) + the useThemeColors() hook. KEEP THE
+   TWO IN SYNC.
+
+   The Wrapped experience keeps its own warm palette (it doesn't use these
+   tokens), so it is intentionally unaffected.
+   ───────────────────────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface: #0e0e0d;
+    --color-card: #1a1a18;
+    --color-border: #2e2e2b;
+    --color-ink: #ededea;
+    --color-ink-muted: #9a9a92;
+    --color-accent: #ededea;
+  }
+
+  /* Dark base so iOS overscroll / gutters behind the dashboard read dark. */
+  body {
+    background-color: var(--color-surface);
+  }
+
+  /* Lift the clean-card shadow off pure-dark (the light rgba shadow vanishes on
+     a dark surface); a hairline-darker ring reads as separation instead. */
+  .card-clean {
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.5),
+      0 2px 8px rgba(0, 0, 0, 0.35);
+  }
 }

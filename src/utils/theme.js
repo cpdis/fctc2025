@@ -106,6 +106,39 @@ export const dataColors = [
 // Neutral grey for context series (e.g. "rest of the field" behind a highlight).
 export const dataColorMuted = '#cfcfc9'
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Dark-theme variants. The dashboard supports an explicit dark theme driven by
+// the OS setting (prefers-color-scheme: dark). CSS surfaces flip via overridden
+// --color-* variables in index.css; the chart/SVG colors below are the JS-side
+// mirror of that flip (recharts/hand-rolled SVG read concrete hex, not CSS vars,
+// so they can't follow the media query on their own). Keep these in sync with
+// the @media (prefers-color-scheme: dark) block in index.css. Selected by the
+// useThemeColors() hook.
+// ─────────────────────────────────────────────────────────────────────────────
+export const dashboardColorsDark = {
+  bg: '#0e0e0d',
+  surface: '#0e0e0d',
+  card: '#1a1a18',
+  border: '#2e2e2b',
+  ink: '#ededea',       // primary text / strongest data-ink (light on dark)
+  inkMuted: '#9a9a92',  // secondary text, axis labels, captions
+  accent: '#ededea',    // active controls invert to light
+  accentSoft: '#cfcfca',
+}
+
+// Dark mirror of dataColors: index 0 is the brightest (primary series), the rest
+// recede into dimmer greys; the saturated accent brightens a touch for contrast
+// against the dark card.
+export const dataColorsDark = [
+  '#ededea', // primary series (brightest data-ink on dark)
+  '#f97316', // orange accent — brightened for the dark card
+  '#9a9a92', // mid grey — secondary series
+  '#6e6e68', // dim grey
+  '#4e4e4a', // dimmest grey — context / background series
+]
+
+export const dataColorMutedDark = '#4e4e4a'
+
 // Gradient definitions for wrapped slides
 export const gradients = {
   pink: 'linear-gradient(135deg, #d75b77 0%, #fa688e 100%)',

@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import Header from '../components/Layout/Header'
-import { getRunTypeDisplayName, dataColors } from '../utils/theme'
+import { getRunTypeDisplayName } from '../utils/theme'
 
 export default function RunDetail({ data }) {
   const { runId } = useParams()
@@ -91,8 +91,7 @@ export default function RunDetail({ data }) {
                   className="flex items-center gap-3 p-3 bg-surface rounded-lg border border-border"
                 >
                   <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-card font-semibold text-sm flex-shrink-0"
-                    style={{ background: dataColors[0] }}
+                    className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-card font-semibold text-sm flex-shrink-0"
                   >
                     {name.charAt(0).toUpperCase()}
                   </div>

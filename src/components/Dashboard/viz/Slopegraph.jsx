@@ -1,4 +1,4 @@
-import { dashboardColors, dataColors, dataColorMuted } from '../../../utils/theme'
+import { useThemeColors } from '../../../utils/useThemeColors'
 
 /**
  * Slopegraph — Tufte's two-column before/after chart.
@@ -26,6 +26,7 @@ export default function Slopegraph({
   format = (n) => String(n),
   ariaLabel = 'Slopegraph',
 }) {
+  const { colors, data: palette, dataMuted } = useThemeColors()
   const padY = 28 // room for column titles up top + breathing room at bottom
   // Push the two columns toward the edges so the slopes have room to read. The
   // left gutter holds longer "name value" labels; the right only holds a short
@@ -89,7 +90,7 @@ export default function Slopegraph({
 
       {/* Column headers */}
       {(leftTitle || rightTitle) && (
-        <g fontSize="11" fill={dashboardColors.inkMuted}>
+        <g fontSize="11" fill={colors.inkMuted}>
           <text x={xLeft} y={14} textAnchor="middle">
             {leftTitle}
           </text>
@@ -105,7 +106,7 @@ export default function Slopegraph({
         const ly1 = leftLabelY[i]
         const ly2 = rightLabelY[i]
         // Rising series get the accent; everything else recedes to grey.
-        const color = d.right > d.left ? dataColors[1] : dataColorMuted
+        const color = d.right > d.left ? palette[1] : dataMuted
 
         return (
           <g key={d.label ?? i}>
@@ -129,7 +130,7 @@ export default function Slopegraph({
               textAnchor="end"
               dominantBaseline="middle"
               fontSize="11"
-              fill={dashboardColors.ink}
+              fill={colors.ink}
             >
               {d.label} {format(d.left)}
             </text>
@@ -139,7 +140,7 @@ export default function Slopegraph({
               textAnchor="start"
               dominantBaseline="middle"
               fontSize="11"
-              fill={dashboardColors.ink}
+              fill={colors.ink}
             >
               {format(d.right)}
             </text>

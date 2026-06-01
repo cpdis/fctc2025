@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ActivityCalendar } from 'react-activity-calendar'
 import { dashboardColors } from '../../../utils/theme'
 import { runFrequencyByDate } from '../../../utils/dashboardMetrics'
+import { usePrefersDark } from '../../../utils/useThemeColors'
 
 /**
  * CalendarHeatmap — GitHub-style run-frequency heatmap.
@@ -92,25 +93,6 @@ const LIGHT_SCALE = ['#ffffff', '#cfcfc9', '#9c9c95', '#54544f', dashboardColors
 // so no-run days blend in, then step hard into greys lifting to pure white for
 // the busiest — same ran/didn't-run contrast as light, inverted.
 const DARK_SCALE = ['#0e0e0d', '#33332f', '#666660', '#abaaa3', '#ffffff']
-
-// Track the OS/browser color scheme so the calendar ramp can follow it. The app
-// itself has no theme toggle; dark mode arrives via prefers-color-scheme (OS or
-// browser auto-darkening), which is exactly what this media query reports.
-function usePrefersDark() {
-  const getMatch = () =>
-    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      ? window.matchMedia('(prefers-color-scheme: dark)').matches
-      : false
-  const [dark, setDark] = useState(getMatch)
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = (e) => setDark(e.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return dark
-}
 
 const BLOCK_MARGIN = 3
 // Weekday labels are hidden, so the calendar needs no left gutter — let the

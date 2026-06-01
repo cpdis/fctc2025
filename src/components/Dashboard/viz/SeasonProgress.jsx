@@ -8,15 +8,7 @@ import {
   ResponsiveContainer,
   LabelList,
 } from 'recharts'
-import {
-  palette,
-  axisProps,
-  gridProps,
-  tooltipContentStyle,
-  tooltipLabelStyle,
-  tooltipItemStyle,
-  tooltipCursor,
-} from '../../../utils/chartConfig'
+import { useChartTheme } from '../../../utils/chartConfig'
 import { cumulativeSeries } from '../../../utils/dashboardMetrics'
 
 /**
@@ -35,6 +27,8 @@ import { cumulativeSeries } from '../../../utils/dashboardMetrics'
  * @param {Object} data - full parseRunData output (uses data.runs)
  */
 export default function SeasonProgress({ data }) {
+  const { palette, axisProps, gridProps, tooltipContentStyle, tooltipLabelStyle, tooltipItemStyle, tooltipCursor } =
+    useChartTheme()
   const series = cumulativeSeries(data?.runs ?? [])
 
   // Plot against real time (not run index) so the curve's horizontal spacing
