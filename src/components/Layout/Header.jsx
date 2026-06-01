@@ -1,21 +1,25 @@
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { YEAR_LIST, LATEST_YEAR, resolveYear } from '../../config/years'
+import { YEAR_OPTIONS, resolveYear, isAllTime } from '../../config/years'
 
 // Clean, minimal dashboard header.
 //
 // Layout: logo + club name on the left, nav (Dashboard | 2025 Wrapped) and the
-// year switcher on the right. The switcher is a segmented pill group that writes
-// the selected year into the URL (?year=YYYY); App.jsx reads it back via
-// useSearchParams. Active controls use the single dark ink accent, everything
-// else is muted grey on a white surface.
+// year switcher on the right. The switcher is a dropdown (years + "All time")
+// that writes the selection into the URL (?year=YYYY or ?year=all); App.jsx
+// reads it back via useSearchParams. Active controls use the single dark ink
+// accent, everything else is muted grey on a white surface.
 export default function Header() {
   const location = useLocation()
   const isWrapped = location.pathname.startsWith('/wrapped') ||
     location.pathname.startsWith('/2025wrapped')
 
-  // Read the current year from the URL (defaults to the latest valid year).
+  // Read the current selection from the URL (defaults to the latest valid year).
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedYear = resolveYear(searchParams.get('year'))
+
+  // Sub-label under the club name: "All Time" for the combined view, otherwise
+  // "<year> Season".
+  const seasonLabel = isAllTime(selectedYear) ? 'All Time' : `${selectedYear} Season`
 
   // Set ?year while preserving any other query params already in the URL.
   const selectYear = (year) => {
@@ -42,32 +46,40 @@ export default function Header() {
                 <span className="sm:hidden">FCTC</span>
                 <span className="hidden sm:inline">Filament Coffee Track Club</span>
               </h1>
-              <p className="text-xs text-ink-muted">{selectedYear} Season</p>
+              <p className="text-xs text-ink-muted">{seasonLabel}</p>
             </div>
           </Link>
 
           {/* On mobile this row spreads full width (switcher left, nav right);
               from sm up it hugs the right edge next to the logo. */}
           <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-5">
-            {/* Year switcher */}
-            <div className="flex items-center rounded-full border border-border p-0.5">
-              {YEAR_LIST.map((year) => {
-                const active = year === selectedYear
-                return (
-                  <button
-                    key={year}
-                    onClick={() => selectYear(year)}
-                    aria-pressed={active}
-                    className={`px-3 py-1 rounded-full text-sm font-medium tabular-nums transition-colors ${
-                      active
-                        ? 'bg-accent text-card'
-                        : 'text-ink-muted hover:text-ink'
-                    }`}
-                  >
-                    {year}
-                  </button>
-                )
-              })}
+            {/* Year switcher — a dropdown so "All time" fits alongside the
+                individual seasons without crowding the pill row. A native
+                <select> keeps it keyboard- and screen-reader-friendly; we just
+                restyle the chrome (custom chevron, rounded border) to match. */}
+            <div className="relative">
+              <select
+                value={String(selectedYear)}
+                onChange={(e) => selectYear(e.target.value)}
+                aria-label="Select season"
+                className="appearance-none rounded-full border border-border bg-card pl-3 pr-8 py-1 text-sm font-medium tabular-nums text-ink hover:border-ink-muted focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer"
+              >
+                {YEAR_OPTIONS.map((opt) => (
+                  <option key={String(opt.value)} value={String(opt.value)}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              {/* Chevron, pointer-events-none so clicks fall through to the select. */}
+              <svg
+                className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
             </div>
 
             {/* Nav */}

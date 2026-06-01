@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useSearchParams } from 'react-router-dom'
 import Header from '../components/Layout/Header'
@@ -14,7 +14,7 @@ import CalendarHeatmap from '../components/Dashboard/viz/CalendarHeatmap'
 import HalfSeasonSlopegraph from '../components/Dashboard/viz/HalfSeasonSlopegraph'
 import RunTypeSmallMultiples from '../components/Dashboard/viz/RunTypeSmallMultiples'
 import { getRunTypeDisplayName } from '../utils/theme'
-import { resolveYear } from '../config/years'
+import { resolveYear, isAllTime } from '../config/years'
 
 // One restrained staggered reveal for the whole page: a single subtle
 // fade + small upward translate per section, children offset by a small delay.
@@ -31,10 +31,30 @@ const item = {
 }
 
 export default function Dashboard({ data }) {
-  // The footer season label follows the selected year (?year), same source the
-  // Header switcher writes to.
+  // The footer label follows the selected year (?year), same source the Header
+  // switcher writes to. "All Time" for the combined view, else "<year> Season".
   const [searchParams] = useSearchParams()
   const selectedYear = resolveYear(searchParams.get('year'))
+  const seasonLabel = isAllTime(selectedYear) ? 'All Time' : `${selectedYear} Season`
+
+  // "Last updated" timestamp, stamped by the weekly data-sync GitHub Action
+  // whenever it commits fresh data (see .github/workflows/weekly-data-sync.yml).
+  // Rendered in the viewer's local timezone. Fetched best-effort: if the file is
+  // missing or malformed we simply omit the line rather than break the footer.
+  const [lastUpdated, setLastUpdated] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch('/data/last-updated.json')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const ts = json?.updatedAt ? new Date(json.updatedAt) : null
+        if (!cancelled && ts && !Number.isNaN(ts.getTime())) setLastUpdated(ts)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [filters, setFilters] = useState({
     runType: 'all',
@@ -164,8 +184,17 @@ export default function Dashboard({ data }) {
 
       <footer className="border-t border-border mt-12 py-6">
         <div className="max-w-7xl mx-auto px-4 text-center text-sm text-ink-muted">
-          <p>Filament Coffee Track Club, {selectedYear} Season</p>
+          <p>Filament Coffee Track Club, {seasonLabel}</p>
           <p className="mt-1">Keep running, keep caffeinating</p>
+          {lastUpdated && (
+            <p className="mt-2 text-xs tabular-nums">
+              Last updated{' '}
+              {lastUpdated.toLocaleString(undefined, {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}
+            </p>
+          )}
         </div>
       </footer>
     </div>

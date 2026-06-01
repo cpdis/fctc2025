@@ -89,19 +89,35 @@ const BLOCK_MARGIN = 3
 // the edge breathing room). A couple of px keeps the leftmost block off the edge.
 const LABEL_GUTTER = 2
 
-export default function CalendarHeatmap({ data, year }) {
-  const frequency = runFrequencyByDate(data?.runs ?? [])
-  const resolvedYear =
-    year ?? (frequency.length ? Number(frequency[0].date.slice(0, 4)) : new Date().getFullYear())
-  const calendarData = buildCalendarData(frequency, resolvedYear)
+/**
+ * One year's calendar grid. Split out so the all-time view can stack several
+ * (each with its own width measurement / block sizing).
+ *
+ * Receives the FULL frequency so the quartile shade thresholds are computed
+ * globally inside buildCalendarData — that keeps shades comparable across years
+ * in the stacked all-time view (a "busy" shade means the same thing in 2025 and
+ * 2026). Only this year's date range is actually rendered.
+ *
+ * @param {Array<{date,count}>} frequency  full run-frequency series
+ * @param {number} year                     the year to render
+ * @param {boolean} [showYearLabel]         prefix the row with the year (all-time)
+ */
+function YearCalendar({ frequency, year, showYearLabel = false }) {
+  const calendarData = buildCalendarData(frequency, year)
 
-  const totalAttendance = frequency.reduce((s, d) => s + d.count, 0)
+  // This year's total attendance (frequency is keyed YYYY-MM-DD).
+  const totalAttendance = frequency
+    .filter((d) => Number(d.date.slice(0, 4)) === year)
+    .reduce((s, d) => s + d.count, 0)
 
-  // Number of week-columns the calendar will render (weeks start Sunday). Used to
-  // size each block so the whole year spans the card width instead of hugging
-  // the left edge.
-  const startOffset = new Date(resolvedYear, 0, 1).getDay()
-  const columns = Math.max(1, Math.ceil((startOffset + calendarData.length) / 7))
+  // Block size is computed against a FULL year's worth of week-columns, not just
+  // the columns this year happens to render. That caps the cell size so a
+  // partial season (e.g. 2026 through May) uses the same small cells as a full
+  // year and simply stops partway across, instead of stretching its few weeks to
+  // fill the width — which made the stacked all-time grids mismatch. Weeks start
+  // Sunday; a year spans at most ceil((weekdayOfJan1 + daysInYear) / 7) columns.
+  const daysInYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365
+  const fullYearColumns = Math.ceil((new Date(year, 0, 1).getDay() + daysInYear) / 7)
 
   const wrapRef = useRef(null)
   const [blockSize, setBlockSize] = useState(12)
@@ -111,41 +127,74 @@ export default function CalendarHeatmap({ data, year }) {
     if (!el) return
     const measure = (width) => {
       if (!width) return
-      const size = Math.floor((width - LABEL_GUTTER) / columns) - BLOCK_MARGIN
+      const size = Math.floor((width - LABEL_GUTTER) / fullYearColumns) - BLOCK_MARGIN
       setBlockSize(Math.max(9, Math.min(40, size)))
     }
     const ro = new ResizeObserver((entries) => measure(entries[0].contentRect.width))
     ro.observe(el)
     measure(el.clientWidth)
     return () => ro.disconnect()
-  }, [columns])
+  }, [fullYearColumns])
+
+  return (
+    <div>
+      {showYearLabel && (
+        <div className="text-xs font-medium text-ink-muted mb-1 tabular-nums">{year}</div>
+      )}
+      {/* Blocks are sized to the measured width so the year fills the card. */}
+      <div ref={wrapRef} className="overflow-x-auto">
+        <ActivityCalendar
+          data={calendarData}
+          theme={{ light: COLOR_SCALE, dark: COLOR_SCALE }}
+          colorScheme="light"
+          blockSize={blockSize}
+          blockMargin={BLOCK_MARGIN}
+          fontSize={12}
+          maxLevel={4}
+          labels={{
+            totalCount: `${totalAttendance.toLocaleString()} total attendance in ${year}`,
+          }}
+          aria-label={`Run frequency calendar for ${year}`}
+          hideTotalCount={false}
+        />
+      </div>
+    </div>
+  )
+}
+
+export default function CalendarHeatmap({ data, year }) {
+  const frequency = runFrequencyByDate(data?.runs ?? [])
+
+  // Which year(s) to render. A numeric `year` → just that season. Otherwise
+  // ("all time", or an absent year) → one grid per distinct year present in the
+  // data, oldest first: a single contiguous calendar can't honestly span
+  // multiple years, so we stack a grid per season instead.
+  const numericYear = Number(year)
+  const years = Number.isFinite(numericYear)
+    ? [numericYear]
+    : (() => {
+        const distinct = [...new Set(frequency.map((d) => Number(d.date.slice(0, 4))))]
+          .sort((a, b) => a - b)
+        return distinct.length ? distinct : [new Date().getFullYear()]
+      })()
+
+  const multiYear = years.length > 1
+  const subtitle = multiYear ? 'daily attendance, all time' : `daily attendance, ${years[0]}`
 
   return (
     <div className="card-clean p-6">
       <div className="flex items-baseline justify-between mb-4">
         <h3 className="font-display text-lg font-semibold text-ink">Run Calendar</h3>
-        <span className="text-sm text-ink-muted">daily attendance, {resolvedYear}</span>
+        <span className="text-sm text-ink-muted">{subtitle}</span>
       </div>
 
       {frequency.length === 0 ? (
-        <p className="text-sm text-ink-muted">No runs recorded yet this season.</p>
+        <p className="text-sm text-ink-muted">No runs recorded yet.</p>
       ) : (
-        // Blocks are sized to the measured width so the year fills the card.
-        <div ref={wrapRef} className="overflow-x-auto">
-          <ActivityCalendar
-            data={calendarData}
-            theme={{ light: COLOR_SCALE, dark: COLOR_SCALE }}
-            colorScheme="light"
-            blockSize={blockSize}
-            blockMargin={BLOCK_MARGIN}
-            fontSize={12}
-            maxLevel={4}
-            labels={{
-              totalCount: `${totalAttendance.toLocaleString()} total attendance in ${resolvedYear}`,
-            }}
-            aria-label={`Run frequency calendar for ${resolvedYear}`}
-            hideTotalCount={false}
-          />
+        <div className="space-y-4">
+          {years.map((y) => (
+            <YearCalendar key={y} frequency={frequency} year={y} showYearLabel={multiYear} />
+          ))}
         </div>
       )}
     </div>

@@ -63,7 +63,15 @@ export default function SeasonProgress({ data }) {
       cursor.setMonth(cursor.getMonth() + 1)
     }
   }
-  const fmtMonth = (t) => new Date(t).toLocaleDateString('en-AU', { month: 'short' })
+  // Month tick label. The year is appended at each January (and on the first
+  // tick), so a multi-year "all time" range doesn't read as an ambiguous run of
+  // repeated month names — every January carries its year, the months between
+  // stay short. recharts passes (value, index) to tickFormatter.
+  const fmtMonth = (t, index) => {
+    const d = new Date(t)
+    const month = d.toLocaleDateString('en-AU', { month: 'short' })
+    return d.getMonth() === 0 || index === 0 ? `${month} ${d.getFullYear()}` : month
+  }
 
   // Direct end-label: print the running total at the rightmost point only.
   const endLabel = (props) => {

@@ -32,3 +32,6 @@ npm-debug.log*
 
 # Vercel
 .vercel
+
+# Local review screenshots (generated ad hoc against the dev server)
+.playwright-mcp/alltime-*.png

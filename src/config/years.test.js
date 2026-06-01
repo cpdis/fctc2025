@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { YEARS, YEAR_LIST, LATEST_YEAR, resolveYear } from './years'
+import { YEARS, YEAR_LIST, LATEST_YEAR, ALL_TIME, YEAR_OPTIONS, isAllTime, resolveYear } from './years'
 
 describe('years config', () => {
   it('maps every year to a /data path', () => {
@@ -28,5 +28,23 @@ describe('years config', () => {
         expect(resolveYear(input)).toBe(LATEST_YEAR)
       }
     )
+
+    it('resolves the all-time sentinel', () => {
+      expect(resolveYear(ALL_TIME)).toBe(ALL_TIME)
+      expect(resolveYear('all')).toBe(ALL_TIME)
+    })
+  })
+
+  describe('all-time selection', () => {
+    it('isAllTime is true only for the sentinel', () => {
+      expect(isAllTime(ALL_TIME)).toBe(true)
+      expect(isAllTime(2025)).toBe(false)
+      expect(isAllTime(LATEST_YEAR)).toBe(false)
+    })
+
+    it('YEAR_OPTIONS lists every year plus All time last', () => {
+      expect(YEAR_OPTIONS.map((o) => o.value)).toEqual([...YEAR_LIST, ALL_TIME])
+      expect(YEAR_OPTIONS[YEAR_OPTIONS.length - 1]).toEqual({ value: ALL_TIME, label: 'All time' })
+    })
   })
 })
