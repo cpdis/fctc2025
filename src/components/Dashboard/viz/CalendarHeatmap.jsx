@@ -79,14 +79,15 @@ export function buildCalendarData(frequency, year, today = new Date()) {
   return out
 }
 
-// Monochrome ramps (5 stops, level 0..4). The ramp must run from "near the card
-// background" (empty days, level 0) up to a high-contrast tone (busiest, level
-// 4), so the SAME ramp can't serve both themes: on a light card empty days are a
-// pale grey lifting to dark ink; on a dark card that inverts — empty days are a
-// dark grey lifting to near-white. Picking by color scheme keeps the cells
-// legible in both (in dark mode the old light ramp made empty days glare white
-// and busy days vanish into the black card).
-const LIGHT_SCALE = ['#ededea', '#cfcfc9', '#a8a8a2', '#5a5a55', dashboardColors.ink]
+// Monochrome ramps (5 stops, level 0..4). The ramp runs from the card
+// background (empty days, level 0) up to a high-contrast tone (busiest, level
+// 4), so the SAME ramp can't serve both themes: on a light card empty days are
+// white lifting to dark ink; on a dark card that inverts — empty days are a near
+// -black grey lifting to near-white. Picking by color scheme keeps the cells
+// legible in both. Level 0 sits at the card colour so run days read as marks ON
+// the card (no-run days blend in), and the first run-level steps hard away from
+// it for clear contrast between "ran" and "didn't".
+const LIGHT_SCALE = ['#ffffff', '#cfcfc9', '#9c9c95', '#54544f', dashboardColors.ink]
 const DARK_SCALE = ['#2c2c2a', '#4d4d49', '#777771', '#abaaa3', '#ededea']
 
 // Track the OS/browser color scheme so the calendar ramp can follow it. The app
