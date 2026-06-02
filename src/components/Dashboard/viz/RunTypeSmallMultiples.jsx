@@ -79,7 +79,7 @@ export default function RunTypeSmallMultiples({ data }) {
         <p className="text-sm text-ink-muted">No runs recorded yet this season.</p>
       ) : (
         <div
-          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-5"
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-x-6 gap-y-5"
           data-testid="small-multiples-grid"
         >
           {types.map((t) => (

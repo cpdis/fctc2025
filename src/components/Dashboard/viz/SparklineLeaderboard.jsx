@@ -1,5 +1,7 @@
 import Sparkline from './Sparkline'
 import { memberMonthlyAttendance } from '../../../utils/dashboardMetrics'
+import { useExpandableRows } from '../../../utils/useExpandableRows'
+import ShowMoreButton from '../ShowMoreButton'
 
 const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
 
@@ -20,6 +22,9 @@ const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
  */
 export default function SparklineLeaderboard({ data }) {
   const rows = memberMonthlyAttendance(data)
+  // Long rosters (33 in all-time) are truncated to keep the page scannable;
+  // "Show all" expands in place. Re-collapses when the dataset (year) changes.
+  const { visible, expanded, canExpand, toggle, total } = useExpandableRows(rows, 15, data)
 
   return (
     <div className="card-clean p-6">
@@ -43,7 +48,7 @@ export default function SparklineLeaderboard({ data }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((m) => (
+              {visible.map((m) => (
                 <tr
                   key={m.name}
                   data-testid="leaderboard-row"
@@ -78,6 +83,9 @@ export default function SparklineLeaderboard({ data }) {
               ))}
             </tbody>
           </table>
+          {canExpand && (
+            <ShowMoreButton expanded={expanded} total={total} noun="members" onClick={toggle} />
+          )}
         </div>
       )}
 

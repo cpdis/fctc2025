@@ -186,10 +186,13 @@ export default function AttendanceChart({ runs }) {
   const presentTypes = TOP_RUN_TYPES.filter((type) => runsByType[type].length > 0)
 
   return (
-    <div className="card-clean p-6">
+    <div className="card-clean p-6 flex flex-col h-full">
       <h3 className="font-display text-lg font-semibold text-ink mb-4">Attendance by Run Type</h3>
 
-      <div className="h-80 sm:h-72">
+      {/* flex-1 so the plot fills the card when it's stretched to a taller
+          sibling's height (e.g. beside the Leaderboard in the wide 3-up row),
+          with a sensible minimum when it stands on its own. */}
+      <div className="flex-1 min-h-[18rem]">
         <ResponsiveContainer width="100%" height="100%">
           {/* On mobile the direct end-labels are dropped, so the plot can use the
               full width (tight right margin); on larger screens the extra right
