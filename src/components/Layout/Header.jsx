@@ -30,7 +30,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-card border-b border-border">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl 2xl:max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* On mobile the controls drop to a second row so nothing overlaps or
             gets clipped; from sm up everything sits on one 64px row. */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between sm:h-16 gap-2 sm:gap-4 py-2.5 sm:py-0">

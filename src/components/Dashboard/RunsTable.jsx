@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { getRunTypeDisplayName } from '../../utils/theme'
 import { runTypeColorMap, tint } from '../../utils/runTypeColors'
 import { usePrefersDark } from '../../utils/useThemeColors'
+import { useExpandableRows } from '../../utils/useExpandableRows'
+import ShowMoreButton from './ShowMoreButton'
 
 export default function RunsTable({ runs, allRuns, runsByType = {} }) {
   const navigate = useNavigate()
@@ -42,6 +44,11 @@ export default function RunsTable({ runs, allRuns, runsByType = {} }) {
       return 0
     })
   }, [runs, sortConfig, searchTerm])
+
+  // Truncate the (long) history to keep the page scannable; "Show all" expands
+  // in place. Re-collapses when the underlying runs change (year/filter switch),
+  // but NOT on sort or search so the expansion survives those interactions.
+  const { visible, expanded, canExpand, toggle, total } = useExpandableRows(sortedRuns, 15, runs)
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -121,7 +128,7 @@ export default function RunsTable({ runs, allRuns, runsByType = {} }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {sortedRuns.map((run) => {
+            {visible.map((run) => {
               // Find the original index in allRuns for navigation
               const originalIndex = allRuns.findIndex(r => r.date === run.date && r.runType === run.runType)
 
@@ -180,8 +187,14 @@ export default function RunsTable({ runs, allRuns, runsByType = {} }) {
         </div>
       )}
 
+      {canExpand && (
+        <div className="px-4 sm:px-6">
+          <ShowMoreButton expanded={expanded} total={total} noun="runs" onClick={toggle} />
+        </div>
+      )}
+
       <div className="px-4 sm:px-6 py-4 border-t border-border text-sm text-ink-muted">
-        Showing {sortedRuns.length} of {runs.length} runs
+        Showing {visible.length} of {sortedRuns.length} runs
       </div>
     </div>
   )

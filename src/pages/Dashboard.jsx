@@ -112,7 +112,7 @@ export default function Dashboard({ data }) {
         variants={container}
         initial="hidden"
         animate="visible"
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+        className="max-w-7xl 2xl:max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 py-8"
       >
         {/* Stats Cards */}
         <motion.div variants={item}>
@@ -160,8 +160,12 @@ export default function Dashboard({ data }) {
           />
         </motion.div>
 
-        {/* Leaderboard and Run Type Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+        {/* Leaderboard, run-type distribution and the attendance chart. Two-up
+            from lg; three-up at very wide widths. All three are similar height so
+            the row balances cleanly. Attendance spans full width at lg (its own
+            row) and folds into the trio only at 2xl, so the sub-2xl layout is
+            unchanged. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6 mt-8">
           <motion.div variants={item}>
             <Leaderboard leaderboard={data.leaderboard} distanceLeaderboard={data.distanceLeaderboard} />
           </motion.div>
@@ -169,21 +173,20 @@ export default function Dashboard({ data }) {
           <motion.div variants={item}>
             <RunTypeBreakdown runsByType={data.runsByType} />
           </motion.div>
+
+          <motion.div variants={item} className="lg:col-span-2 2xl:col-span-1">
+            <AttendanceChart runs={filteredRuns} />
+          </motion.div>
         </div>
 
-        {/* Attendance Chart */}
-        <motion.div variants={item} className="mt-6">
-          <AttendanceChart runs={filteredRuns} />
-        </motion.div>
-
-        {/* Runs Table */}
+        {/* Run history — full width: a wide, dense table uses the room well. */}
         <motion.div variants={item} className="mt-6">
           <RunsTable runs={filteredRuns} allRuns={data.runs} runsByType={data.runsByType} />
         </motion.div>
       </motion.main>
 
       <footer className="border-t border-border mt-12 py-6">
-        <div className="max-w-7xl mx-auto px-4 text-center text-sm text-ink-muted">
+        <div className="max-w-7xl 2xl:max-w-[1680px] mx-auto px-4 text-center text-sm text-ink-muted">
           <p>Filament Coffee Track Club, {seasonLabel}</p>
           <p className="mt-1">Keep running, keep caffeinating</p>
           {lastUpdated && (
