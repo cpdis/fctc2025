@@ -4,10 +4,10 @@ Notes:,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 - Neighbourhood Loop (fortnightly) runs from Jun to Sep (while beach is eroded),,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-,,,,6987,669,399,578,275,9,201,430,174,88,47,510,67,239,361,99,0,573,26,147,334,0,0,144,163,57,34,0,593,256,25,0,267,222,0,,
-,,,,cumulative,155,123,138,33,13,52,142,44,22,45,131,22,23,61,12,19,110,12,66,73,20,4,31,49,35,12,3,166,72,7,3,73,50,53,,
+,,,,7443,697,445,605,296,9,209,476,174,88,47,556,67,259,398,107,0,622,26,155,360,0,0,144,173,57,34,0,639,276,25,0,267,230,0,,
+,,,,cumulative,156,126,140,35,13,52,145,44,22,45,134,22,25,64,12,19,114,12,67,75,20,4,31,50,35,12,3,169,73,7,3,73,50,54,,
 Pub hol,Special event,Attendance not recorded,,2025,88,80,82,5,12,29,99,25,12,40,80,15,0,24,0,19,55,9,51,39,20,4,17,31,29,8,3,106,46,4,3,46,26,26,,
-,,,,2026,67,43,56,28,1,23,43,19,10,5,51,7,23,37,12,0,55,3,15,34,0,0,14,18,6,4,0,60,26,3,0,27,24,27,741,#VALUE!
+,,,,2026,68,46,58,30,1,23,46,19,10,5,54,7,25,40,12,0,59,3,16,36,0,0,14,19,6,4,0,63,27,3,0,27,24,28,773,7725
 Date,Meet,Run,Approx kms,Actual kms,Aaron,Adam,Alex 👑,Alex B,Alex Kr,Anna,Cam,Celeste,Chartt,Claire,Col,Dan,Dan B,Darren,Deano,Fraser,Grant,Jack,Joe,Kate B,Laura E,Laura K,Liam,Ming,Rhys,Rohan,Sam,Scott,Shane,Tarquin,Tim,Toby,Wes,+1's,,
 "Fri, 2-Jan",Il Lido,Soft Sand,7.0,7.10,,x,x,,,x,x,,,,,,,,,,,,,,,,,,,,,x,,,,,,,5,36
 "Mon, 5-Jan",Drift,**Cruise,10.0,10.41,x,,x,,,,,,,,,,x,,,,,,x,x,,,,,,,,,x,,,x,,,7,73
@@ -81,9 +81,9 @@ Date,Meet,Run,Approx kms,Actual kms,Aaron,Adam,Alex 👑,Alex B,Alex Kr,Anna,Cam
 "Fri, 5-Jun",MSBB,River Loop,12.5,12.47,x,,x,x,,,x,,,,x,,,,,,x,,,x,,,x,,,,,x,x,,,,,,10,125
 "Mon, 8-Jun",Drift,Intervals,10.0,10.43,x,,x,,,,,,,,,,x,x,,,x,,,,,,x,,,,,,,,,,,1,7,73
 "Wed, 10-Jun",Filament,Lakes Loop,12.5,13.00,x,x,x,x,,x,x,x,,,x,,,x,x,,,,,x,,,,,,,,x,x,,,,x,2,16,208
-"Fri, 12-Jun",Il Lido,N/hood Loop,10.0,AE did sand,x,x,,,,,x,,,,x,,,,,,,,,,,,,,,,,x,,,,,,,5,#VALUE!
+"Fri, 12-Jun",Il Lido,N/hood Loop,10.0,8.02,x,x,,,,,x,,,,x,,,,,,,,,,,,,,,,,x,,,,,,,5,40
 "Mon, 15-Jun",Drift,Cruise,10.0,10.48,x,,x,,,,,,,,,,,x,,,x,,,,,,x,x,,,,,,,,,,2,8,84
-"Wed, 17-Jun",Filament,Intervals,8.0,AE watch died,x,x,x,,,x,x,,,,x,,,x,x,,x,,,x,,,,,,,,x,x,,,,x,1,14,#VALUE!
+"Wed, 17-Jun",Filament,Intervals,8.0,7.76,x,x,x,,,x,x,,,,x,,,x,x,,x,,,x,,,,,,,,x,x,,,,x,1,14,109
 "Fri, 19-Jun",MSBB,River Loop,12.5,12.06,x,x,x,,,,x,,,,,,,,,,x,,,,,,,,,,,x,x,,,,,,7,84
 "Mon, 22-Jun",Drift,Intervals,10.0,10.20,,,x,,,,,,,,,,x,,,,x,,x,x,,,,,,,,,,,,,,1,6,61
 "Wed, 24-Jun",Filament,FILAMENT CUP 🏆,8.0,7.74,x,,x,x,,x,x,x,,,x,,,,x,,x,,x,,,,x,,,,,x,x,,,,x,1,15,116
@@ -94,12 +94,12 @@ Date,Meet,Run,Approx kms,Actual kms,Aaron,Adam,Alex 👑,Alex B,Alex Kr,Anna,Cam
 "Mon, 6-Jul",Drift,Intervals,10.0,10.46,x,,,,,,,,,,,,x,x,,,x,,,,,,,,,,,,,,,,x,,5,52
 "Wed, 8-Jul",Filament,Lakes Loop,12.5,12.39,x,x,x,,,x,x,x,x,,x,,,x,,,x,,x,,,,x,,,,,x,x,,,,x,1,16,198
 "Fri, 10-Jul",Il Lido,N/hood Loop,10.0,10.30,x,x,,,,,x,,,,x,,,,,,,,,,,,,,,,,x,,,,,,,5,52
-"Mon, 13-Jul",Drift,Cruise,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0,0
+"Mon, 13-Jul",Drift,Cruise,10.0,10.21,,,,x,,,,,,,,,x,x,,,x,,,,,,,x,,,,,,,,,,,5,51
 "Wed, 15-Jul",Filament,Intervals,8.0,8.32,x,x,,,,x,,,,,x,,,x,,,x,x,x,,,,,x,,,,x,x,,,,,,11,92
-"Fri, 17-Jul",MSBB,River Loop,12.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0,0
-"Mon, 20-Jul",Drift,Intervals,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0,0
-"Wed, 22-Jul",Reverie,Social,8.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0,0
-"Fri, 24-Jul",Il Lido,N/hood Loop,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0,0
+"Fri, 17-Jul",MSBB,River Loop,12.5,12.26,x,x,,,,,x,,,,x,,,,,,x,,,,,,,,,,,x,x,,,,,,7,86
+"Mon, 20-Jul",Drift,Intervals,10.0,10.43,,,x,x,,,,,,,,,x,x,,,x,,,x,,,,,,,,,,,,,,1,7,73
+"Wed, 22-Jul",Reverie,Social,8.0,8.29,,x,x,,,,x,,,,x,,,x,,,x,,x,x,,,,,,,,x,,,,,,,9,75
+"Fri, 24-Jul",Il Lido,N/hood Loop,10.0,10.29,,x,,,,,x,,,,x,,,,,,,,,,,,,,,,,x,,,,,,,4,41
 "Mon, 27-Jul",Drift,Cruise,10.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0,0
 "Wed, 29-Jul",Someday,Hills,8.0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0,0
 "Fri, 31-Jul",MSBB,River Loop,12.5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0,0
