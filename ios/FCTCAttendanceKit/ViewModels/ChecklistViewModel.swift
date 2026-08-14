@@ -25,6 +25,12 @@ public final class ChecklistViewModel {
     @ObservationIgnored private let deviceName: String?
     @ObservationIgnored private let eventMonitor = SyncEventMonitor()
 
+    // Pristine-at-init values: a dictated/OCR'd number may only fill a field the
+    // human has not touched this session (U7 rule: typed kms survives dictation).
+    @ObservationIgnored private var initialKmText = ""
+    @ObservationIgnored private var initialPlusOnesOverride: Int?
+    @ObservationIgnored private var initialGuestCount = 0
+
     public init(
         run: RunSnapshot,
         roster: [String],
@@ -51,7 +57,45 @@ public final class ChecklistViewModel {
         if draft.actualKm == nil { draft.actualKm = run.actualKm ?? run.approxKm }
         self.draft = draft
         self.actualKmText = Self.formatDistance(draft.actualKm)
+        self.initialKmText = self.actualKmText
+        self.initialPlusOnesOverride = draft.plusOnesOverride
+        self.initialGuestCount = draft.guests.count
         observeEvents()
+    }
+
+    // MARK: Smart-modality proposals (the frozen U6/U7 seam)
+
+    /// Apply a triage outcome to the draft. `checks` is the human-confirmed final
+    /// list from the triage sheet: the auto-check tier minus any unticks, plus
+    /// explicit picks and mappings. Names not on the roster are ignored — "add as
+    /// new person" goes through `addPerson`, never through here. Proposal checks
+    /// never downgrade a `.manual` check (enforced by `AttendanceDraft.check`),
+    /// and extracted numbers only fill fields the human has not edited.
+    public func applyProposals(checks: [String], from set: DraftProposalSet) {
+        let rosterKeys = Set(roster)
+        for name in checks where rosterKeys.contains(name) {
+            draft.check(name, provenance: set.provenance)
+        }
+
+        if let distance = set.distanceKm, actualKmText == initialKmText {
+            actualKmText = Self.formatDistance(distance)
+        }
+
+        let hadUntouchedGuests = draft.guests.count == initialGuestCount
+            && draft.plusOnesOverride == initialPlusOnesOverride
+        for name in set.guestNames {
+            let key = Self.canonical(name)
+            guard !key.isEmpty,
+                  !draft.guests.contains(where: { Self.canonical($0.name) == key })
+            else { continue }
+            draft.guests.append(Guest(name: name))
+            draft.plusOnesOverride = nil
+        }
+        // A bare count ("plus two") without names sets the override, but only when
+        // the human had not already curated guests or the count themselves.
+        if let plusOnes = set.plusOnes, set.guestNames.isEmpty, hadUntouchedGuests {
+            draft.plusOnesOverride = plusOnes
+        }
     }
 
     public var canConfirm: Bool {
