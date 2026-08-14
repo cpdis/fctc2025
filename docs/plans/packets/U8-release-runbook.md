@@ -70,11 +70,36 @@ xcodebuild build-for-testing \
 
 ## 4. Upload the TestFlight build
 
-1. Archive the `FCTCAttendance` scheme in Release mode.
-2. Upload the archive with Colin's existing TestFlight process.
-3. Do not create a second upload pipeline for this app.
-4. Wait for Apple to finish processing the build.
-5. Install that same build on Colin's and Aaron's phones.
+The 2026-08-14 release established the working pipeline. Xcode has no account
+session on this Mac, so cloud signing fails; Release signs MANUALLY with the
+Apple Distribution certificate and the two App Store profiles (created via the
+ASC API, installed locally). The ASC API key `NJDJN4V5L3` (Downloads and
+`~/.appstoreconnect/private_keys`) authenticates the upload.
+
+1. Archive:
+
+   ```bash
+   cd ios
+   xcodebuild archive -project FCTCAttendance.xcodeproj \
+     -scheme FCTCAttendance -destination 'generic/platform=iOS' \
+     -archivePath .ddata/FCTC.xcarchive
+   ```
+
+2. Upload (export-options.plist: method app-store-connect, destination upload,
+   manual signing with both profile names, teamID Y62XUYATCS):
+
+   ```bash
+   xcodebuild -exportArchive -archivePath .ddata/FCTC.xcarchive \
+     -exportOptionsPlist export-options.plist -exportPath .ddata/export \
+     -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_NJDJN4V5L3.p8 \
+     -authenticationKeyID NJDJN4V5L3 \
+     -authenticationKeyIssuerID 69a6de7a-eb61-47e3-e053-5b8c7c11a4d1
+   ```
+
+3. Wait for Apple to finish processing the build.
+4. Install that same build on Colin's and Aaron's phones.
+5. The distribution certificate expires 2027-08-14; renew via the ASC API
+   (certificates endpoint) with a fresh CSR and recreate both profiles.
 
 ## 5. Protect the real sheet before deployment
 
