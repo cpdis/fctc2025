@@ -14,7 +14,9 @@ distance for each FCTC run, immediately after the run, using any of three input
 modalities: (1) a manual roster checklist, (2) OCR of WhatsApp poll screenshot(s) that
 pre-populates the checklist, and (3) voice entry that pre-populates the checklist. All
 three modalities converge on a single **Review & Confirm** screen; a confirmed submission
-writes straight back to the **Google Sheet, which remains the canonical record**. The
+writes straight back to the **Google Sheet, which remains the canonical record**. The UI
+takes Apple's Reminders app as its design reference: grouped inset lists, circular
+check toggles, tinted section icons, a quick-add row. The
 existing dashboard pipeline (weekly CSV export → this repo → Vercel) is untouched — the
 app is a new *writer* to the sheet, not a replacement for it. Sheet writes go through a
 small Google Apps Script Web App API (versioned in this repo) so the iOS app never needs
@@ -103,6 +105,9 @@ the 2025 export):
   screenshots + OCR is the deliberate, ToS-safe design.
 - **No editing of historical seasons** (2025 tab is frozen). The app targets the
   current-season tab only, configured server-side in the Apps Script.
+- **No custom design system.** The app adopts stock iOS 26 SwiftUI components and the
+  system Liquid Glass chrome, styled after Reminders (see Design Language below); no
+  bespoke theming beyond an accent color and app icon.
 - **No auth beyond the shared secret** — no accounts, no Google Sign-In in the app, no
   per-user identity (submissions may carry a device name for the audit trail).
 - **No changes to the sheet's own formulas/summary structure**; the Apps Script writes
@@ -115,8 +120,8 @@ the 2025 export):
 - Strava enrichment: auto-fill `Actual kms` from the run leader's Strava activity.
 - Post-run push notification ("Record attendance for Friday Soft Sand?") at
   scheduled-run time + duration.
-- LLM-assisted parsing (Claude API) as a fallback when heuristic OCR/voice parsing is
-  low-confidence; the parser interfaces below are designed so this drops in.
+- Cloud LLM parsing (Claude API) as a further fallback if on-device Foundation Models
+  parsing (now in scope, see below) proves insufficient on real inputs.
 - In-app season stats (the dashboard already does this well; a WebView link suffices).
 - App Store release (TestFlight is enough for two users indefinitely, 90-day builds).
 
@@ -167,8 +172,40 @@ Actions (`doPost` router):
 Idempotency: `submitAttendance` is naturally idempotent (absolute cell values, not
 deltas), which is what makes the offline retry queue safe.
 
+### Design language: Apple Reminders as the reference (decided by Colin)
+
+The attendance problem is structurally the Reminders problem — a titled list of
+checkable rows — so the app borrows its idioms wholesale rather than inventing UI:
+
+- **Home = "list of lists"**: large-title screen with tinted circular-icon rows
+  (Today's Run, Upcoming, Past Runs, Outbox), Reminders-style summary tiles at top
+  (runs this week, unsynced count).
+- **Checklist screen = a Reminders list**: grouped inset list, one row per member,
+  a **circular check toggle on the left** that fills with the accent color when
+  attending (Reminders' completion circle, not a square checkbox); provenance
+  (OCR/voice-proposed vs. confirmed) shown as a subtle trailing badge; swipe actions
+  for quick uncheck/flag; pull-down search to jump to a name.
+- **Quick-add row** pinned at the list bottom — "Add person…" behaves like
+  Reminders' "New Reminder" inline row (type name, return commits via `addMember`).
+- **Detail affordances**: `Actual kms` and `+1's` presented like Reminders'
+  date/priority detail rows above the member list; the Confirm action is a prominent
+  toolbar button, disabled until the draft differs from the sheet.
+- **System everything**: iOS 26 Liquid Glass toolbars/tab chrome, SF Symbols, semantic
+  colors, Dynamic Type, standard sheet presentation for screenshot/voice import flows.
+  No custom components unless a stock one genuinely can't express the interaction.
+
 ### On-device intelligence (no server round-trips for OCR/voice)
 
+- **Structured parsing via Foundation Models (iOS 26)**: with the minimum raised to
+  iOS 26, Apple's on-device LLM (`FoundationModels` framework) is available on
+  Apple-Intelligence-capable devices. Guided generation (`@Generable` structs) turns a
+  messy voice transcript or OCR'd poll text directly into a typed
+  `{ names: [String], plusOnes: Int?, distanceKm: Double? }` — free, offline, private.
+  This is the **primary parser** for both smart modalities, wrapped behind the same
+  `NameExtractor` protocol with the deterministic heuristics below as fallback
+  (model unavailable — device without Apple Intelligence, model still downloading —
+  or low-confidence output). Extracted names still go through `NameMatcher`; the
+  model proposes, the roster disposes.
 - **OCR**: Vision framework (`VNRecognizeTextRequest`, `.accurate`, language `en`).
   WhatsApp poll screenshots are high-contrast UI text — near-perfect recognition. The
   interesting work is *parsing*: poll screenshots contain the question, options
@@ -207,8 +244,12 @@ deltas), which is what makes the offline retry queue safe.
 
 1. **Sheet-write layer = Apps Script Web App** (rationale above). Source versioned in
    this repo at `apps-script/`, deployed with `clasp`; secret in Script Properties.
-2. **iOS: SwiftUI, iOS 17+, SwiftData, zero third-party dependencies.** Vision,
-   Speech, PhotosUI, and URLSession cover everything; no CocoaPods/SPM supply chain.
+2. **iOS: SwiftUI, minimum iOS 26 (decided by Colin), Xcode 26 / Swift 6, SwiftData,
+   zero third-party dependencies.** Vision, Speech, PhotosUI, FoundationModels, and
+   URLSession cover everything; no CocoaPods/SPM supply chain. Raising the floor to
+   iOS 26 buys Liquid Glass for free and, more importantly, on-device Foundation
+   Models for structured parsing (see above) — acceptable because the entire user
+   base is two known, current iPhones.
 3. **Monorepo**: the app lives at `ios/FCTCAttendance/` in this repo, beside
    `apps-script/`. The sheet schema knowledge, fixtures, and both writers (weekly sync
    reads, app writes) stay in one reviewable place. The Vite build is untouched
@@ -226,6 +267,17 @@ deltas), which is what makes the offline retry queue safe.
    SwiftData for offline, never compiled in. This is exactly the schema-tolerance
    lesson the 2026 dashboard redesign learned (fixed member lists rot mid-season).
 
+## Decisions Confirmed (2026-08-14)
+
+- Apps Script Web App write layer: **approved**.
+- Minimum OS: **iOS 26** (was iOS 17+); Xcode 26 toolchain; Foundation Models in scope.
+- UI design reference: **Apple Reminders** (see Design Language section).
+- Distribution: **TestFlight** under Colin's existing Apple Developer account.
+  Colin has an existing TestFlight build/upload process in his Codex or local Claude
+  Code tooling on his Mac — U8 reuses that process rather than defining a new one
+  (builds and uploads must run on the Mac regardless; agents in remote/Linux sessions
+  cannot produce TestFlight builds).
+
 ## Open Questions (defaults chosen; flag if wrong)
 
 - **Q1.** Should unchecking a previously-recorded attendee (overwrite mode) be allowed
@@ -233,8 +285,6 @@ deltas), which is what makes the offline retry queue safe.
   merge/overwrite prompt makes it deliberate.*
 - **Q2.** Does `+1's` need names, or just a count? *Default: count only (matches the
   sheet column).*
-- **Q3.** Apple Developer Program membership ($99/yr) for TestFlight — assumed OK.
-  (Free provisioning would force weekly reinstalls on Aaron's phone; not viable.)
 - **Q4.** Is the WhatsApp poll's "View votes" screen the screenshot Aaron would
   naturally take? The OCR path is tuned for it; the plain poll card (names hidden)
   only yields counts, not names.
@@ -267,8 +317,11 @@ App layer map (`ios/FCTCAttendance/`):
 - `Services/SheetAPI.swift` — typed client for the four actions; `Services/SyncEngine.swift`
   — outbox, retry w/ backoff, conflict surfacing.
 - `Intelligence/` — `NameMatcher` (fuzzy + nicknames + ambiguity rules),
-  `PollScreenshotParser` (Vision → candidate names), `VoiceEntryParser`
-  (transcript → names/kms/+1s). All pure & protocol-fronted → unit-testable.
+  `NameExtractor` protocol with two implementations: `ModelExtractor`
+  (FoundationModels guided generation, availability-gated) and `HeuristicExtractor`
+  (deterministic fallback); `PollScreenshotParser` (Vision → text lines) and
+  `VoiceEntryParser` (transcript) both feed whichever extractor is active. All pure &
+  protocol-fronted → unit-testable (heuristics fully; model path behind a seam).
 - `Views/` — `RunPickerView`, `ChecklistView` (the Review & Confirm screen),
   `ScreenshotImportView`, `VoiceEntryView`, `OutboxView`, `SettingsView`
   (endpoint URL + secret, device name).
@@ -286,11 +339,12 @@ Sized for independent coding agents; each has a contract (inputs/outputs/accepta
 and names its dependencies. U1+U2 are the foundation; U3–U7 parallelize after U2's
 contract freezes (mocks let U4–U6 start even earlier).
 
-- **U1 — Repo scaffolding & fixtures.** Create `ios/` (Xcode project, SwiftUI app
-  target, unit-test target, SwiftData stack) and `apps-script/` (clasp scaffold).
-  Extract shared test fixtures (poll-screenshot PNGs — synthetic, WhatsApp-style;
-  transcript strings; CSV snapshots) under `fixtures/attendance/`. *Accept:* project
-  builds in Xcode 16, `npm test` still green, README section added.
+- **U1 — Repo scaffolding & fixtures.** Create `ios/` (Xcode 26 project, SwiftUI app
+  target, **deployment target iOS 26**, unit-test target, SwiftData stack) and
+  `apps-script/` (clasp scaffold). Extract shared test fixtures (poll-screenshot
+  PNGs — synthetic, WhatsApp-style; transcript strings; CSV snapshots) under
+  `fixtures/attendance/`. *Accept:* project builds in Xcode 26, `npm test` still
+  green, README section added.
 - **U2 — Apps Script API** (the contract everything else depends on). Implement the
   four actions per the table above, port header/band detection from `dataParser.js`,
   LockService serialization, revision hashing, secret check, structured errors. Pure
@@ -304,14 +358,19 @@ contract freezes (mocks let U4–U6 start even earlier).
   event. *Accept:* unit tests with a stub server cover success, retry-after-offline,
   idempotent re-submit, conflict surfacing.
 - **U4 — Checklist modality + Review & Confirm + run picker** (dep: U3 interfaces).
-  Default-run selection rule (R7), roster checklist with search, add-person flow
-  (calls `addMember`, optimistic insert), +1 stepper, kms field (decimal pad,
-  pre-filled with `Approx kms`), provenance badges, merge/overwrite dialog, outbox
-  screen. *Accept:* UI tests: happy path, already-recorded-row warning, offline queue.
-- **U5 — NameMatcher** (dep: none after U1 — pure Swift). Normalization, fuzzy
-  scoring, nickname table, ambiguity rule (near-collision roster names never
-  auto-pick), confidence tiers. *Accept:* table-driven tests incl. the real 2026
-  roster collisions (`Alex*`, `Dan*`, `Laura*`), OCR-typo and ASR-phonetic cases.
+  Reminders-idiom UI per the Design Language section: home "list of lists",
+  grouped-inset checklist with circular check toggles, quick-add "Add person…" row
+  (calls `addMember`, optimistic insert), +1 stepper and kms detail rows (decimal
+  pad, pre-filled with `Approx kms`), default-run selection rule (R7), provenance
+  badges, merge/overwrite dialog, outbox screen. *Accept:* UI tests: happy path,
+  already-recorded-row warning, offline queue; visual pass against Reminders idioms.
+- **U5 — NameMatcher + extractors** (dep: none after U1 — pure Swift). Normalization,
+  fuzzy scoring, nickname table, ambiguity rule (near-collision roster names never
+  auto-pick), confidence tiers; the `NameExtractor` protocol with `HeuristicExtractor`
+  (fully tested) and `ModelExtractor` (FoundationModels guided generation with
+  availability check → heuristic fallback). *Accept:* table-driven tests incl. the
+  real 2026 roster collisions (`Alex*`, `Dan*`, `Laura*`), OCR-typo and ASR-phonetic
+  cases; extractor-selection tests via the availability seam.
 - **U6 — Screenshot modality** (dep: U5; U4 for the review handoff). PhotosPicker
   multi-select, Vision OCR pipeline, chrome-line filtering, multi-screenshot union,
   candidate → NameMatcher → draft proposals, one-time coach screen ("screenshot the
@@ -322,8 +381,10 @@ contract freezes (mocks let U4–U6 start even earlier).
   transcript UI with re-record. *Accept:* fixture transcripts parse to expected
   drafts; distance/guest extraction tests ("we did eight point seven k").
 - **U8 — Hardening & release.** Secret/config screen with QR-import (so Aaron never
-  types a URL), app icon, error-state polish, TestFlight build, `clasp` production
-  deploy against the real sheet, smoke test on a real Friday run, ops notes in README.
+  types a URL), app icon, error-state polish, TestFlight build **via Colin's existing
+  TestFlight process (Codex or local Claude Code on his Mac — do not invent a new
+  pipeline)**, `clasp` production deploy against the real sheet, smoke test on a real
+  Friday run, ops notes in README.
   *Accept:* both phones record a real run end-to-end; sheet cells byte-identical in
   the next weekly CSV sync (R11 verified by diffing the synced CSV).
 
@@ -385,8 +446,13 @@ Opus and Codex 5.6 solo agents**:
   does nothing but the four actions on one sheet.
 - **Speech/Vision permission denials** → checklist modality is always available;
   modalities are enhancements, never the only path.
-- **Apple accounts**: needs Colin's Apple Developer Program membership and both
-  devices in TestFlight (Q3).
+- **Foundation Models availability** (device not Apple-Intelligence-capable, model
+  not downloaded, or feature disabled) → `ModelExtractor` checks availability per
+  request and silently falls back to `HeuristicExtractor`; parsing quality degrades,
+  correctness doesn't.
+- **Release builds require Colin's Mac** (Xcode 26 + TestFlight upload) — remote
+  agents deliver source + green tests; the build/upload step is Colin's existing
+  process (confirmed available).
 
 ## Phased Delivery
 
