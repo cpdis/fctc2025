@@ -9,6 +9,7 @@ const MAX_BODY_BYTES = 64 * 1024
 const MAX_HTML_BYTES = 256 * 1024
 const MILESTONE_COLORS = ['#d75b77', '#e8442c', '#ff7a30']
 const FORECAST_WEEKDAYS = ['Mon', 'Wed', 'Fri']
+const FORECAST_LABELS = new Set(['Very likely', 'Likely', 'Possible'])
 
 // Keep the sort independent from the machine locale. The code-point tie-breakers
 // also make canonically equivalent or case-equivalent names deterministic.
@@ -159,7 +160,14 @@ export function getAttendanceCutoff(runs) {
  * bypass the untrusted-name boundary enforced by findUpcomingMilestones().
  *
  * @param {{
- *   candidates: Array<{ name: string, currentRuns: number, milestone: number }>,
+ *   candidates: Array<{
+ *     name: string,
+ *     currentRuns?: number,
+ *     milestone: number,
+ *     runsNeeded: number,
+ *     chance?: number,
+ *     label: string,
+ *   }>,
  *   weekStart: string,
  *   cutoffDate: string | null,
  * }} input
@@ -175,17 +183,31 @@ export function formatMilestoneDigest({ candidates, weekStart, cutoffDate }) {
     if (!Number.isInteger(candidate?.milestone) || candidate.milestone <= 0) {
       throw new Error('Candidate milestone is invalid')
     }
-    return { ...candidate }
+    if (!Number.isInteger(candidate?.runsNeeded) || candidate.runsNeeded < 1 ||
+        candidate.runsNeeded > FORECAST_WEEKDAYS.length) {
+      throw new Error('Candidate runs needed is invalid')
+    }
+    if (!FORECAST_LABELS.has(candidate?.label)) {
+      throw new Error('Candidate label is invalid')
+    }
+    return {
+      name: candidate.name,
+      milestone: candidate.milestone,
+      runsNeeded: candidate.runsNeeded,
+      label: candidate.label,
+    }
   }).sort(compareCandidates)
 
   const formattedWeekStart = formatIsoCalendarDate(weekStart, 'Target week is invalid')
   const formattedCutoff = formatIsoCalendarDate(cutoffDate, 'Attendance cutoff is unavailable')
   const count = sortedCandidates.length
   const lines = sortedCandidates.map(
-    ({ name, milestone }) => `- ${name} — ${formatOrdinal(milestone)} run`
+    ({ name, milestone, runsNeeded, label }) => (
+      `- ${name} — ${formatOrdinal(milestone)} run — ${label} · needs ${formatRunNeed(runsNeeded)}`
+    )
   )
   const body = [
-    `${count} ${count === 1 ? 'runner is' : 'runners are'} one recorded run from a milestone:`,
+    `${count} ${count === 1 ? 'runner' : 'runners'} could reach a milestone this week:`,
     '',
     ...lines,
     '',
@@ -226,7 +248,7 @@ function formatMilestoneHtml({ candidates, formattedWeekStart, formattedCutoff }
   const preheader = count === 1
     ? 'One FCTC runner is approaching a milestone run this week.'
     : `${count} FCTC runners are approaching milestone runs this week.`
-  const rows = candidates.map(({ name, milestone }, index) => {
+  const rows = candidates.map(({ name, milestone, runsNeeded, label }, index) => {
     const color = MILESTONE_COLORS[index % MILESTONE_COLORS.length]
     const topBorder = index === 0 ? '2px solid #1c1410' : '1px solid #d9d5d1'
     const bottomBorder = index === candidates.length - 1 ? ' border-bottom: 2px solid #1c1410;' : ''
@@ -242,7 +264,7 @@ function formatMilestoneHtml({ candidates, formattedWeekStart, formattedCutoff }
                         ${escapeHtml(name)}
                       </p>
                       <p style="margin: 5px 0 0; color: #6f5f53; font-family: 'Courier New', Courier, monospace; font-size: 12px; line-height: 18px; letter-spacing: 0.8px; text-transform: uppercase;">
-                        Approaching their ${formatOrdinal(milestone)} run
+                        ${label} &middot; needs ${formatRunNeed(runsNeeded)} for their ${formatOrdinal(milestone)} run
                       </p>
                     </td>
                   </tr>
@@ -460,6 +482,10 @@ function formatOrdinal(value) {
   if (lastTwoDigits >= 11 && lastTwoDigits <= 13) return `${value}th`
 
   return `${value}${{ 1: 'st', 2: 'nd', 3: 'rd' }[value % 10] ?? 'th'}`
+}
+
+function formatRunNeed(runsNeeded) {
+  return `${runsNeeded} ${runsNeeded === 1 ? 'run' : 'runs'}`
 }
 
 function formatIsoCalendarDate(value, errorMessage, formatter = DISPLAY_DATE_FORMATTER) {

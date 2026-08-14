@@ -37,6 +37,18 @@ function completedRun(date, dayOfWeek, attendance, totalAttendance = 1) {
   }
 }
 
+function digestCandidate(overrides = {}) {
+  return {
+    name: 'Jane Doe',
+    currentRuns: 49,
+    milestone: 50,
+    runsNeeded: 1,
+    chance: 0.73123456789,
+    label: 'Possible',
+    ...overrides,
+  }
+}
+
 describe('findUpcomingMilestones', () => {
   it('selects every positive 50n - 1 boundary without a fixed maximum', () => {
     const candidates = findUpcomingMilestones(totals([
@@ -264,21 +276,29 @@ describe('formatMilestoneDigest', () => {
     expect(formatMilestoneDigest({ candidates: [], weekStart, cutoffDate })).toBeNull()
   })
 
-  it('formats one deterministic text and HTML digest with plural grammar', () => {
-    const candidates = findUpcomingMilestones(totals([
-      ['Sam Lee', 149],
-      ['Jane Doe', 99],
-    ]))
+  it('formats several forecast candidates with labels and singular or plural run needs', () => {
+    const chanceSentinel = '0.73123456789'
+    const candidates = [
+      digestCandidate({ currentRuns: 99, milestone: 100, label: 'Very likely' }),
+      digestCandidate({
+        name: 'Sam Lee',
+        currentRuns: 148,
+        milestone: 150,
+        runsNeeded: 2,
+        chance: 0.65,
+        label: 'Likely',
+      }),
+    ]
 
     const digest = formatMilestoneDigest({ candidates, weekStart, cutoffDate })
 
     expect(digest).toMatchObject({
       subject: 'FCTC milestone runs — week of 17 Aug 2026',
       body: [
-        '2 runners are one recorded run from a milestone:',
+        '2 runners could reach a milestone this week:',
         '',
-        '- Jane Doe — 100th run',
-        '- Sam Lee — 150th run',
+        '- Jane Doe — 100th run — Very likely · needs 1 run',
+        '- Sam Lee — 150th run — Likely · needs 2 runs',
         '',
         'Based on FCTC attendance recorded through 16 Aug 2026.',
       ].join('\n'),
@@ -291,17 +311,18 @@ describe('formatMilestoneDigest', () => {
     expect(digest.html).toContain('WEEK OF 17 AUGUST 2026')
     expect(digest.html).toContain('MILESTONES<br>AHEAD')
     expect(digest.html).toContain('Jane Doe')
-    expect(digest.html).toContain('Approaching their 100th run')
+    expect(digest.html).toContain('Very likely &middot; needs 1 run for their 100th run')
     expect(digest.html).toContain('Sam Lee')
-    expect(digest.html).toContain('Approaching their 150th run')
+    expect(digest.html).toContain('Likely &middot; needs 2 runs for their 150th run')
     expect(digest.html).toContain('Attendance recorded through 16 Aug 2026.')
     expect(digest.html).toContain('href="https://fctc.fun/dashboard"')
     expect(digest.html).not.toContain('<img')
+    expect(`${digest.subject}\n${digest.body}\n${digest.html}`).not.toContain(chanceSentinel)
   })
 
   it('escapes candidate names before adding them to HTML', () => {
     const name = 'Alex & <Runner> "Quoted"'
-    const [candidate] = findUpcomingMilestones(totals([[name, 49]]))
+    const candidate = digestCandidate({ name })
 
     const digest = formatMilestoneDigest({ candidates: [candidate], weekStart, cutoffDate })
 
@@ -311,13 +332,15 @@ describe('formatMilestoneDigest', () => {
   })
 
   it('uses singular grammar for one candidate', () => {
-    const [candidate] = findUpcomingMilestones(totals([['Jane Doe', 49]]))
+    const candidate = digestCandidate()
 
     const digest = formatMilestoneDigest({ candidates: [candidate], weekStart, cutoffDate })
 
-    expect(digest.body).toContain('1 runner is one recorded run from a milestone:')
+    expect(digest.body).toContain('1 runner could reach a milestone this week:')
+    expect(digest.body).toContain('Possible · needs 1 run')
     expect(digest.html).toContain('One scoundrel could reach a landmark run this week.')
     expect(digest.html).toContain('One FCTC runner is approaching a milestone run this week.')
+    expect(digest.html).toContain('Possible &middot; needs 1 run for their 50th run')
     expect(digest.html).not.toContain('scoundrels could reach')
   })
 
@@ -344,13 +367,37 @@ describe('formatMilestoneDigest', () => {
   it('rejects an unsafe name supplied directly to the formatter without echoing it', () => {
     const name = 'Alice\u202eAdmin'
     const error = catchError(() => formatMilestoneDigest({
-      candidates: [{ name, currentRuns: 49, milestone: 50 }],
+      candidates: [digestCandidate({ name })],
       weekStart,
       cutoffDate,
     }))
 
     expect(error.message).toBe('Candidate name is unsafe')
     expect(error.message).not.toContain(name)
+  })
+
+  it.each([
+    [
+      'label',
+      digestCandidate({ label: '73.123456789% likely' }),
+      'Candidate label is invalid',
+    ],
+    [
+      'runs needed',
+      digestCandidate({ runsNeeded: 1.5 }),
+      'Candidate runs needed is invalid',
+    ],
+  ])('rejects invalid %s without echoing private forecast values', (_field, candidate, message) => {
+    const error = catchError(() => formatMilestoneDigest({
+      candidates: [candidate],
+      weekStart,
+      cutoffDate,
+    }))
+
+    expect(error.message).toBe(message)
+    expect(error.message).not.toContain(candidate.name)
+    expect(error.message).not.toContain(String(candidate.chance))
+    expect(error.message).not.toContain(String(candidate.label))
   })
 
   it('rejects a body over 64 KiB without echoing its content', () => {
@@ -372,6 +419,9 @@ describe('formatMilestoneDigest', () => {
       name: `Runner ${String(index).padStart(4, '0')}`,
       currentRuns: 49,
       milestone: 50,
+      runsNeeded: 1,
+      chance: 0.75,
+      label: 'Likely',
     }))
 
     expect(() => formatMilestoneDigest({ candidates, weekStart, cutoffDate }))
@@ -394,8 +444,8 @@ describe('formatMilestoneDigest', () => {
       cutoffDate,
     })
 
-    expect(first.body).toContain('- Jane Doe — 50th run')
-    expect(next.body).toContain('- Jane Doe — 50th run')
+    expect(first.body).toContain('- Jane Doe — 50th run — Possible · needs 1 run')
+    expect(next.body).toContain('- Jane Doe — 50th run — Possible · needs 1 run')
     expect(next.subject).toBe('FCTC milestone runs — week of 24 Aug 2026')
   })
 })
