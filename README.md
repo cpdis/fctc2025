@@ -97,12 +97,16 @@ data regardless of the dashboard's selected year.
 ## Weekly data sync
 
 `.github/workflows/weekly-data-sync.yml` fetches the current season's published CSV from
-Google Sheets every **Sunday 09:00 UTC (~7pm AEST / 8pm AEDT)** and commits it to
-`public/data/<CURRENT_YEAR>.csv` only if it changed. Vercel's GitHub integration deploys on
-push. `workflow_dispatch` is also enabled for manual/on-demand runs (and as a fallback if
-GitHub auto-disables the schedule after 60 days of repo inactivity). `scripts/fetch-sheet.sh`
-fetches and validates the download, rejecting login/HTML pages, empty bodies, and truncated
-responses so a bad fetch never overwrites good data.
+Google Sheets every **Sunday at 17:17 Australia/Perth** and commits it to
+`public/data/<CURRENT_YEAR>.csv` only if it changed. The off-minute start reduces common
+schedule congestion. GitHub can still delay a scheduled run during high load. It can also
+disable a public repository's schedule after 60 days without repository activity. See the
+[GitHub schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+
+Vercel's GitHub integration deploys on push. `workflow_dispatch` is also enabled for
+manual/on-demand runs and as the schedule fallback. `scripts/fetch-sheet.sh` fetches and
+validates the download. It rejects login/HTML pages, empty bodies, and truncated responses,
+so a bad fetch never overwrites good data.
 
 ### One-time setup (required before the sync works)
 
@@ -118,6 +122,127 @@ Configure these at the top of `.github/workflows/weekly-data-sync.yml`:
 `SHEET_ID` is already set to the FCTC spreadsheet. The export endpoint used is
 `https://docs.google.com/spreadsheets/d/<SHEET_ID>/export?format=csv&gid=<SHEET_GID>`
 (a Publish-to-web `/pub?...output=csv` alternative is commented in the workflow).
+
+## Weekly milestone emails
+
+The same `Weekly Data Sync` workflow checks milestones after the CSV sync. It reads every
+season registered in `src/config/years.js` and calculates exact all-time attendance from the
+CSV run rows. A member qualifies when their total is `50n - 1`, such as 49, 99, or 149 runs.
+The same member can qualify again next week if their recorded total does not change.
+
+The feature creates one plain-text digest for all candidates. It sends a separate copy to
+each recipient through the [Resend batch API](https://resend.com/docs/api-reference/emails/send-batch-emails),
+so recipients do not see other addresses. A normal preview or send with no candidates stops
+before any provider request. The feature has no backend, database, or notification history.
+
+The exact CSV header is the member identity across seasons. Keep a member's header text
+unchanged. A rename creates a separate identity and splits the all-time total.
+
+### Local preview
+
+Run a production-data preview from the repository root:
+
+```bash
+node scripts/send-milestone-digest.js --preview
+```
+
+Preview is the default mode. It makes no provider request. A local preview needs no GitHub
+output files, GitHub credentials, Resend credentials, or recipient secrets.
+
+### One-time GitHub and Resend setup
+
+1. Create the GitHub environment `milestone-production`. Allow only the `main` branch. See
+   [GitHub environment setup](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
+2. Add these environment secrets: `RESEND_API_KEY`, `MILESTONE_RECIPIENTS`, and
+   `MILESTONE_SMOKE_RECIPIENT`. The smoke recipient must be Colin's address.
+3. Add the repository variable `MILESTONE_EMAIL_ENABLED`. Set it to `false` first.
+4. Use the fixed sender `FCTC Milestones <runs@notifications.fctc.cpd.dev>`.
+5. Add `notifications.fctc.cpd.dev` in Resend. Add the supplied DNS records to Cloudflare,
+   then wait for Resend to mark the domain as verified. See the
+   [Resend domain guide](https://resend.com/docs/dashboard/domains/introduction).
+6. Keep open and click tracking disabled. Resend documents that both are disabled by
+   default. Verify the settings before activation. See the
+   [Resend tracking guide](https://resend.com/docs/dashboard/domains/tracking).
+7. Create a sending-access API key. Restrict it to `notifications.fctc.cpd.dev`. Limit Resend
+   team access, then save the key as `RESEND_API_KEY`. See the
+   [Resend API key guide](https://resend.com/docs/dashboard/api-keys/introduction).
+
+Set `MILESTONE_RECIPIENTS` to comma-separated single mailbox addresses. Do not use display
+names. The script trims, case-insensitively deduplicates, and sorts the addresses. It accepts
+at most 100 valid addresses. Keep the configured count below 101.
+
+Resend retains email data for 30 days across standard plans. Operators must account for
+member names in provider data and limit provider access. See Resend's
+[data retention note](https://resend.com/docs/dashboard/webhooks/how-to-store-webhooks-data).
+
+### Manual modes and logs
+
+Run the workflow from the GitHub Actions page and select `notification_mode`:
+
+- `preview` is the default. It reads no email secrets and makes no provider request.
+- `send` needs an enabled gate, at least one candidate, `main`, and both `github.actor` and
+  `github.triggering_actor` set to `cpdis`.
+- `smoke` sends fixed `[TEST]` content only to `MILESTONE_SMOKE_RECIPIENT`. It includes no
+  attendance content. It needs `main` and both actors set to `cpdis`, but it does not need
+  the enable gate.
+
+An `accepted` result means that Resend accepted each batch item. It does not prove inbox
+delivery. Use the Resend dashboard and the recipient inbox to prove delivery.
+
+Public logs and the job summary may contain only the mode, target week, candidate count,
+recipient count, accepted item count, sanitized provider status, and a fixed error category.
+They must not contain names, addresses, message content, API keys, provider IDs, or raw
+provider responses.
+
+### Activation checklist
+
+Keep `MILESTONE_EMAIL_ENABLED=false` until all checks pass:
+
+- Run the full tests and production build.
+- Confirm the Resend domain is verified and tracking is disabled.
+- Confirm the API key has sending access only and is restricted to the verified domain.
+- Confirm the fixed sender and every recipient. Use 100 or fewer recipient addresses.
+- Save a production-data preview with its target week and candidate count.
+- Run the fixed smoke mode. Confirm one item is accepted and reaches Colin's inbox.
+- Inspect the public logs and confirm they contain no private data.
+
+Set `MILESTONE_EMAIL_ENABLED=true` only after the checklist passes.
+
+### First Sunday checks
+
+Before the run, save the expected target week, candidate count, and recipient count. Within
+15 minutes after completion, compare the sync result, mode, counts, and accepted count with
+those values. A zero-candidate run must create no Resend batch. Check the Resend dashboard
+and recipient inboxes. Check delivery and bounce status again the next morning.
+
+Disable delivery after any count mismatch, workflow failure, bounce, complaint, privacy
+leak, or incorrect content.
+
+### Retries, disable, and recovery
+
+Provider requests have a 10-second timeout and at most three attempts. The script retries
+temporary failures only. It reuses the weekly idempotency key, which Resend retains for 24
+hours. See the [Resend idempotency guide](https://resend.com/docs/dashboard/emails/idempotency-keys).
+
+Do not start a manual live send while a scheduled run is queued or running. Keep the gate
+enabled for one controlled same-week retry. Disable it after a repeated failure. After 24
+hours, inspect Resend before a retry because an ambiguous earlier request might have sent.
+
+To stop delivery, set `MILESTONE_EMAIL_ENABLED=false` first. Cancel a queued or running
+notification workflow. Revoke the Resend key only after a suspected leak or when an
+in-flight send cannot otherwise stop. Preserve the CSV sync. An accepted email cannot be
+recalled. Send a correction if its content is wrong.
+
+### Recipient and key maintenance
+
+To add, remove, or replace a recipient, set the gate to `false`, replace the complete
+`MILESTONE_RECIPIENTS` secret, and validate the address count and format. Change
+`MILESTONE_SMOKE_RECIPIENT` separately when Colin's mailbox changes. Re-enable the gate only
+after the intended list is confirmed.
+
+To rotate the provider key, set the gate to `false`. Create a new sending-access key for the
+verified domain. Replace `RESEND_API_KEY`, run the fixed smoke test, and confirm receipt.
+Revoke the old key, then re-enable the gate.
 
 ## Deployment
 
