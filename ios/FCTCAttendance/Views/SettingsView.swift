@@ -194,8 +194,10 @@ struct SettingsView: View {
     }
 
     /// Reminders-style accent swatches: one tap sets and persists the tint.
+    /// Sized so all seven slots fit the section's content width; 40-point slots
+    /// overflowed and clipped the first ring (Colin's review).
     private var accentPicker: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 0) {
             ForEach(AccentChoice.allCases, id: \.self) { choice in
                 Button {
                     runtime.setAccent(choice)
@@ -203,21 +205,21 @@ struct SettingsView: View {
                     ZStack {
                         Circle()
                             .fill(choice.color)
-                            .frame(width: 32, height: 32)
+                            .frame(width: 28, height: 28)
                         if runtime.accent == choice {
                             Circle()
-                                .strokeBorder(.primary.opacity(0.35), lineWidth: 3)
-                                .frame(width: 40, height: 40)
+                                .strokeBorder(.primary.opacity(0.35), lineWidth: 2.5)
+                                .frame(width: 36, height: 36)
                         }
                     }
-                    .frame(width: 40, height: 40)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 36)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(choice.label) accent")
                 .accessibilityAddTraits(runtime.accent == choice ? .isSelected : [])
                 .accessibilityIdentifier("accent-\(choice.rawValue)")
             }
-            Spacer(minLength: 0)
         }
         .padding(.vertical, 4)
     }
