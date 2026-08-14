@@ -20,7 +20,8 @@ The first version will use Resend and the existing weekly GitHub Actions workflo
 Success means:
 
 - The email lists each qualifying member and the next milestone.
-- One email lists all qualifying members when the body is at most 64 KiB. An oversized digest fails closed.
+- One email lists all qualifying members when the text is at most 64 KiB and the HTML is at
+  most 256 KiB. An oversized digest fails closed.
 - Every configured recipient gets a separate email.
 - A week with no qualifying members sends no email.
 - A delivery request failure makes the workflow fail clearly.
@@ -49,7 +50,7 @@ Success means:
 #### Weekly email
 
 - **R6:** Run the check on Sunday after the current Google Sheet sync and push steps.
-- **R7:** Send one plain-text digest when at least one candidate exists.
+- **R7:** Send one branded HTML digest with a plain-text fallback when at least one candidate exists.
 - **R8:** Include only each candidate's name, milestone, the target week, and the data cutoff date.
 - **R9:** Send a separate copy to each configured recipient to keep recipient addresses private.
 - **R10:** Normal preview and send paths make no Resend call when no candidate exists. The explicit fixed smoke mode is the only exception.
@@ -162,7 +163,7 @@ Make the payload deterministic:
 
 - Sort candidates by milestone and name.
 - Trim, deduplicate, and sort recipients.
-- Use a fixed subject and body format.
+- Use fixed subject, text, and HTML formats.
 - Derive the idempotency key from that Perth Monday date.
 
 Resend keeps idempotency keys for 24 hours. The same key and payload returns the original result. A changed payload with the same key returns HTTP 409. A rerun after 24 hours can send a duplicate. This limit is accepted because persistent history would add a database or committed state. See [Resend idempotency](https://resend.com/docs/dashboard/emails/idempotency-keys).
@@ -185,9 +186,10 @@ Add `MILESTONE_EMAIL_ENABLED` as a repository variable. Leave it false until rol
 
 Run milestone detection in a step with no secrets. Inject secrets only into a later conditional send or smoke step. A preview or no-candidate run must never receive them. Restrict manual send and smoke modes to `cpdis` on `main`. GitHub masks matching values, but the script must still avoid printing secrets or derived private data. See [GitHub Actions secrets](https://docs.github.com/en/actions/concepts/security/secrets).
 
-#### KTD7. Use a plain-text digest
+#### KTD7. Use one inline-styled HTML digest with a text fallback
 
-Do not add a template system. Use plain text similar to this:
+Do not add a template system or remote assets. Build one table-based HTML document with inline
+styles that match the FCTC site. Keep plain text similar to this as the fallback:
 
 ```text
 Subject: FCTC milestone runs — week of 17 Aug 2026
@@ -200,7 +202,8 @@ Subject: FCTC milestone runs — week of 17 Aug 2026
 Based on FCTC attendance recorded through 16 Aug 2026.
 ```
 
-Use correct singular and plural grammar. Disable Resend open and click tracking for the sending domain.
+Escape member names before adding them to HTML. Use correct singular and plural grammar. Disable
+Resend open and click tracking for the sending domain.
 
 Derive the data cutoff from the newest parsed run with recorded attendance. Do not use the workflow start date. Fail closed if candidates exist but no valid cutoff exists.
 
@@ -351,7 +354,7 @@ flowchart TD
 - Return `{ name, currentRuns, milestone }`.
 - Sort by `milestone`, then by normalized name with a fixed locale.
 - Add date helpers that calculate the next Monday-to-Sunday week in `Australia/Perth`.
-- Add a formatter that returns a fixed subject and plain-text body.
+- Add a formatter that returns a fixed subject, plain-text fallback, and inline-styled HTML.
 - Keep names unchanged in message content. Normalize only for sorting.
 - Reject control characters, Unicode line separators, and bidirectional override characters in names.
 - Limit each name to 200 Unicode characters and the final UTF-8 body to 64 KiB.
@@ -366,6 +369,7 @@ flowchart TD
 - Preserve punctuation and emoji in member names.
 - Produce stable sorting and byte-for-byte stable content.
 - Use correct singular and plural grammar.
+- Escape names in HTML and cover the HTML size limit.
 - Calculate the Perth week across Sunday, delayed Monday, month-end, and year-end boundaries.
 - Fail on unsafe or oversized names and an oversized body without including the value in the error.
 - Fail when candidates exist but no valid attendance cutoff exists.
@@ -430,7 +434,7 @@ flowchart TD
 - Parse, trim, deduplicate, validate, and sort recipients.
 - Reject invalid, injected, oversized, or empty recipients without printing the value.
 - Build one private batch item per recipient.
-- Build fixed smoke content and a separate smoke key without reading candidate data.
+- Build fixed smoke text and sample HTML with a separate smoke key without reading candidate data.
 - Keep the payload and idempotency key stable across retries.
 - Accept only a valid success response with one ID per recipient.
 - Reject missing, extra, malformed, and non-JSON success responses.
@@ -545,7 +549,7 @@ GitHub now supports timezone-aware schedules. It still warns that scheduled runs
 - Domain verification passes.
 - The restricted API key can send from the configured sender.
 - The manual preview makes no provider request.
-- A fixed smoke email reaches Colin's inbox without using the weekly key.
+- A fixed smoke email with sample HTML reaches Colin's inbox without using the weekly key.
 - Recipient addresses do not appear in public Actions logs.
 - The normal committed data sends nothing when no candidate exists.
 - The first enabled Sunday run matches the saved candidate and recipient counts.
@@ -558,7 +562,7 @@ GitHub now supports timezone-aware schedules. It still warns that scheduled runs
 - Run a manual GitHub Actions preview.
 - Run one fixed manual smoke send.
 - Inspect the public job log for private data.
-- Confirm the delivered subject and body match the tested formatter.
+- Confirm the delivered subject, text, and HTML match the tested formatter.
 
 **Go/no-go and activation:**
 

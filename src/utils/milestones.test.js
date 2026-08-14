@@ -180,13 +180,15 @@ describe('formatMilestoneDigest', () => {
     expect(formatMilestoneDigest({ candidates: [], weekStart, cutoffDate })).toBeNull()
   })
 
-  it('formats one deterministic plain-text digest with plural grammar', () => {
+  it('formats one deterministic text and HTML digest with plural grammar', () => {
     const candidates = findUpcomingMilestones(totals([
       ['Sam Lee', 149],
       ['Jane Doe', 99],
     ]))
 
-    expect(formatMilestoneDigest({ candidates, weekStart, cutoffDate })).toEqual({
+    const digest = formatMilestoneDigest({ candidates, weekStart, cutoffDate })
+
+    expect(digest).toMatchObject({
       subject: 'FCTC milestone runs — week of 17 Aug 2026',
       body: [
         '2 runners are one recorded run from a milestone:',
@@ -197,13 +199,42 @@ describe('formatMilestoneDigest', () => {
         'Based on FCTC attendance recorded through 16 Aug 2026.',
       ].join('\n'),
     })
+    expect(digest.html).toContain('<meta name="viewport" content="width=device-width, initial-scale=1">')
+    expect(digest.html).toContain('background: #ffffff')
+    expect(digest.html).toContain('#ffd23f')
+    expect(digest.html).toContain('#ff7a30')
+    expect(digest.html).toContain('#e8442c')
+    expect(digest.html).toContain('WEEK OF 17 AUGUST 2026')
+    expect(digest.html).toContain('MILESTONES<br>AHEAD')
+    expect(digest.html).toContain('Jane Doe')
+    expect(digest.html).toContain('Approaching their 100th run')
+    expect(digest.html).toContain('Sam Lee')
+    expect(digest.html).toContain('Approaching their 150th run')
+    expect(digest.html).toContain('Attendance recorded through 16 Aug 2026.')
+    expect(digest.html).toContain('href="https://fctc.fun/dashboard"')
+    expect(digest.html).not.toContain('<img')
+  })
+
+  it('escapes candidate names before adding them to HTML', () => {
+    const name = 'Alex & <Runner> "Quoted"'
+    const [candidate] = findUpcomingMilestones(totals([[name, 49]]))
+
+    const digest = formatMilestoneDigest({ candidates: [candidate], weekStart, cutoffDate })
+
+    expect(digest.body).toContain(name)
+    expect(digest.html).toContain('Alex &amp; &lt;Runner&gt; &quot;Quoted&quot;')
+    expect(digest.html).not.toContain(name)
   })
 
   it('uses singular grammar for one candidate', () => {
     const [candidate] = findUpcomingMilestones(totals([['Jane Doe', 49]]))
 
-    expect(formatMilestoneDigest({ candidates: [candidate], weekStart, cutoffDate }).body)
-      .toContain('1 runner is one recorded run from a milestone:')
+    const digest = formatMilestoneDigest({ candidates: [candidate], weekStart, cutoffDate })
+
+    expect(digest.body).toContain('1 runner is one recorded run from a milestone:')
+    expect(digest.html).toContain('One scoundrel could reach a landmark run this week.')
+    expect(digest.html).toContain('One FCTC runner is approaching a milestone run this week.')
+    expect(digest.html).not.toContain('scoundrels could reach')
   })
 
   it('produces byte-stable content regardless of member insertion order', () => {
@@ -250,6 +281,17 @@ describe('formatMilestoneDigest', () => {
 
     expect(error.message).toBe('Milestone digest exceeds 64 KiB')
     expect(error.message).not.toContain('Runner')
+  })
+
+  it('rejects HTML over 256 KiB while the text body remains within its limit', () => {
+    const candidates = Array.from({ length: 300 }, (_, index) => ({
+      name: `Runner ${String(index).padStart(4, '0')}`,
+      currentRuns: 49,
+      milestone: 50,
+    }))
+
+    expect(() => formatMilestoneDigest({ candidates, weekStart, cutoffDate }))
+      .toThrow('Milestone HTML exceeds 256 KiB')
   })
 
   it('can include the same unchanged candidate in the following target week', () => {

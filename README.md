@@ -133,10 +133,12 @@ season registered in `src/config/years.js` and calculates exact all-time attenda
 CSV run rows. A member qualifies when their total is `50n - 1`, such as 49, 99, or 149 runs.
 The same member can qualify again next week if their recorded total does not change.
 
-The feature creates one plain-text digest for all candidates. It sends a separate copy to
-each recipient through the [Resend batch API](https://resend.com/docs/api-reference/emails/send-batch-emails),
-so recipients do not see other addresses. A normal preview or send with no candidates stops
-before any provider request. The feature has no backend, database, or notification history.
+The feature creates one branded HTML digest for all candidates and keeps the same plain-text
+content as a fallback. It sends a separate copy to each recipient through the
+[Resend batch API](https://resend.com/docs/api-reference/emails/send-batch-emails), so
+recipients do not see other addresses. The HTML uses inline styles, email-safe fonts, and no
+remote images. A normal preview or send with no candidates stops before any provider request.
+The feature has no backend, database, or notification history.
 
 The exact CSV header is the member identity across seasons. Keep a member's header text
 unchanged. A rename creates a separate identity and splits the all-time total.
@@ -185,10 +187,10 @@ Run the workflow from the GitHub Actions page and select `notification_mode`:
 - `preview` is the default. It reads no email secrets and makes no provider request.
 - `send` needs an enabled gate, at least one candidate, `main`, and both `github.actor` and
   `github.triggering_actor` set to `cpdis`.
-- `smoke` sends fixed `[TEST]` content only to `MILESTONE_SMOKE_RECIPIENT`. It includes no
-  attendance content. It needs `main` and both actors set to `cpdis`, but it does not need
-  the enable gate. Each workflow run uses a new smoke idempotency key, so a rerun after a
-  configuration fix reaches Resend.
+- `smoke` sends fixed `[TEST]` text and sample HTML only to `MILESTONE_SMOKE_RECIPIENT`.
+  It uses one fictional runner and reads no attendance data. It needs `main` and both actors
+  set to `cpdis`, but it does not need the enable gate. Each workflow run uses a new smoke
+  idempotency key, so a rerun after a configuration fix reaches Resend.
 
 A re-run of a scheduled workflow never sends email. Use a new manual `send` dispatch when a
 live retry is required. An unauthorized manual send stays provider-free and reports refusal.
@@ -210,7 +212,7 @@ Keep `MILESTONE_EMAIL_ENABLED=false` until all checks pass:
 - Confirm the API key has sending access only and is restricted to the verified domain.
 - Confirm the fixed sender and every recipient. Use 100 or fewer recipient addresses.
 - Save a production-data preview with its target week and candidate count.
-- Run the fixed smoke mode. Confirm one item is accepted and reaches Colin's inbox.
+- Run the fixed smoke mode. Confirm the branded sample is accepted and reaches Colin's inbox.
 - Inspect the public logs and confirm they contain no private data.
 
 Set `MILESTONE_EMAIL_ENABLED=true` only after the checklist passes.
