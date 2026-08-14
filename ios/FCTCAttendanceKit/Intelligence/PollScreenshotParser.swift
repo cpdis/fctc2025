@@ -77,14 +77,19 @@ public struct PollParseResult: Codable, Hashable, Sendable {
 
 public struct PollScreenshotParser: Sendable {
 
-    public init() {}
+    private let scanner: PollLineScanner
+
+    public init(scanner: PollLineScanner = PollLineScanner()) {
+        self.scanner = scanner
+    }
 
     /// Parse one screenshot's OCR lines.
     ///
-    /// TODO(U6): chrome-line filtering (status bar, poll question, "Select one or
-    /// more", "N votes", "View votes", timestamps), option grouping, name extraction.
+    /// U5 implemented the line rules in `PollLineScanner` (the packet gives the OCR
+    /// chrome filtering and nameless-card detection to U5's heuristics); this type
+    /// stays as the name U6 wires Vision up to.
     public func parse(lines: [String]) -> PollParseResult {
-        .empty
+        scanner.scan(lines: lines)
     }
 
     /// Multi-screenshot union: parse each dump and dedupe candidates across them.
