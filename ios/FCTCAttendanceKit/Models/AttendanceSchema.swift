@@ -15,7 +15,7 @@ public enum AttendanceSchema {
     /// Every `@Model` type in this framework. Add new persistent models here.
     public static let models: [any PersistentModel.Type] = [
         Member.self,
-        Run.self,
+        ScheduledRun.self,
         PendingSubmission.self,
     ]
 
@@ -26,5 +26,5 @@ public enum AttendanceSchema {
 
     /// Bumped whenever a stored property changes shape. U3 owns any real migration
     /// plan; until then the cache is disposable and can simply be rebuilt.
-    public static let version = "0.1.0"
+    public static let version = "0.2.0"
 }

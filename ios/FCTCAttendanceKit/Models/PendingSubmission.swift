@@ -2,66 +2,61 @@
 //  PendingSubmission.swift
 //  FCTCAttendanceKit
 //
-//  The outbox row (R9). A confirmed draft becomes one of these; `SyncEngine` drains
-//  them with backoff and the Outbox screen shows them.
+//  Persistent outbox snapshot. Replays are safe because every sheet value is
+//  absolute, not a delta.
 //
-//  `submitAttendance` sends ABSOLUTE cell values (not deltas), so replaying a pending
-//  submission is idempotent — that is what makes blind offline retry safe.
-//
+
 
 import Foundation
 import SwiftData
 
-/// Merge semantics when the target row already has marks (R8, resolved Q1:
-/// overwrite may uncheck previously-recorded attendees — the dialog makes that
-/// deliberate).
 public enum SubmissionMode: String, Codable, Sendable, CaseIterable {
     case merge
     case overwrite
 }
 
 public enum SubmissionStatus: String, Codable, Sendable, CaseIterable {
-    /// Waiting for its turn / for the network.
     case queued
-    /// In flight right now.
-    case sending
-    /// Accepted by the sheet.
-    case written
-    /// Server reported a revision/row-identity conflict; needs the human.
-    case conflicted
-    /// Repeated failures; needs the human.
-    case failed
+    case inFlight
+    case conflict
+    case done
+
+    /// Compatibility spellings from the U1 placeholder.
+    public static var sending: Self { .inFlight }
+    public static var written: Self { .done }
+    public static var conflicted: Self { .conflict }
 }
 
 @Model
 public final class PendingSubmission {
-
     @Attribute(.unique) public var id: UUID
 
-    // MARK: Payload (mirrors the frozen `submitAttendance` contract)
+    // MARK: Frozen payload
 
+    /// A 1-based sheet row coordinate.
     public var rowIndex: Int
     public var expectedDate: String
     public var expectedRun: String
     public var attendees: [String]
     public var actualKm: Double?
     public var baseRevision: String?
-
-    /// Guest NAMES are kept locally (resolved Q2); only `plusOnes` reaches the sheet.
     public var guestNames: [String]
-
-    /// Stored as the raw string so SwiftData never trips over enum evolution.
+    public var plusOnesValue: Int?
     public var modeRaw: String
-    public var statusRaw: String
 
-    // MARK: Bookkeeping
+    // MARK: Outbox state
 
+    public var stateRaw: String
     public var createdAt: Date
     public var lastAttemptAt: Date?
     public var attemptCount: Int
     public var lastError: String?
-    /// Free-text device label carried for the audit trail (no per-user identity).
     public var deviceName: String?
+
+    // A Codable DTO is stored as data because SwiftData cannot persist it directly.
+    public var conflictReason: String?
+    public var conflictMessage: String?
+    public var conflictStateData: Data?
 
     public init(
         id: UUID = UUID(),
@@ -70,6 +65,7 @@ public final class PendingSubmission {
         expectedRun: String,
         attendees: [String],
         guestNames: [String] = [],
+        plusOnes: Int? = nil,
         actualKm: Double? = nil,
         mode: SubmissionMode = .merge,
         status: SubmissionStatus = .queued,
@@ -83,56 +79,77 @@ public final class PendingSubmission {
         self.expectedRun = expectedRun
         self.attendees = attendees
         self.guestNames = guestNames
+        self.plusOnesValue = plusOnes ?? guestNames.count
         self.actualKm = actualKm
         self.modeRaw = mode.rawValue
-        self.statusRaw = status.rawValue
+        self.stateRaw = status.rawValue
         self.baseRevision = baseRevision
         self.createdAt = createdAt
         self.lastAttemptAt = nil
         self.attemptCount = 0
         self.lastError = nil
         self.deviceName = deviceName
+        self.conflictReason = nil
+        self.conflictMessage = nil
+        self.conflictStateData = nil
     }
 }
 
 extension PendingSubmission {
-
     public var mode: SubmissionMode {
         get { SubmissionMode(rawValue: modeRaw) ?? .merge }
         set { modeRaw = newValue.rawValue }
     }
 
+    public var state: SubmissionStatus {
+        get { SubmissionStatus(rawValue: stateRaw) ?? .queued }
+        set { stateRaw = newValue.rawValue }
+    }
+
+    /// Compatibility spelling from the U1 model.
     public var status: SubmissionStatus {
-        get { SubmissionStatus(rawValue: statusRaw) ?? .queued }
-        set { statusRaw = newValue.rawValue }
+        get { state }
+        set { state = newValue }
     }
 
-    /// The count the sheet's `+1's` cell receives.
-    public var plusOnes: Int { guestNames.count }
+    public var plusOnes: Int? { plusOnesValue }
 
-    /// Still owed to the sheet.
-    public var isOutstanding: Bool {
-        switch status {
-        case .queued, .sending, .conflicted, .failed: true
-        case .written: false
-        }
+    public var isOutstanding: Bool { state != .done }
+
+    public var conflictState: SheetState? {
+        guard let conflictStateData else { return nil }
+        return try? JSONDecoder().decode(SheetState.self, from: conflictStateData)
     }
 
-    /// Build the outbox row for a confirmed draft.
+    public func attachConflict(reason: String, message: String, state: SheetState) {
+        conflictReason = reason
+        conflictMessage = message
+        conflictStateData = try? JSONEncoder().encode(state)
+    }
+
+    public func clearConflict() {
+        conflictReason = nil
+        conflictMessage = nil
+        conflictStateData = nil
+    }
+
     public static func from(
         draft: AttendanceDraft,
         mode: SubmissionMode = .merge,
-        deviceName: String? = nil
+        deviceName: String? = nil,
+        createdAt: Date = .now
     ) -> PendingSubmission {
         PendingSubmission(
             rowIndex: draft.rowIndex,
             expectedDate: draft.expectedDate,
             expectedRun: draft.expectedRun,
             attendees: draft.attendees,
-            guestNames: draft.guests.map(\.name),
+            guestNames: draft.guestNames,
+            plusOnes: draft.plusOnes,
             actualKm: draft.actualKm,
             mode: mode,
             baseRevision: draft.baseRevision,
+            createdAt: createdAt,
             deviceName: deviceName
         )
     }

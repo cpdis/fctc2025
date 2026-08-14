@@ -70,6 +70,9 @@ public struct AttendanceDraft: Codable, Hashable, Sendable {
     /// `Actual kms`. Nil means "leave the sheet cell as it is".
     public var actualKm: Double?
 
+    /// A manual guest-count edit wins over the count derived from guest names.
+    public var plusOnesOverride: Int?
+
     /// Names the extractors could not resolve to the roster.
     public var unmatched: [UnmatchedName]
 
@@ -83,6 +86,7 @@ public struct AttendanceDraft: Codable, Hashable, Sendable {
         checks: [String: CheckProvenance] = [:],
         guests: [Guest] = [],
         actualKm: Double? = nil,
+        plusOnesOverride: Int? = nil,
         unmatched: [UnmatchedName] = [],
         baseRevision: String? = nil
     ) {
@@ -92,6 +96,7 @@ public struct AttendanceDraft: Codable, Hashable, Sendable {
         self.checks = checks
         self.guests = guests
         self.actualKm = actualKm
+        self.plusOnesOverride = plusOnesOverride
         self.unmatched = unmatched
         self.baseRevision = baseRevision
     }
@@ -99,8 +104,14 @@ public struct AttendanceDraft: Codable, Hashable, Sendable {
 
 extension AttendanceDraft {
 
+    /// Local-only guest names, without the UI identity wrapper.
+    public var guestNames: [String] {
+        get { guests.map(\.name) }
+        set { guests = newValue.map { Guest(name: $0) } }
+    }
+
     /// What the sheet's `+1's` cell receives.
-    public var plusOnes: Int { guests.count }
+    public var plusOnes: Int { plusOnesOverride ?? guests.count }
 
     /// Checked members in sheet order — exactly the set that becomes `x` cells.
     public var attendees: [String] {
