@@ -12,27 +12,36 @@ import UIKit
 
 struct ChecklistView: View {
     let runtime: AppRuntime
-    let onConfirmed: (@MainActor () -> Void)?
+    let presentation: ChecklistPresentation
+    let onConfirmed: (@MainActor (RunSnapshot?) -> Void)?
 
     @Query(sort: \Member.name) private var cachedMembers: [Member]
     @Query(
         sort: \PendingSubmission.createdAt,
         order: .reverse
     ) private var cachedSubmissions: [PendingSubmission]
+    @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ChecklistViewModel
     @State private var searchText = ""
     @State private var showingRecordedChoice = false
     @State private var showingScreenshotImport = false
     @State private var showingVoiceEntry = false
+    @State private var showingCatchUp = false
+    @State private var nextCatchUpRun: RunSnapshot?
+    @State private var showingSharedScreenshotOffer = false
+    @State private var sharedScreenshotCount = 0
+    @State private var sharedImportURLs: [URL] = []
 
     init(
         runtime: AppRuntime,
         run: RunSnapshot,
         draft: AttendanceDraft? = nil,
-        onConfirmed: (@MainActor () -> Void)? = nil
+        presentation: ChecklistPresentation = .standard,
+        onConfirmed: (@MainActor (RunSnapshot?) -> Void)? = nil
     ) {
         self.runtime = runtime
+        self.presentation = presentation
         self.onConfirmed = onConfirmed
         _viewModel = State(
             initialValue: ChecklistViewModel(
@@ -47,6 +56,11 @@ struct ChecklistView: View {
 
     var body: some View {
         @Bindable var viewModel = viewModel
+        let runSnapshots = cachedRuns.map(RunSnapshot.init)
+        let statsByMember = MemberStats.calculateAll(
+            members: viewModel.roster,
+            runs: runSnapshots
+        )
 
         List {
             // The smart modalities lead the screen (Colin's review, 2026-08-14):
@@ -114,7 +128,12 @@ struct ChecklistView: View {
                         name: name,
                         provenance: viewModel.draft.checks[name],
                         isSuggested: viewModel.isSuggested(name),
-                        action: { viewModel.toggleMember(name) }
+                        stats: statsByMember[name]
+                            ?? MemberStats(attendanceCount: 0, lastAttendedAt: nil, currentStreak: 0),
+                        action: {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            viewModel.toggleMember(name)
+                        }
                     )
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if viewModel.draft.isChecked(name) {
@@ -132,8 +151,14 @@ struct ChecklistView: View {
                         viewModel.quickAddName = guest.name
                         Task { try? await viewModel.commitQuickAdd() }
                     } label: {
-                        Label("Promote guest \(guest.name)", systemImage: "person.crop.circle.badge.plus")
-                            .foregroundStyle(.primary)
+                        HStack {
+                            Label("Add \(guest.name) as member", systemImage: "person.crop.circle.badge.plus")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if viewModel.isFrequentGuest(guest.name) {
+                                FrequentGuestBadge()
+                            }
+                        }
                     }
                     .disabled(viewModel.isAddingPerson)
                     .accessibilityIdentifier("promote-guest-\(guest.id)")
@@ -191,12 +216,17 @@ struct ChecklistView: View {
         } message: {
             Text("Merge keeps sheet checks. Overwrite can remove them.")
         }
-        .sheet(isPresented: $showingScreenshotImport) {
+        .sheet(
+            isPresented: $showingScreenshotImport,
+            onDismiss: clearSharedImportState
+        ) {
             ScreenshotImportView(
                 roster: viewModel.roster,
                 parser: UITestSupport.screenshotParser(),
                 initialImages: UITestSupport.screenshotImages(),
-                skipCoach: UITestSupport.shouldSkipScreenshotCoach,
+                initialFileURLs: sharedImportURLs,
+                skipCoach: UITestSupport.shouldSkipScreenshotCoach || !sharedImportURLs.isEmpty,
+                onInitialFilesConsumed: clearSharedScreenshotInbox,
                 onApply: { set, checks in
                     viewModel.applyProposals(checks: checks, from: set)
                     showingScreenshotImport = false
@@ -208,8 +238,39 @@ struct ChecklistView: View {
             )
             .interactiveDismissDisabled(viewModel.isAddingPerson)
         }
-        .task { updateCachedValues() }
+        .task {
+            updateCachedValues()
+            switch presentation {
+            case .dictation:
+                showingVoiceEntry = true
+            case .sharedScreenshots:
+                loadSharedImagesAndPresent()
+            case .standard:
+                checkSharedScreenshotInbox()
+            }
+        }
         .onChange(of: cacheFingerprint) { _, _ in updateCachedValues() }
+        .onReceive(NotificationCenter.default.publisher(for: .fctcAppDidActivate)) { _ in
+            checkSharedScreenshotInbox()
+        }
+        .alert(
+            "Import \(sharedScreenshotCount) shared screenshot\(sharedScreenshotCount == 1 ? "" : "s")?",
+            isPresented: $showingSharedScreenshotOffer
+        ) {
+            Button("Import") { loadSharedImagesAndPresent() }
+            Button("Dismiss", role: .cancel) {
+                try? runtime.sharedScreenshotInbox.clear()
+            }
+        } message: {
+            Text("Review these images through the existing poll import flow.")
+        }
+        .alert("Attendance recorded", isPresented: $showingCatchUp) {
+            Button("Next unrecorded run") { finishConfirmation(with: nextCatchUpRun) }
+            Button("Skip") { skipNextCatchUpRun() }
+            Button("Done", role: .cancel) { finishConfirmation(with: nil) }
+        } message: {
+            Text("An older run still needs attendance.")
+        }
     }
 
     private var filteredRoster: [String] {
@@ -239,7 +300,7 @@ struct ChecklistView: View {
 
     private func updateCachedValues() {
         viewModel.updateRoster(cachedMembers.map(\.name))
-        viewModel.updateGuestHistory(cachedSubmissions.flatMap(\.guestNames))
+        viewModel.updateGuestSubmissionHistory(cachedSubmissions.map(\.guestNames))
     }
 
     private func submit(mode: SubmissionMode) {
@@ -247,15 +308,64 @@ struct ChecklistView: View {
             do {
                 _ = try await viewModel.confirm(mode: mode)
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
-                if let onConfirmed {
-                    onConfirmed()
+                let snapshots = cachedRuns.map(RunSnapshot.init)
+                if let next = CatchUpPlanner.nextOlderUnrecorded(
+                    after: viewModel.run,
+                    among: snapshots
+                ) {
+                    nextCatchUpRun = next
+                    showingCatchUp = true
                 } else {
-                    dismiss()
+                    finishConfirmation(with: nil)
                 }
-            } catch {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
-            }
+            } catch {}
         }
+    }
+
+    private func finishConfirmation(with nextRun: RunSnapshot?) {
+        if let onConfirmed {
+            onConfirmed(nextRun)
+        } else {
+            dismiss()
+        }
+    }
+
+    private func skipNextCatchUpRun() {
+        guard let skipped = nextCatchUpRun else {
+            finishConfirmation(with: nil)
+            return
+        }
+        let following = CatchUpPlanner.nextOlderUnrecorded(
+            after: skipped,
+            among: cachedRuns.map(RunSnapshot.init)
+        )
+        finishConfirmation(with: following)
+    }
+
+    private func checkSharedScreenshotInbox() {
+        guard !showingScreenshotImport,
+              !showingSharedScreenshotOffer,
+              let count = try? runtime.sharedScreenshotInbox.list().count,
+              count > 0
+        else { return }
+        sharedScreenshotCount = count
+        showingSharedScreenshotOffer = true
+    }
+
+    private func loadSharedImagesAndPresent() {
+        let urls = (try? runtime.sharedScreenshotInbox.list()) ?? []
+        guard !urls.isEmpty else { return }
+        sharedImportURLs = urls
+        showingScreenshotImport = true
+    }
+
+    private func clearSharedScreenshotInbox() {
+        try? runtime.sharedScreenshotInbox.clear()
+    }
+
+    private func clearSharedImportState() {
+        clearSharedScreenshotInbox()
+        sharedImportURLs = []
     }
 
     private func addScreenshotPerson(_ name: String) async throws {
@@ -271,6 +381,7 @@ private struct MemberCheckRow: View {
     let name: String
     let provenance: CheckProvenance?
     let isSuggested: Bool
+    let stats: MemberStats
     let action: () -> Void
 
     private var isChecked: Bool { provenance != nil }
@@ -280,20 +391,17 @@ private struct MemberCheckRow: View {
             HStack(spacing: 12) {
                 CircularCheck(isChecked: isChecked)
 
+                MemberAvatarView(name: name)
+
                 Text(name)
                     .foregroundStyle(.primary)
 
                 Spacer(minLength: 8)
 
                 if let provenance, provenance != .manual {
-                    ProposalBadge(provenance: provenance)
+                    ProvenanceBadge(kind: ProvenanceBadgeKind(provenance))
                 } else if isSuggested {
-                    Label("Suggested", systemImage: "questionmark.circle")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(Color.secondary.opacity(0.1), in: .capsule)
+                    ProvenanceBadge(kind: .suggested)
                 }
             }
             .contentShape(.rect)
@@ -305,6 +413,25 @@ private struct MemberCheckRow: View {
         .accessibilityHint("Double-tap to \(isChecked ? "uncheck" : "check").")
         .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("member-\(name)")
+        .contextMenu {
+            Button(action: {}) {
+                Label("\(stats.attendanceCount) season attendances", systemImage: "calendar")
+            }
+            .disabled(true)
+            Button(action: {}) {
+                Label(lastAttendedLabel, systemImage: "clock")
+            }
+            .disabled(true)
+            Button(action: {}) {
+                Label("\(stats.currentStreak) run streak", systemImage: "flame")
+            }
+            .disabled(true)
+        }
+    }
+
+    private var lastAttendedLabel: String {
+        guard let date = stats.lastAttendedAt else { return "No recorded attendance" }
+        return "Last attended \(date.formatted(date: .abbreviated, time: .omitted))"
     }
 }
 
@@ -349,28 +476,6 @@ private struct CircularCheck: View {
     }
 }
 
-private struct ProposalBadge: View {
-    let provenance: CheckProvenance
-
-    var body: some View {
-        Label(label, systemImage: "sparkles")
-            .font(.caption)
-            .foregroundStyle(.tint)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(Color.accentColor.opacity(0.1), in: .capsule)
-            .accessibilityLabel("\(label) proposed")
-    }
-
-    private var label: String {
-        switch provenance {
-        case .manual: "Manual"
-        case .ocr: "OCR"
-        case .voice: "Voice"
-        }
-    }
-}
-
 private struct QuickAddPersonRow: View {
     @Bindable var viewModel: ChecklistViewModel
     @FocusState private var isFocused: Bool
@@ -410,15 +515,25 @@ private struct GuestEditorView: View {
         List {
             Section {
                 ForEach(Array(viewModel.draft.guests.indices), id: \.self) { index in
-                    TextField(
-                        "Guest name",
-                        text: Binding(
-                            get: { viewModel.draft.guests[index].name },
-                            set: { viewModel.draft.guests[index].name = $0 }
+                    HStack {
+                        TextField(
+                            "Guest name",
+                            text: Binding(
+                                get: { viewModel.draft.guests[index].name },
+                                set: { viewModel.draft.guests[index].name = $0 }
+                            )
                         )
-                    )
-                    .textInputAutocapitalization(.words)
-                    .accessibilityLabel("Guest \(index + 1) name")
+                        .textInputAutocapitalization(.words)
+                        .accessibilityLabel("Guest \(index + 1) name")
+                        if viewModel.isFrequentGuest(viewModel.draft.guests[index].name) {
+                            FrequentGuestBadge()
+                            Button("Add as member") {
+                                promote(viewModel.draft.guests[index].name)
+                            }
+                            .font(.caption)
+                            .buttonStyle(.borderless)
+                        }
+                    }
                 }
                 .onDelete(perform: viewModel.removeGuests)
 
@@ -449,5 +564,10 @@ private struct GuestEditorView: View {
     private func addGuest() {
         viewModel.addGuest(name: newGuestName)
         newGuestName = ""
+    }
+
+    private func promote(_ name: String) {
+        viewModel.quickAddName = name
+        Task { try? await viewModel.commitQuickAdd() }
     }
 }

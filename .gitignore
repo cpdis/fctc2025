@@ -42,6 +42,7 @@ DerivedData/
 .swiftpm/
 # Generated from the `info:` block in ios/project.yml at generate time.
 ios/FCTCAttendance/Info.plist
+ios/FCTCAttendanceShare/Info.plist
 
 # Apps Script (apps-script/) — .clasp.json names a real script id; the tracked
 # template is .clasp.json.example.

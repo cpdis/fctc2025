@@ -8,6 +8,7 @@
 
 import FCTCAttendanceKit
 import SwiftUI
+import UIKit
 
 struct ProposalTriageView: View {
     let set: DraftProposalSet
@@ -54,6 +55,16 @@ struct ProposalTriageView: View {
                             .foregroundStyle(.tint)
                     }
                     .font(.subheadline)
+                }
+
+                if set.isEmpty {
+                    ContentUnavailableView(
+                        "No Suggestions",
+                        systemImage: "checklist.unchecked",
+                        description: Text("No attendance details were found to review.")
+                    )
+                    .listRowBackground(Color.clear)
+                    .accessibilityIdentifier("triage-empty")
                 }
 
                 if !buckets.autoChecks.isEmpty {
@@ -114,6 +125,10 @@ struct ProposalTriageView: View {
                             .accessibilityIdentifier("triage-apply-error")
                     }
                 }
+
+                Section {} footer: {
+                    provenanceLegend
+                }
             }
             .listStyle(.insetGrouped)
             .disabled(isApplying)
@@ -127,6 +142,7 @@ struct ProposalTriageView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Apply") {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         applySelections()
                     }
                     .fontWeight(.semibold)
@@ -158,6 +174,26 @@ struct ProposalTriageView: View {
         }
     }
 
+    private var provenanceLegend: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 10) {
+                legendItem("sparkles", "Model")
+                legendItem("waveform", "Voice")
+                legendItem("photo", "Screenshot")
+                legendItem("questionmark.circle", "Suggested")
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+        }
+        .scrollIndicators(.hidden)
+        .accessibilityLabel("Provenance: model, voice, screenshot, and suggested")
+    }
+
+    private func legendItem(_ image: String, _ label: String) -> some View {
+        Label(label, systemImage: image)
+            .fixedSize()
+    }
+
     private func autoCheckRow(_ proposal: DraftProposal) -> some View {
         let selected = selections[proposal.id] != nil
         return Button {
@@ -169,6 +205,7 @@ struct ProposalTriageView: View {
         } label: {
             HStack(spacing: 12) {
                 TriageCheck(isChecked: selected)
+                MemberAvatarView(name: selections[proposal.id] ?? proposal.raw)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(selections[proposal.id] ?? proposal.raw)
                         .foregroundStyle(.primary)
@@ -179,9 +216,7 @@ struct ProposalTriageView: View {
                     }
                 }
                 Spacer(minLength: 8)
-                Text("Match")
-                    .font(.caption)
-                    .foregroundStyle(.tint)
+                ProvenanceBadge(kind: ProvenanceBadgeKind(set.provenance))
             }
             .contentShape(.rect)
         }
@@ -199,8 +234,13 @@ struct ProposalTriageView: View {
     private func pickRows(_ proposal: DraftProposal) -> some View {
         if case .pick(let candidates) = proposal.resolution {
             VStack(alignment: .leading, spacing: 10) {
-                Text(proposal.raw)
-                    .font(.headline)
+                HStack {
+                    MemberAvatarView(name: proposal.raw)
+                    Text(proposal.raw)
+                        .font(.headline)
+                    Spacer()
+                    ProvenanceBadge(kind: .suggested)
+                }
                 ForEach(candidates, id: \.self) { candidate in
                     choiceButton(
                         title: candidate,
@@ -220,8 +260,13 @@ struct ProposalTriageView: View {
     private func suggestionRows(_ proposal: DraftProposal) -> some View {
         if case .suggest(let candidates) = proposal.resolution {
             VStack(alignment: .leading, spacing: 10) {
-                Text(proposal.raw)
-                    .font(.headline)
+                HStack {
+                    MemberAvatarView(name: proposal.raw)
+                    Text(proposal.raw)
+                        .font(.headline)
+                    Spacer()
+                    ProvenanceBadge(kind: .suggested)
+                }
 
                 ForEach(candidates, id: \.self) { candidate in
                     choiceButton(
@@ -270,6 +315,7 @@ struct ProposalTriageView: View {
             HStack {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(selected ? Color.accentColor : Color.secondary)
+                MemberAvatarView(name: candidate)
                 Text(title)
                     .foregroundStyle(.primary)
                 Spacer(minLength: 8)

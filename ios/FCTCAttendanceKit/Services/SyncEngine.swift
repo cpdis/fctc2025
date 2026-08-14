@@ -22,6 +22,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
     private let clock: any SyncClock
     private let retryPolicy: RetryPolicy
     private let automaticallyDrains: Bool
+    private let runReminderScheduler: any RunReminderScheduling
     private let dateFormatter: DateFormatter
     private var isDraining = false
     private var isDrainScheduled = false
@@ -32,7 +33,8 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         api: any SheetAPIClient,
         clock: any SyncClock = SystemSyncClock(),
         retryPolicy: RetryPolicy = .default,
-        automaticallyDrains: Bool = true
+        automaticallyDrains: Bool = true,
+        runReminderScheduler: any RunReminderScheduling = NoopRunReminderScheduler()
     ) {
         self.eventBroadcaster = SyncEventBroadcaster()
         let context = ModelContext(modelContainer)
@@ -47,6 +49,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         self.clock = clock
         self.retryPolicy = retryPolicy
         self.automaticallyDrains = automaticallyDrains
+        self.runReminderScheduler = runReminderScheduler
         self.dateFormatter = dateFormatter
     }
 
@@ -56,9 +59,11 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
 
     public func refreshState() async throws -> SheetState {
         let state = try await api.getState()
-        try reconcile(state, seenAt: await clock.now())
+        let seenAt = await clock.now()
+        try reconcile(state, seenAt: seenAt)
         try modelContext.save()
         eventBroadcaster.yield(.rosterRefreshed(state))
+        _ = await runReminderScheduler.reconcile(state: state, now: seenAt)
         startAutomaticDrainIfNeeded()
         return state
     }
@@ -255,16 +260,21 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
     }
 
     private func drain(id: UUID) async {
-        for attempt in 1...retryPolicy.maxAttempts {
-            if attempt > 1 {
+        var transportAttempt = 1
+        var shouldDelay = false
+        var didAutoRetryMergeConflict = false
+
+        while transportAttempt <= retryPolicy.maxAttempts {
+            if shouldDelay {
                 do {
-                    try await clock.sleep(for: retryPolicy.delay(forAttempt: attempt))
+                    try await clock.sleep(for: retryPolicy.delay(forAttempt: transportAttempt))
                 } catch {
                     try? markQueued(id: id, message: UserFacingError.offline)
                     eventBroadcaster.yield(.parked(id: id, message: UserFacingError.offline))
                     return
                 }
             }
+            shouldDelay = false
 
             let submission: AttendanceSubmission
             do {
@@ -296,6 +306,20 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                             seenAt: seenAt
                         )
                         eventBroadcaster.yield(.written(id: id))
+                    } else if reason == "stale_revision",
+                              submission.mode == .merge,
+                              state.canSafelyRebaseMerge(submission),
+                              !didAutoRetryMergeConflict {
+                        // Attendance and guest merge fields are monotone. Distance
+                        // is an absolute value, so retry only when it has no newer
+                        // server value to overwrite.
+                        try rebaseMergeConflict(
+                            id: id,
+                            state: state,
+                            seenAt: seenAt
+                        )
+                        didAutoRetryMergeConflict = true
+                        continue
                     } else {
                         try recordConflict(
                             id: id,
@@ -321,18 +345,22 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                     eventBroadcaster.yield(.failed(id: id, message: message))
                     return
                 }
-                if attempt == retryPolicy.maxAttempts {
+                if transportAttempt == retryPolicy.maxAttempts {
                     eventBroadcaster.yield(.parked(id: id, message: message))
                     return
                 }
+                transportAttempt += 1
+                shouldDelay = true
             } catch {
                 // A custom test client can throw an untyped transport error. Treat it
                 // like a network failure; the concrete SheetAPI already normalizes it.
                 try? markQueued(id: id, message: UserFacingError.offline)
-                if attempt == retryPolicy.maxAttempts {
+                if transportAttempt == retryPolicy.maxAttempts {
                     eventBroadcaster.yield(.parked(id: id, message: UserFacingError.offline))
                     return
                 }
+                transportAttempt += 1
+                shouldDelay = true
             }
         }
     }
@@ -418,6 +446,20 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         pending.status = .conflict
         pending.lastError = message
         pending.attachConflict(reason: reason, message: message, state: state)
+        try modelContext.save()
+    }
+
+    private func rebaseMergeConflict(
+        id: UUID,
+        state: SheetState,
+        seenAt: Date
+    ) throws {
+        try reconcile(state, seenAt: seenAt)
+        guard let pending = try pending(id: id) else { return }
+        pending.status = .queued
+        pending.baseRevision = state.sheetRevision
+        pending.lastError = nil
+        pending.clearConflict()
         try modelContext.save()
     }
 
@@ -608,6 +650,17 @@ public enum SyncEngineError: LocalizedError, Sendable, Equatable {
 }
 
 private extension SheetState {
+    func canSafelyRebaseMerge(_ submission: AttendanceSubmission) -> Bool {
+        guard let submittedDistance = submission.actualKm else { return true }
+        let run = runs.first {
+            $0.rowIndex == submission.rowIndex
+                && $0.date == submission.expectedDate
+                && $0.run == submission.expectedRun
+        }
+        guard let serverDistance = run?.actualKm else { return true }
+        return serverDistance == submittedDistance
+    }
+
     func satisfies(_ submission: AttendanceSubmission) -> Bool {
         guard let run = runs.first(where: {
             $0.rowIndex == submission.rowIndex

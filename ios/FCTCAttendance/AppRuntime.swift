@@ -20,6 +20,10 @@ final class AppRuntime {
     private(set) var engine: any SyncEngineClient
     private(set) var generation = 0
     private(set) var accent: AccentChoice
+    private(set) var runRemindersEnabled: Bool
+    private(set) var reminderMessage: String?
+    let reminderService: any RunReminderManaging
+    let sharedScreenshotInbox: SharedScreenshotInbox
 
     @ObservationIgnored private let appearanceStore: any AppearanceStoring
 
@@ -27,6 +31,8 @@ final class AppRuntime {
         modelContainer: ModelContainer,
         configPersistence: any AppConfigPersisting = UserDefaultsAppConfigPersistence(),
         appearanceStore: any AppearanceStoring = UserDefaultsAppearanceStore(),
+        reminderService: (any RunReminderManaging)? = nil,
+        sharedScreenshotInbox: SharedScreenshotInbox = SharedScreenshotInbox(),
         engineOverride: (any SyncEngineClient)? = nil,
         configOverride: AppConfig? = nil
     ) {
@@ -34,11 +40,17 @@ final class AppRuntime {
         self.configPersistence = configPersistence
         self.appearanceStore = appearanceStore
         self.accent = appearanceStore.loadAccent()
+        let reminders = reminderService ?? RunReminderService()
+        self.reminderService = reminders
+        self.runRemindersEnabled = reminders.isEnabled
+        self.reminderMessage = nil
+        self.sharedScreenshotInbox = sharedScreenshotInbox
         let loaded = configOverride ?? (try? configPersistence.load()) ?? AppConfig()
         self.config = loaded
         self.engine = engineOverride ?? SyncEngine(
             modelContainer: modelContainer,
-            api: SheetAPI(config: loaded)
+            api: SheetAPI(config: loaded),
+            runReminderScheduler: reminders
         )
     }
 
@@ -51,8 +63,34 @@ final class AppRuntime {
         self.config = config
         engine = engineOverride ?? SyncEngine(
             modelContainer: modelContainer,
-            api: SheetAPI(config: config)
+            api: SheetAPI(config: config),
+            runReminderScheduler: reminderService
         )
         generation += 1
+    }
+
+    func setRunRemindersEnabled(_ enabled: Bool) async {
+        reminderMessage = nil
+        let result = await reminderService.setEnabled(enabled)
+        runRemindersEnabled = reminderService.isEnabled
+        switch result {
+        case .enabled:
+            do {
+                _ = try await engine.refreshState()
+                reminderMessage = if await reminderService.lastReconcileResult == .failed {
+                    "Run reminders are on, but scheduling failed. Try again."
+                } else {
+                    "Run reminders are on."
+                }
+            } catch {
+                reminderMessage = "Run reminders are on. Connect to refresh the schedule."
+            }
+        case .disabled:
+            reminderMessage = "Run reminders are off."
+        case .denied:
+            reminderMessage = "Notifications are off in system settings."
+        case .failed:
+            reminderMessage = "The app could not update notification permission."
+        }
     }
 }

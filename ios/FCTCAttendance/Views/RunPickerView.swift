@@ -28,11 +28,33 @@ struct RunPickerView: View {
     }
 
     var body: some View {
+        let catchUpRuns = catchUpRuns
+
         List {
+            if scope == .past, catchUpRuns.count >= 2, let start = catchUpRuns.first {
+                Section {
+                    NavigationLink(value: HomeRoute.checklist(start, .standard)) {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Catch Up")
+                                    .font(.headline)
+                                Text("\(catchUpRuns.count) past runs need attendance")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                                .foregroundStyle(.tint)
+                        }
+                    }
+                    .accessibilityIdentifier("past-runs-catch-up")
+                }
+            }
+
             ForEach(viewModel.sections) { section in
                 Section(section.kind.rawValue) {
                     ForEach(section.runs) { run in
-                        NavigationLink(value: HomeRoute.checklist(run)) {
+                        NavigationLink(value: HomeRoute.checklist(run, .standard)) {
                             RunRow(
                                 run: run,
                                 isDefault: viewModel.selectedRun?.rowIndex == run.rowIndex
@@ -45,7 +67,7 @@ struct RunPickerView: View {
 
             if viewModel.sections.isEmpty {
                 ContentUnavailableView(
-                    "No Runs",
+                    scope == .past ? "No Past Runs" : "No Runs",
                     systemImage: "calendar.badge.plus",
                     description: Text("Add a scheduled run or refresh the sheet.")
                 )
@@ -66,7 +88,7 @@ struct RunPickerView: View {
         }
         .safeAreaInset(edge: .bottom) {
             if let selected = viewModel.selectedRun {
-                NavigationLink(value: HomeRoute.checklist(selected)) {
+                NavigationLink(value: HomeRoute.checklist(selected, .standard)) {
                     Label("Review \(selected.date)", systemImage: "checklist")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
@@ -90,6 +112,10 @@ struct RunPickerView: View {
 
     private var cacheFingerprint: [RunSnapshot] {
         cachedRuns.map(RunSnapshot.init)
+    }
+
+    private var catchUpRuns: [RunSnapshot] {
+        CatchUpPlanner.unrecordedPastRuns(among: cachedRuns.map(RunSnapshot.init))
     }
 
     private func updateFromCache() {

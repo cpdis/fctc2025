@@ -131,6 +131,15 @@ private actor UITestSheetAPI: SheetAPIClient {
     private var writeAttempts = 0
 
     init() {
+        let todayDate: String
+        if ProcessInfo.processInfo.arguments.contains("-ui-today-run") {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = "EEE, d-MMM"
+            todayDate = formatter.string(from: .now)
+        } else {
+            todayDate = "Fri, 14-Aug"
+        }
         state = SheetState(
             roster: [
                 RosterEntry(name: "Aaron", colIndex: 6),
@@ -141,7 +150,7 @@ private actor UITestSheetAPI: SheetAPIClient {
             runs: [
                 RunRecord(
                     rowIndex: 42,
-                    date: "Fri, 14-Aug",
+                    date: todayDate,
                     meet: "Il Lido",
                     run: "Soft Sand",
                     approxKm: 7.1,

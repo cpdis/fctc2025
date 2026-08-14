@@ -75,6 +75,21 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings-device-name")
             }
 
+            Section {
+                Toggle(
+                    "Run reminders",
+                    isOn: Binding(
+                        get: { runtime.runRemindersEnabled },
+                        set: { enabled in
+                            Task { await runtime.setRunRemindersEnabled(enabled) }
+                        }
+                    )
+                )
+                .accessibilityIdentifier("settings-run-reminders")
+            } footer: {
+                Text(runtime.reminderMessage ?? "Get a local reminder after each future run.")
+            }
+
             Section("Theme") {
                 accentPicker
             }

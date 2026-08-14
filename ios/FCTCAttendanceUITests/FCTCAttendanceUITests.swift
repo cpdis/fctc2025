@@ -12,6 +12,17 @@ import XCTest
 final class FCTCAttendanceUITests: XCTestCase {
     private var app: XCUIApplication!
 
+    func testTodayHeroOpensChecklist() {
+        configureApp(todayHero: true)
+        launch()
+
+        let hero = app.buttons["home-todays-run"]
+        XCTAssertTrue(hero.waitForExistence(timeout: 3))
+        hero.tap()
+
+        XCTAssertTrue(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 3))
+    }
+
     func testRecordConfirmAndDrainLeavesClearOutbox() {
         configureApp()
         launch()
@@ -201,7 +212,8 @@ final class FCTCAttendanceUITests: XCTestCase {
     private func configureApp(
         offline: Bool = false,
         screenshotFixture: ScreenshotFixture? = nil,
-        resetScreenshotCoach: Bool = false
+        resetScreenshotCoach: Bool = false,
+        todayHero: Bool = false
     ) {
         continueAfterFailure = false
         app = XCUIApplication()
@@ -217,6 +229,7 @@ final class FCTCAttendanceUITests: XCTestCase {
         if resetScreenshotCoach {
             app.launchArguments.append("-ui-reset-screenshot-coach")
         }
+        if todayHero { app.launchArguments.append("-ui-today-run") }
     }
 
     private func openRun(row: Int) {

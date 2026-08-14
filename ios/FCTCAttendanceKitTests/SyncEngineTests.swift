@@ -254,7 +254,7 @@ struct SyncEngineTests {
                 {
                   "ok":true,
                   "conflict":{
-                    "reason":"stale_revision",
+                    "reason":"row_mismatch",
                     "message":"The sheet changed.",
                     "state":{
                       "roster":[],"runs":[],"seasonYear":2026,
@@ -276,16 +276,108 @@ struct SyncEngineTests {
         let fetchedPending = try fetchPending(container, id: id)
         let pending = try #require(fetchedPending)
         #expect(pending.status == .conflict)
-        #expect(pending.conflictReason == "stale_revision")
+        #expect(pending.conflictReason == "row_mismatch")
         #expect(pending.conflictState?.sheetRevision == "rev-fresh")
         #expect(
             event == .conflict(
                 id: id,
-                reason: "stale_revision",
+                reason: "row_mismatch",
                 message: "The sheet changed.",
                 state: SheetState(seasonYear: 2026, sheetRevision: "rev-fresh")
             )
         )
+    }
+
+    @Test("A merge stale-revision conflict rebases and succeeds once")
+    func mergeConflictAutoRetry() async throws {
+        let container = try makeContainer()
+        let transport = StubTransport([
+            .response(staleConflict(revision: "rev-2", attendees: ["Aaron"])),
+            .response(json("{\"ok\":true,\"written\":1,\"sheetRevision\":\"rev-3\"}")),
+        ])
+        let engine = makeEngine(container: container, transport: transport)
+        var submission = AttendanceSubmission.fixture
+        submission.mode = .merge
+        let id = try await engine.enqueue(submission)
+
+        await engine.drain()
+
+        let fetchedPending = try fetchPending(container, id: id)
+        let pending = try #require(fetchedPending)
+        #expect(pending.status == .done)
+        #expect(pending.attemptCount == 2)
+        #expect(await transport.requestCount == 2)
+        let requests = await transport.requests
+        let retryBody = try #require(
+            JSONSerialization.jsonObject(with: requests[1]) as? [String: Any]
+        )
+        #expect(retryBody["baseRevision"] as? String == "rev-2")
+    }
+
+    @Test("An overwrite stale-revision conflict still surfaces")
+    func overwriteConflictSurfaces() async throws {
+        let container = try makeContainer()
+        let transport = StubTransport([
+            .response(staleConflict(revision: "rev-2", attendees: ["Aaron"])),
+        ])
+        let engine = makeEngine(container: container, transport: transport)
+        var submission = AttendanceSubmission.fixture
+        submission.mode = .overwrite
+        let id = try await engine.enqueue(submission)
+
+        await engine.drain()
+
+        let fetchedPending = try fetchPending(container, id: id)
+        let pending = try #require(fetchedPending)
+        #expect(pending.status == .conflict)
+        #expect(pending.attemptCount == 1)
+        #expect(await transport.requestCount == 1)
+    }
+
+    @Test("A second merge conflict surfaces after one automatic retry")
+    func doubleMergeConflictSurfaces() async throws {
+        let container = try makeContainer()
+        let transport = StubTransport([
+            .response(staleConflict(revision: "rev-2", attendees: ["Aaron"])),
+            .response(staleConflict(revision: "rev-3", attendees: ["Aaron", "Dan"])),
+        ])
+        let engine = makeEngine(container: container, transport: transport)
+        var submission = AttendanceSubmission.fixture
+        submission.mode = .merge
+        let id = try await engine.enqueue(submission)
+
+        await engine.drain()
+
+        let fetchedPending = try fetchPending(container, id: id)
+        let pending = try #require(fetchedPending)
+        #expect(pending.status == .conflict)
+        #expect(pending.conflictState?.sheetRevision == "rev-3")
+        #expect(pending.attemptCount == 2)
+        #expect(await transport.requestCount == 2)
+    }
+
+    @Test("A merge conflict with a newer distance still surfaces")
+    func mergeDistanceConflictSurfaces() async throws {
+        let container = try makeContainer()
+        let transport = StubTransport([
+            .response(staleConflict(
+                revision: "rev-2",
+                attendees: ["Aaron"],
+                actualKm: 8.2
+            )),
+        ])
+        let engine = makeEngine(container: container, transport: transport)
+        var submission = AttendanceSubmission.fixture
+        submission.mode = .merge
+        let id = try await engine.enqueue(submission)
+
+        await engine.drain()
+
+        let fetchedPending = try fetchPending(container, id: id)
+        let pending = try #require(fetchedPending)
+        #expect(pending.status == .conflict)
+        #expect(pending.attemptCount == 1)
+        #expect(await transport.requestCount == 1)
     }
 
     @Test("addMember is optimistic, then reconciles to server coordinates")
@@ -558,4 +650,39 @@ private func fetchMembers(_ container: ModelContainer) throws -> [Member] {
 private func fetchRuns(_ container: ModelContainer) throws -> [ScheduledRun] {
     let context = ModelContext(container)
     return try context.fetch(FetchDescriptor<ScheduledRun>())
+}
+
+private func staleConflict(
+    revision: String,
+    attendees: [String],
+    actualKm: Double? = nil
+) -> Data {
+    let names = attendees.map { "\"\($0)\"" }.joined(separator: ",")
+    let distance = actualKm.map { String($0) } ?? "null"
+    return json(
+        """
+        {
+          "ok":true,
+          "conflict":{
+            "reason":"stale_revision",
+            "message":"The sheet changed.",
+            "state":{
+              "roster":[],
+              "runs":[{
+                "rowIndex":42,
+                "date":"Fri, 2-Jan",
+                "meet":"Il Lido",
+                "run":"Soft Sand",
+                "approxKm":7.1,
+                "actualKm":\(distance),
+                "attendees":[\(names)],
+                "plusOnes":0
+              }],
+              "seasonYear":2026,
+              "sheetRevision":"\(revision)"
+            }
+          }
+        }
+        """
+    )
 }
