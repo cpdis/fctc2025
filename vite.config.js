@@ -9,5 +9,8 @@ export default defineConfig({
     globals: true,
     setupFiles: './src/test/setup.js',
     css: false,
+    // Only the dashboard's own suite: never descend into agent worktrees
+    // (.claude/worktrees/) or the attendance app's Node-tested areas.
+    include: ['src/**/*.test.{js,jsx}'],
   },
 })
