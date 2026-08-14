@@ -16,6 +16,7 @@ enum HomeRoute: Hashable {
     case checklist(RunSnapshot, ChecklistPresentation)
     case runPicker(RunPickerScope)
     case outbox
+    case settings
 }
 
 enum ChecklistPresentation: Hashable {
@@ -130,20 +131,6 @@ struct HomeView: View {
                     }
                 }
 
-                Section("Sync") {
-                    NavigationLink {
-                        SettingsView(runtime: runtime)
-                    } label: {
-                        HomeRow(
-                            title: "Settings",
-                            subtitle: "Endpoint, secret, and device name",
-                            systemImage: "gearshape",
-                            tint: .secondary
-                        )
-                    }
-                    .accessibilityIdentifier("home-settings")
-                }
-
                 if let banner = viewModel.syncBanner {
                     HomeSyncBanner(banner: banner, runtime: runtime) {
                         await viewModel.retry(hasCachedState: !cachedRuns.isEmpty)
@@ -152,7 +139,20 @@ struct HomeView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            // The inset-grouped default (~35pt) plus the large title read as the
+            // whole screen floating toward center (Colin's review).
+            .contentMargins(.top, 10, for: .scrollContent)
             .navigationTitle("FCTC")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        path.append(HomeRoute.settings)
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                    .accessibilityIdentifier("home-settings")
+                }
+            }
             .navigationDestination(for: HomeRoute.self) { route in
                 switch route {
                 case .checklist(let run, let presentation):
@@ -174,6 +174,8 @@ struct HomeView: View {
                     RunPickerView(runtime: runtime, scope: scope)
                 case .outbox:
                     OutboxView(runtime: runtime)
+                case .settings:
+                    SettingsView(runtime: runtime)
                 }
             }
             .refreshable {
