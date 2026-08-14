@@ -40,10 +40,8 @@ function completedRun(date, dayOfWeek, attendance, totalAttendance = 1) {
 function digestCandidate(overrides = {}) {
   return {
     name: 'Jane Doe',
-    currentRuns: 49,
     milestone: 50,
     runsNeeded: 1,
-    chance: 0.73123456789,
     label: 'Possible',
     ...overrides,
   }
@@ -277,18 +275,17 @@ describe('formatMilestoneDigest', () => {
   })
 
   it('formats several forecast candidates with labels and singular or plural run needs', () => {
-    const chanceSentinel = '0.73123456789'
     const candidates = [
-      digestCandidate({ currentRuns: 99, milestone: 100, label: 'Very likely' }),
+      digestCandidate({ milestone: 100, chance: 0.73123456789, label: 'Very likely' }),
       digestCandidate({
         name: 'Sam Lee',
-        currentRuns: 148,
         milestone: 150,
         runsNeeded: 2,
         chance: 0.65,
         label: 'Likely',
       }),
     ]
+    const chanceSentinel = String(candidates[0].chance)
 
     const digest = formatMilestoneDigest({ candidates, weekStart, cutoffDate })
 
@@ -417,10 +414,8 @@ describe('formatMilestoneDigest', () => {
   it('rejects HTML over 256 KiB while the text body remains within its limit', () => {
     const candidates = Array.from({ length: 300 }, (_, index) => ({
       name: `Runner ${String(index).padStart(4, '0')}`,
-      currentRuns: 49,
       milestone: 50,
       runsNeeded: 1,
-      chance: 0.75,
       label: 'Likely',
     }))
 

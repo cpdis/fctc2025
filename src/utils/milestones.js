@@ -62,6 +62,8 @@ const UNSAFE_NAME_PATTERN = /[\p{Cc}\u2028\u2029\u202a-\u202e\u2066-\u2069]/u
  */
 export function findUpcomingMilestones(memberTotals, runs = [], cutoffDate = null) {
   const candidates = []
+  let completedRuns
+  let completedRunsPrepared = false
 
   for (const member of Object.values(memberTotals ?? {})) {
     const currentRuns = member?.totalRuns
@@ -73,7 +75,14 @@ export function findUpcomingMilestones(memberTotals, runs = [], cutoffDate = nul
     const runsNeeded = milestone - currentRuns
     if (runsNeeded > FORECAST_WEEKDAYS.length) continue
 
-    const weekdayRates = getMemberWeekdayRates(member.name, runs, cutoffDate)
+    // Prepare the member-independent history only when a reachable candidate
+    // exists. This preserves the empty-result path for an unused bad cutoff.
+    if (!completedRunsPrepared) {
+      completedRuns = getCompletedRunsThroughCutoff(runs, cutoffDate)
+      completedRunsPrepared = true
+    }
+
+    const weekdayRates = getMemberWeekdayRates(member.name, completedRuns)
     const chance = calculateMilestoneChance(weekdayRates, runsNeeded)
     const label = getMilestoneForecastLabel(chance, runsNeeded)
     if (!label) continue
@@ -90,7 +99,11 @@ export function getMilestoneForecastLabel(chance, runsNeeded) {
   if (!Number.isFinite(chance) || chance < 0 || chance > 1) {
     throw new Error('Milestone chance must be a finite probability')
   }
-  if (!Number.isInteger(runsNeeded) || runsNeeded < 1 || runsNeeded > 3) {
+  if (
+    !Number.isInteger(runsNeeded) ||
+    runsNeeded < 1 ||
+    runsNeeded > FORECAST_WEEKDAYS.length
+  ) {
     throw new Error('Runs needed must be an integer from 1 to 3')
   }
 
@@ -395,14 +408,22 @@ function assertSafeCandidateName(name) {
   }
 }
 
-/** Build fixed Monday, Wednesday, and Friday rates from eligible parsed rows. */
-function getMemberWeekdayRates(name, runs, cutoffDate) {
+/** Filter and order the shared run history once for every candidate. */
+function getCompletedRunsThroughCutoff(runs, cutoffDate) {
   const cutoffKey = parseOptionalIsoCalendarDate(cutoffDate)
-  if (!Array.isArray(runs) || cutoffKey === null) return [0, 0, 0]
+  if (!Array.isArray(runs) || cutoffKey === null) return null
 
-  const completedRuns = runs
+  return runs
     .map((run, inputIndex) => ({ run, inputIndex }))
     .filter(({ run }) => isCompletedRunThroughCutoff(run, cutoffKey))
+    .sort((left, right) => (
+      right.run.parsedDate - left.run.parsedDate || right.inputIndex - left.inputIndex
+    ))
+}
+
+/** Build fixed Monday, Wednesday, and Friday rates from prepared run rows. */
+function getMemberWeekdayRates(name, completedRuns) {
+  if (!Array.isArray(completedRuns)) return [0, 0, 0]
 
   const firstAttendance = completedRuns
     .filter(({ run }) => run.attendance?.[name] === true)
@@ -417,9 +438,6 @@ function getMemberWeekdayRates(name, runs, cutoffDate) {
     const history = completedRuns
       .filter(({ run }) => (
         run.parsedDate >= firstAttendance.run.parsedDate && run.dayOfWeek === weekday
-      ))
-      .sort((left, right) => (
-        right.run.parsedDate - left.run.parsedDate || right.inputIndex - left.inputIndex
       ))
       .map(({ run }) => run.attendance?.[name] === true)
 
@@ -438,21 +456,7 @@ function isCompletedRunThroughCutoff(run, cutoffKey) {
 function parseOptionalIsoCalendarDate(value) {
   if (value === null || value === undefined) return null
 
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
-  if (!match) throw new Error('Attendance cutoff is invalid')
-
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  const date = new Date(Date.UTC(year, month - 1, day))
-
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() + 1 !== month ||
-    date.getUTCDate() !== day
-  ) {
-    throw new Error('Attendance cutoff is invalid')
-  }
+  const { year, month, day } = parseIsoCalendarDate(value, 'Attendance cutoff is invalid')
 
   return year * 10_000 + month * 100 + day
 }
@@ -489,6 +493,10 @@ function formatRunNeed(runsNeeded) {
 }
 
 function formatIsoCalendarDate(value, errorMessage, formatter = DISPLAY_DATE_FORMATTER) {
+  return formatter.format(parseIsoCalendarDate(value, errorMessage).date)
+}
+
+function parseIsoCalendarDate(value, errorMessage) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? '')
   if (!match) throw new Error(errorMessage)
 
@@ -506,7 +514,7 @@ function formatIsoCalendarDate(value, errorMessage, formatter = DISPLAY_DATE_FOR
     throw new Error(errorMessage)
   }
 
-  return formatter.format(date)
+  return { year, month, day, date }
 }
 
 function escapeHtml(value) {
