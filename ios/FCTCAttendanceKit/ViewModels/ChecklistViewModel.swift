@@ -183,7 +183,11 @@ public final class ChecklistViewModel {
         isAddingPerson = true
         defer { isAddingPerson = false }
         do {
-            _ = try await engine.addMember(name: clean)
+            let result = try await engine.addMember(name: clean)
+            // Adding a roster column changes the canonical sheet revision. Keep
+            // this open draft on that revision so its later Confirm does not queue
+            // a stale write.
+            draft.baseRevision = result.sheetRevision
         } catch {
             roster.removeAll { Self.canonical($0) == Self.canonical(clean) }
             draft.uncheck(clean)

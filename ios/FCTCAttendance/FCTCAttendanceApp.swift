@@ -22,6 +22,7 @@ struct FCTCAttendanceApp: App {
     init() {
         do {
             let isUITesting = UITestSupport.isEnabled
+            if isUITesting { UITestSupport.prepareLaunch() }
             // UI tests get a throwaway ON-DISK store, not an in-memory one:
             // SwiftData only propagates the engine actor's saves into the views'
             // @Query contexts through the persistent store, and in-memory stores

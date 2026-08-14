@@ -207,6 +207,7 @@ struct ViewModelTests {
         #expect(viewModel.roster == ["Aaron", "Priya"])
         #expect(viewModel.draft.guestNames.isEmpty)
         #expect(viewModel.draft.isChecked("Priya"))
+        #expect(viewModel.draft.baseRevision == "rev-2")
         #expect(await client.addedMembers == ["Priya"])
     }
 
