@@ -22,6 +22,12 @@ your packet doesn't cover.
   explicitly requires iOS 26 features (FoundationModels, Liquid Glass defaults).
   Anything testable without Xcode (Apps Script logic, fixtures, scripts) MUST have
   runnable tests (`node --test`).
+- **Node test convention (orchestrator ruling, post-U1):** Node tests are
+  `apps-script/test/*.checks.js` registered in `apps-script/test/index.js`, run as
+  `node --test apps-script/test` — NOT `*.test.js` (root Vitest globs those and
+  breaks `npm test`), and the index aggregator is required (Node 22 `--test`
+  doesn't expand a bare directory). `apps-script/package.json` pins
+  `"type": "commonjs"` for the dual-environment modules; keep it dependency-free.
 - **Sheet safety invariant (all units):** nothing ever writes outside a run row's
   member band + `Actual kms` + `+1's` cells, the member-band header row, or an
   inserted run row. Formula/summary rows and columns are sacrosanct.
