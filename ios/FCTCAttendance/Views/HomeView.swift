@@ -60,6 +60,24 @@ struct HomeView: View {
                 } else {
                     summarySection
 
+                    // The hero floats in its own section: sharing one with the
+                    // run rows fused the card's bottom edge to the grouped
+                    // rectangle behind it (Colin's review).
+                    if !(viewModel.initialLoadFailed && cachedRuns.isEmpty),
+                       let todayRun = viewModel.todayRun {
+                        Section {
+                            Button {
+                                path.append(.checklist(todayRun, .standard))
+                            } label: {
+                                TodayRunHero(run: todayRun)
+                            }
+                            .buttonStyle(.plain)
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .accessibilityIdentifier("home-todays-run")
+                        }
+                    }
+
                     Section("Runs") {
                         if viewModel.initialLoadFailed && cachedRuns.isEmpty {
                             ContentUnavailableView {
@@ -77,17 +95,7 @@ struct HomeView: View {
                             }
                             .accessibilityIdentifier("home-runs-unavailable")
                         } else {
-                            if let todayRun = viewModel.todayRun {
-                                Button {
-                                    path.append(.checklist(todayRun, .standard))
-                                } label: {
-                                    TodayRunHero(run: todayRun)
-                                }
-                                .buttonStyle(.plain)
-                                .listRowInsets(EdgeInsets())
-                                .listRowBackground(Color.clear)
-                                .accessibilityIdentifier("home-todays-run")
-                            } else {
+                            if viewModel.todayRun == nil {
                                 NavigationLink(value: HomeRoute.runPicker(.all)) {
                                     HomeRow(
                                         title: "No Run Today",
