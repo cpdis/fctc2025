@@ -48,6 +48,19 @@ actor SuspendingTransport: HTTPTransport {
 @Suite("Sync engine")
 struct SyncEngineTests {
 
+    @Test("Every view-model event subscriber receives the same event")
+    func eventBroadcast() async throws {
+        let container = try makeContainer()
+        let engine = makeEngine(container: container, transport: StubTransport([]))
+        var first = engine.events.makeAsyncIterator()
+        var second = engine.events.makeAsyncIterator()
+
+        let id = try await engine.enqueue(.fixture)
+
+        #expect(await first.next() == .queued(id: id))
+        #expect(await second.next() == .queued(id: id))
+    }
+
     @Test("A confirmed submission writes and updates the cached run")
     func happyPath() async throws {
         let container = try makeContainer()
@@ -276,6 +289,86 @@ struct SyncEngineTests {
         #expect(result.sheetRevision == "rev-2")
     }
 
+    @Test("A failed member add rolls back the optimistic roster insertion")
+    func optimisticMemberRollback() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        context.insert(Member(name: "Aaron", colIndex: 6))
+        context.insert(Member(name: "Col", colIndex: 7))
+        try context.save()
+        let engine = makeEngine(
+            container: container,
+            transport: StubTransport([.failure(.offline)])
+        )
+
+        await #expect(throws: SheetAPIError.self) {
+            try await engine.addMember(name: "Bilbo")
+        }
+
+        let members = try fetchMembers(container).sorted { $0.colIndex < $1.colIndex }
+        #expect(members.map(\.name) == ["Aaron", "Col"])
+        #expect(members.map(\.colIndex) == [6, 7])
+        #expect(!members.contains { $0.isNew })
+    }
+
+    @Test("Added runs keep the cached season year after row insertion")
+    func addRunSeasonYear() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let knownDate = try #require(
+            Calendar(identifier: .gregorian).date(
+                from: DateComponents(year: 2026, month: 1, day: 9)
+            )
+        )
+        context.insert(
+            ScheduledRun(
+                rowIndex: 42,
+                date: "Fri, 9-Jan",
+                scheduledAt: knownDate,
+                meet: "Old Meet",
+                run: "Old Run"
+            )
+        )
+        try context.save()
+        let response = json(
+            """
+            {
+              "ok":true,
+              "runs":[
+                {
+                  "rowIndex":42,"date":"Fri, 2-Jan","meet":"New Meet",
+                  "run":"New Run","approxKm":5,"actualKm":null,
+                  "attendees":[],"plusOnes":0
+                },
+                {
+                  "rowIndex":43,"date":"Fri, 9-Jan","meet":"Old Meet",
+                  "run":"Old Run","approxKm":7,"actualKm":null,
+                  "attendees":[],"plusOnes":0
+                }
+              ],
+              "sheetRevision":"rev-2"
+            }
+            """
+        )
+        let engine = makeEngine(
+            container: container,
+            transport: StubTransport([.response(response)])
+        )
+
+        _ = try await engine.addRun(
+            AddRunRequest(date: "Fri, 2-Jan", meet: "New Meet", run: "New Run")
+        )
+
+        let runs = try fetchRuns(container).sorted { $0.rowIndex < $1.rowIndex }
+        #expect(runs.map(\.rowIndex) == [42, 43])
+        #expect(runs.map(\.run) == ["New Run", "Old Run"])
+        let calendar = Calendar(identifier: .gregorian)
+        #expect(runs.allSatisfy {
+            guard let date = $0.scheduledAt else { return false }
+            return calendar.component(.year, from: date) == 2026
+        })
+    }
+
     @Test("refresh makes the server authoritative but keeps unsynced local members")
     func refreshReconciliation() async throws {
         let container = try makeContainer()
@@ -296,6 +389,88 @@ struct SyncEngineTests {
         #expect(members.contains { $0.name == "Aaron" && !$0.isNew })
         let runs = try fetchRuns(container)
         #expect(runs.first?.cachedRevision == "rev-1")
+    }
+
+    @Test("Conflict merge and overwrite choices close history and re-enqueue fresh rows")
+    func conflictReenqueue() async throws {
+        for (action, expectedMode) in [
+            (ConflictResolutionAction.merge, SubmissionMode.merge),
+            (.overwrite, .overwrite),
+        ] {
+            let container = try makeContainer()
+            let context = ModelContext(container)
+            let conflict = PendingSubmission(
+                rowIndex: 42,
+                expectedDate: "Fri, 2-Jan",
+                expectedRun: "Soft Sand",
+                attendees: ["Col"],
+                plusOnes: 1,
+                actualKm: 7.1,
+                status: .conflict,
+                baseRevision: "rev-old"
+            )
+            conflict.attachConflict(
+                reason: "stale_revision",
+                message: "The sheet changed.",
+                state: SheetState(
+                    runs: [
+                        RunRecord(
+                            rowIndex: 44,
+                            date: "Fri, 2-Jan",
+                            meet: "Il Lido",
+                            run: "Soft Sand"
+                        ),
+                    ],
+                    seasonYear: 2026,
+                    sheetRevision: "rev-fresh"
+                )
+            )
+            context.insert(conflict)
+            try context.save()
+            let engine = makeEngine(container: container, transport: StubTransport([]))
+
+            let replacementID = try #require(
+                try await engine.resolveConflict(id: conflict.id, action: action)
+            )
+
+            let rows = try fetchAllPending(container)
+            let oldRow = try #require(rows.first { $0.id == conflict.id })
+            let replacement = try #require(rows.first { $0.id == replacementID })
+            #expect(oldRow.status == .done)
+            #expect(!oldRow.isOutstanding)
+            #expect(replacement.status == .queued)
+            #expect(replacement.mode == expectedMode)
+            #expect(replacement.rowIndex == 44)
+            #expect(replacement.baseRevision == "rev-fresh")
+        }
+    }
+
+    @Test("Discard closes a conflict without creating another outbox row")
+    func conflictDiscard() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let conflict = PendingSubmission(
+            rowIndex: 42,
+            expectedDate: "Fri, 2-Jan",
+            expectedRun: "Soft Sand",
+            attendees: ["Col"],
+            status: .conflict
+        )
+        conflict.attachConflict(
+            reason: "stale_revision",
+            message: "The sheet changed.",
+            state: SheetState(sheetRevision: "rev-fresh")
+        )
+        context.insert(conflict)
+        try context.save()
+        let engine = makeEngine(container: container, transport: StubTransport([]))
+
+        let replacementID = try await engine.resolveConflict(id: conflict.id, action: .discard)
+
+        let rows = try fetchAllPending(container)
+        #expect(replacementID == nil)
+        #expect(rows.count == 1)
+        #expect(rows.first?.status == .done)
     }
 }
 
@@ -330,6 +505,11 @@ private func fetchPending(
 ) throws -> PendingSubmission? {
     let context = ModelContext(container)
     return try context.fetch(FetchDescriptor<PendingSubmission>()).first { $0.id == id }
+}
+
+private func fetchAllPending(_ container: ModelContainer) throws -> [PendingSubmission] {
+    let context = ModelContext(container)
+    return try context.fetch(FetchDescriptor<PendingSubmission>())
 }
 
 private func fetchMembers(_ container: ModelContainer) throws -> [Member] {

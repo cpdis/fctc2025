@@ -61,6 +61,46 @@ public enum SyncEvent: Hashable, Sendable {
     case rosterRefreshed(SheetState)
 }
 
+/// AsyncStream is a work-sharing sequence when several iterators consume the same
+/// instance. Screens need broadcast semantics, so each access to `events` receives
+/// its own stream and continuation.
+final class SyncEventBroadcaster: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuations: [UUID: AsyncStream<SyncEvent>.Continuation] = [:]
+
+    func stream() -> AsyncStream<SyncEvent> {
+        let id = UUID()
+        return AsyncStream(bufferingPolicy: .bufferingNewest(100)) { continuation in
+            lock.withLock { continuations[id] = continuation }
+            continuation.onTermination = { [weak self] _ in
+                self?.lock.withLock { self?.continuations[id] = nil }
+            }
+        }
+    }
+
+    func yield(_ event: SyncEvent) {
+        let listeners = lock.withLock { Array(continuations.values) }
+        for listener in listeners { listener.yield(event) }
+    }
+
+    func finish() {
+        let listeners = lock.withLock {
+            let values = Array(continuations.values)
+            continuations.removeAll()
+            return values
+        }
+        for listener in listeners { listener.finish() }
+    }
+}
+
+/// User choices for a durable conflict row. Merge and overwrite create a fresh
+/// queued row against the server revision. Discard closes the old row as history.
+public enum ConflictResolutionAction: String, Hashable, Sendable, CaseIterable {
+    case merge
+    case overwrite
+    case discard
+}
+
 public protocol SyncEngineClient: Sendable {
     func refreshState() async throws -> SheetState
     func enqueue(_ submission: AttendanceSubmission) async throws -> UUID
@@ -72,6 +112,8 @@ public protocol SyncEngineClient: Sendable {
     func drain() async
     func addMember(name: String) async throws -> AddMemberResult
     func addRun(_ request: AddRunRequest) async throws -> AddRunResult
+    func resolveConflict(id: UUID, action: ConflictResolutionAction) async throws -> UUID?
+    /// Every access returns a broadcast subscription for that consumer.
     var events: AsyncStream<SyncEvent> { get }
 }
 
@@ -94,6 +136,10 @@ public struct UnimplementedSyncEngine: SyncEngineClient {
     public func addRun(_ request: AddRunRequest) async throws -> AddRunResult {
         throw SheetAPIError.notImplemented
     }
+    public func resolveConflict(
+        id: UUID,
+        action: ConflictResolutionAction
+    ) async throws -> UUID? { throw SheetAPIError.notImplemented }
     public var events: AsyncStream<SyncEvent> {
         AsyncStream { $0.finish() }
     }

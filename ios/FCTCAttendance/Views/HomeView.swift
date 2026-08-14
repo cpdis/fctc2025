@@ -2,92 +2,214 @@
 //  HomeView.swift
 //  FCTCAttendance
 //
-//  PLACEHOLDER (U1). The real home screen — live counts, navigation into the
-//  checklist / run picker / outbox — arrives in U4. This exists so the app target
-//  compiles and runs, and so the Reminders-derived idioms from the plan's Design
-//  Language section are established up front:
-//
-//    • large navigation title
-//    • summary tiles at the top ("list of lists" header)
-//    • grouped inset list of tinted circular-icon rows
-//
-//  Everything below is static; no networking, no SwiftData reads.
+//  The Reminders-style "list of lists" backed by the offline SwiftData cache.
 //
 
+import FCTCAttendanceKit
+import SwiftData
 import SwiftUI
 
+/// Value-based routes for the screens that must pop back to Home after a
+/// confirmed submission (packet R6: Confirm returns Home). Clearing `path`
+/// is the only pop-to-root mechanism SwiftUI guarantees.
+enum HomeRoute: Hashable {
+    case checklist(RunSnapshot)
+    case runPicker(RunPickerScope)
+}
+
 struct HomeView: View {
+    let runtime: AppRuntime
+
+    @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
+    @Query(
+        filter: #Predicate<PendingSubmission> { $0.stateRaw != "done" },
+        sort: \PendingSubmission.createdAt
+    ) private var cachedSubmissions: [PendingSubmission]
+    @State private var viewModel: HomeViewModel
+    @State private var path: [HomeRoute] = []
+
+    init(runtime: AppRuntime) {
+        self.runtime = runtime
+        _viewModel = State(initialValue: HomeViewModel(engine: runtime.engine))
+    }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
-                Section {
-                    HStack(spacing: 12) {
-                        SummaryTile(
-                            title: "This week",
-                            value: "3",
-                            systemImage: "figure.run",
-                            tint: .accentColor
-                        )
-                        SummaryTile(
-                            title: "Unsynced",
-                            value: "0",
-                            systemImage: "arrow.trianglehead.2.clockwise",
-                            tint: .orange
-                        )
-                    }
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-                }
+                summarySection
 
                 Section("Runs") {
-                    HomeRow(
-                        title: "Today's Run",
-                        subtitle: "Fri, Soft Sand — Il Lido",
-                        systemImage: "calendar.badge.clock",
-                        tint: .accentColor
-                    )
-                    HomeRow(
-                        title: "Upcoming",
-                        subtitle: "Next scheduled runs",
-                        systemImage: "calendar",
-                        tint: .blue
-                    )
-                    HomeRow(
-                        title: "Past Runs",
-                        subtitle: "Fill in a missed row",
-                        systemImage: "clock.arrow.circlepath",
-                        tint: .gray
-                    )
+                    if let todayRun = viewModel.todayRun {
+                        NavigationLink(value: HomeRoute.checklist(todayRun)) {
+                            HomeRow(
+                                title: "Today's Run",
+                                subtitle: todayRun.detailLabel,
+                                systemImage: "calendar.badge.clock",
+                                tint: .accentColor
+                            )
+                        }
+                        .accessibilityIdentifier("home-todays-run")
+                    } else {
+                        NavigationLink(value: HomeRoute.runPicker(.all)) {
+                            HomeRow(
+                                title: "Today's Run",
+                                subtitle: "Choose a scheduled run",
+                                systemImage: "calendar.badge.clock",
+                                tint: .accentColor
+                            )
+                        }
+                        .accessibilityIdentifier("home-todays-run")
+                    }
+
+                    NavigationLink(value: HomeRoute.runPicker(.all)) {
+                        HomeRow(
+                            title: "All Runs",
+                            subtitle: "Scheduled and recorded runs",
+                            systemImage: "calendar",
+                            tint: .blue
+                        )
+                    }
+                    .accessibilityIdentifier("home-all-runs")
+
+                    NavigationLink(value: HomeRoute.runPicker(.past)) {
+                        HomeRow(
+                            title: "Past Runs",
+                            subtitle: "Fill in a missed row",
+                            systemImage: "clock.arrow.circlepath",
+                            tint: .gray
+                        )
+                    }
+                    .accessibilityIdentifier("home-past-runs")
                 }
 
                 Section("Sync") {
-                    HomeRow(
-                        title: "Outbox",
-                        subtitle: "Nothing waiting",
-                        systemImage: "tray.and.arrow.up",
-                        tint: .orange
-                    )
-                    HomeRow(
-                        title: "Settings",
-                        subtitle: "Endpoint, secret, device name",
-                        systemImage: "gearshape",
-                        tint: .secondary
-                    )
+                    NavigationLink {
+                        OutboxView(runtime: runtime)
+                    } label: {
+                        HomeRow(
+                            title: "Outbox",
+                            subtitle: outboxSubtitle,
+                            systemImage: "tray.and.arrow.up",
+                            tint: .orange,
+                            badge: viewModel.unsyncedCount
+                        )
+                    }
+                    .accessibilityIdentifier("home-outbox")
+
+                    NavigationLink {
+                        SettingsView(runtime: runtime)
+                    } label: {
+                        HomeRow(
+                            title: "Settings",
+                            subtitle: "Endpoint, secret, and device name",
+                            systemImage: "gearshape",
+                            tint: .secondary
+                        )
+                    }
+                    .accessibilityIdentifier("home-settings")
+                }
+
+                if let message = viewModel.lastSyncMessage {
+                    Section {
+                        Label(message, systemImage: "info.circle")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("FCTC Attendance")
+            .navigationTitle("FCTC")
+            .navigationDestination(for: HomeRoute.self) { route in
+                switch route {
+                case .checklist(let run):
+                    // Confirm must land back on Home (R6), from any depth.
+                    ChecklistView(runtime: runtime, run: run) { path.removeAll() }
+                case .runPicker(let scope):
+                    RunPickerView(runtime: runtime, scope: scope)
+                }
+            }
+            .refreshable {
+                await viewModel.refresh()
+                updateFromCache()
+            }
+            .task {
+                updateFromCache()
+                await viewModel.refresh()
+                updateFromCache()
+            }
+            .onChange(of: cacheFingerprint) { _, _ in updateFromCache() }
+            .onChange(of: runtime.generation) { _, _ in
+                viewModel.replaceEngine(runtime.engine)
+                Task {
+                    await viewModel.refresh()
+                    updateFromCache()
+                }
+            }
         }
+    }
+
+    private var summarySection: some View {
+        Section {
+            HStack(spacing: 12) {
+                NavigationLink(value: HomeRoute.runPicker(.thisWeek)) {
+                    SummaryTile(
+                        title: "This Week",
+                        value: viewModel.thisWeekCount,
+                        systemImage: "figure.run",
+                        tint: .accentColor
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("This Week, \(viewModel.thisWeekCount) runs")
+                .accessibilityIdentifier("home-this-week")
+
+                NavigationLink {
+                    OutboxView(runtime: runtime)
+                } label: {
+                    SummaryTile(
+                        title: "Unsynced",
+                        value: viewModel.unsyncedCount,
+                        systemImage: "arrow.trianglehead.2.clockwise",
+                        tint: .orange
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Unsynced, \(viewModel.unsyncedCount) submissions")
+                .accessibilityIdentifier("home-unsynced")
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+        }
+    }
+
+    private var outboxSubtitle: String {
+        viewModel.unsyncedCount == 0
+            ? "Nothing waiting"
+            : "\(viewModel.unsyncedCount) waiting"
+    }
+
+    private var cacheFingerprint: String {
+        let runs = cachedRuns.map {
+            "\($0.rowIndex):\($0.attendees.count):\($0.plusOnes):\($0.cachedRevision ?? "")"
+        }.joined(separator: "|")
+        let submissions = cachedSubmissions.map { "\($0.id):\($0.stateRaw)" }.joined(separator: "|")
+        return runs + "#" + submissions
+    }
+
+    private func updateFromCache() {
+        viewModel.update(
+            runs: cachedRuns.map(RunSnapshot.init),
+            submissions: cachedSubmissions.map(PendingSubmissionSnapshot.init)
+        )
     }
 }
 
-/// Reminders-style row: tinted circular glyph, title, secondary subtitle, chevron.
 private struct HomeRow: View {
     let title: String
     let subtitle: String
     let systemImage: String
     let tint: Color
+    var badge: Int = 0
 
     var body: some View {
         HStack(spacing: 12) {
@@ -96,28 +218,37 @@ private struct HomeRow: View {
                 .foregroundStyle(.white)
                 .frame(width: 30, height: 30)
                 .background(tint, in: .circle)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                 Text(subtitle)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
 
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.tertiary)
+            if badge > 0 {
+                Text(badge, format: .number)
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(.orange, in: .capsule)
+                    .accessibilityHidden(true)
+            }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }
 
-/// Reminders' top-of-screen count tiles.
 private struct SummaryTile: View {
     let title: String
-    let value: String
+    let value: Int
     let systemImage: String
     let tint: Color
 
@@ -129,8 +260,9 @@ private struct SummaryTile: View {
                     .foregroundStyle(.white)
                     .frame(width: 26, height: 26)
                     .background(tint, in: .circle)
+                    .accessibilityHidden(true)
                 Spacer(minLength: 0)
-                Text(value)
+                Text(value, format: .number)
                     .font(.title.weight(.semibold))
                     .monospacedDigit()
             }
@@ -141,9 +273,6 @@ private struct SummaryTile: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 12))
+        .contentShape(.rect)
     }
-}
-
-#Preview {
-    HomeView()
 }
