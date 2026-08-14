@@ -92,6 +92,8 @@ targets:
         DEFINES_MODULE: YES
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: NO
+        # A framework needs an Info.plist; nothing custom goes in it.
+        GENERATE_INFOPLIST_FILE: YES
 
   FCTCAttendanceKitTests:
     type: bundle.unit-test
