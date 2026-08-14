@@ -107,7 +107,7 @@ struct RunPickerView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle(title)
-        .searchable(text: $searchText, prompt: "Meet, run, or date")
+        .searchable(text: $searchText, prompt: "Location, run, or date")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {

@@ -152,8 +152,8 @@ struct SettingsView: View {
     /// on its own and shows the system's confirmation alert.
     private var appIconPicker: some View {
         HStack(spacing: 14) {
-            appIconOption(title: "Classic", assetName: nil, preview: "AppIconPreview")
-            appIconOption(title: "Trail", assetName: "AppIconAlt", preview: "AppIconAltPreview")
+            appIconOption(title: "Perth", assetName: nil, preview: "AppIconPreview")
+            appIconOption(title: "Spring", assetName: "AppIconAlt", preview: "AppIconAltPreview")
             Spacer(minLength: 0)
         }
         .padding(.vertical, 4)
