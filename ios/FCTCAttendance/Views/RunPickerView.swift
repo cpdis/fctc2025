@@ -20,6 +20,31 @@ struct RunPickerView: View {
     @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
     @State private var viewModel: RunPickerViewModel
     @State private var showingAddRun = false
+    @State private var searchText = ""
+
+    private var title: String {
+        switch scope {
+        case .all: "Season"
+        case .thisWeek: "This Week"
+        case .past: "Past Runs"
+        }
+    }
+
+    /// Case-insensitive match on meet, run name, and the sheet-style date text.
+    private var filteredSections: [RunSection] {
+        guard !searchText.isEmpty else { return viewModel.sections }
+        return viewModel.sections.compactMap { section in
+            let runs = section.runs.filter { run in
+                run.meet.localizedCaseInsensitiveContains(searchText)
+                    || run.run.localizedCaseInsensitiveContains(searchText)
+                    || run.date.localizedCaseInsensitiveContains(searchText)
+            }
+            guard !runs.isEmpty else { return nil }
+            var filtered = section
+            filtered.runs = runs
+            return filtered
+        }
+    }
 
     init(runtime: AppRuntime, scope: RunPickerScope = .all) {
         self.runtime = runtime
@@ -51,8 +76,8 @@ struct RunPickerView: View {
                 }
             }
 
-            ForEach(viewModel.sections) { section in
-                Section(section.kind.rawValue) {
+            ForEach(filteredSections) { section in
+                Section(section.title) {
                     ForEach(section.runs) { run in
                         NavigationLink(value: HomeRoute.checklist(run, .standard)) {
                             RunRow(
@@ -65,17 +90,24 @@ struct RunPickerView: View {
                 }
             }
 
-            if viewModel.sections.isEmpty {
+            if filteredSections.isEmpty {
                 ContentUnavailableView(
-                    scope == .past ? "No Past Runs" : "No Runs",
-                    systemImage: "calendar.badge.plus",
-                    description: Text("Add a scheduled run or refresh the sheet.")
+                    searchText.isEmpty
+                        ? (scope == .past ? "No Past Runs" : "No Runs")
+                        : "No Matches",
+                    systemImage: searchText.isEmpty ? "calendar.badge.plus" : "magnifyingglass",
+                    description: Text(
+                        searchText.isEmpty
+                            ? "Add a scheduled run or refresh the sheet."
+                            : "No run matches \"\(searchText)\"."
+                    )
                 )
                 .listRowBackground(Color.clear)
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle(scope == .past ? "Past Runs" : "Choose Run")
+        .navigationTitle(title)
+        .searchable(text: $searchText, prompt: "Meet, run, or date")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -132,7 +164,12 @@ struct RunPickerView: View {
                 return date < calendar.startOfDay(for: now)
             }
         }
-        viewModel.update(runs: snapshots, now: now, calendar: calendar)
+        viewModel.update(
+            runs: snapshots,
+            now: now,
+            calendar: calendar,
+            groupPastByMonth: scope == .past
+        )
     }
 }
 

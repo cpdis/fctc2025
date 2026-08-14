@@ -14,12 +14,16 @@ public enum RunSectionKind: String, CaseIterable, Sendable {
 }
 
 public struct RunSection: Hashable, Sendable, Identifiable {
-    public var id: RunSectionKind { kind }
+    public var id: String { title }
     public var kind: RunSectionKind
+    /// The header text. Matches `kind.rawValue` except for the past scope's
+    /// month grouping ("December", "November", ...).
+    public var title: String
     public var runs: [RunSnapshot]
 
-    public init(kind: RunSectionKind, runs: [RunSnapshot]) {
+    public init(kind: RunSectionKind, title: String? = nil, runs: [RunSnapshot]) {
         self.kind = kind
+        self.title = title ?? kind.rawValue
         self.runs = runs
     }
 }
@@ -48,8 +52,14 @@ public final class RunPickerViewModel {
     public func update(
         runs: [RunSnapshot],
         now: Date = .now,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        groupPastByMonth: Bool = false
     ) {
+        if groupPastByMonth {
+            sections = Self.monthSections(runs: runs, calendar: calendar)
+            selectedRun = Self.defaultRun(from: runs, now: now, calendar: calendar)
+            return
+        }
         let startOfToday = calendar.startOfDay(for: now)
         let week = calendar.dateInterval(of: .weekOfYear, for: now)
         var buckets: [RunSectionKind: [RunSnapshot]] = [:]
@@ -79,6 +89,43 @@ public final class RunPickerViewModel {
             return RunSection(kind: kind, runs: values)
         }
         selectedRun = Self.defaultRun(from: runs, now: now, calendar: calendar)
+    }
+
+    /// Past-scope month grouping (Colin's review): one section per month, newest
+    /// month first, runs newest-first inside, dateless rows in a trailing bucket.
+    nonisolated static func monthSections(
+        runs: [RunSnapshot],
+        calendar: Calendar
+    ) -> [RunSection] {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.dateFormat = "MMMM"
+
+        var order: [Date] = []
+        var byMonth: [Date: [RunSnapshot]] = [:]
+        var dateless: [RunSnapshot] = []
+        for run in runs {
+            guard let scheduledAt = run.scheduledAt,
+                  let month = calendar.dateInterval(of: .month, for: scheduledAt)?.start
+            else {
+                dateless.append(run)
+                continue
+            }
+            if byMonth[month] == nil { order.append(month) }
+            byMonth[month, default: []].append(run)
+        }
+
+        var sections = order.sorted(by: >).map { month in
+            RunSection(
+                kind: .past,
+                title: formatter.string(from: month),
+                runs: byMonth[month]!.sorted(by: Self.descending)
+            )
+        }
+        if !dateless.isEmpty {
+            sections.append(RunSection(kind: .past, title: "Undated", runs: dateless))
+        }
+        return sections
     }
 
     /// R7: use the latest due run that is still blank. Only fall back to a recorded

@@ -49,6 +49,31 @@ struct HomeView: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                // Custom header: the large title and the gear share one line
+                // (Colin's review), which the system large-title bar cannot do.
+                Section {
+                    HStack(alignment: .center) {
+                        Text("FCTC")
+                            .font(.system(size: 34, weight: .bold))
+                            .accessibilityAddTraits(.isHeader)
+                            .accessibilityIdentifier("home-title")
+                        Spacer()
+                        Button {
+                            path.append(HomeRoute.settings)
+                        } label: {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 17, weight: .semibold))
+                                .frame(width: 40, height: 40)
+                        }
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular.interactive(), in: .circle)
+                        .accessibilityLabel("Settings")
+                        .accessibilityIdentifier("home-settings")
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                }
+
                 if viewModel.isInitialLoading && cachedRuns.isEmpty {
                     Section {
                         ContentUnavailableView(
@@ -79,7 +104,7 @@ struct HomeView: View {
                         }
                     }
 
-                    Section("Runs") {
+                    Section {
                         if viewModel.initialLoadFailed && cachedRuns.isEmpty {
                             ContentUnavailableView {
                                 Label("Runs Unavailable", systemImage: "wifi.exclamationmark")
@@ -110,8 +135,8 @@ struct HomeView: View {
 
                             NavigationLink(value: HomeRoute.runPicker(.all)) {
                                 HomeRow(
-                                    title: "All Runs",
-                                    subtitle: "Scheduled and recorded runs",
+                                    title: "Season",
+                                    subtitle: "Every scheduled and recorded run",
                                     systemImage: "calendar",
                                     tint: .blue
                                 )
@@ -128,6 +153,14 @@ struct HomeView: View {
                             }
                             .accessibilityIdentifier("home-past-runs")
                         }
+                    } header: {
+                        Text("Runs")
+                    } footer: {
+                        // Colin is trialling this line; delete this footer block
+                        // (and seasonProgress below) to remove it.
+                        if let progress = seasonProgress {
+                            Text(progress)
+                        }
                     }
                 }
 
@@ -139,20 +172,11 @@ struct HomeView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            // The inset-grouped default (~35pt) plus the large title read as the
-            // whole screen floating toward center (Colin's review).
-            .contentMargins(.top, 10, for: .scrollContent)
+            .contentMargins(.top, 4, for: .scrollContent)
+            // The custom header row IS the title bar; the system bar would
+            // stack a second empty line above it.
             .navigationTitle("FCTC")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        path.append(HomeRoute.settings)
-                    } label: {
-                        Label("Settings", systemImage: "gearshape")
-                    }
-                    .accessibilityIdentifier("home-settings")
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: HomeRoute.self) { route in
                 switch route {
                 case .checklist(let run, let presentation):
@@ -275,6 +299,13 @@ struct HomeView: View {
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
         }
+    }
+
+    /// "94 of 163 runs recorded", or nil before the season has loaded.
+    private var seasonProgress: String? {
+        guard !cachedRuns.isEmpty else { return nil }
+        let recorded = cachedRuns.filter { !$0.attendees.isEmpty || $0.plusOnes > 0 }.count
+        return "\(recorded) of \(cachedRuns.count) runs recorded"
     }
 
     private var cacheFingerprint: String {

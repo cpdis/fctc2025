@@ -5,6 +5,7 @@
 
 import FCTCAttendanceKit
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     let runtime: AppRuntime
@@ -13,6 +14,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: SettingsViewModel
     @State private var showingSetupScanner = false
+    @State private var currentAlternateIcon: String?
 
     init(runtime: AppRuntime, configurationRequired: Bool = false) {
         self.runtime = runtime
@@ -92,6 +94,7 @@ struct SettingsView: View {
 
             Section("Theme") {
                 accentPicker
+                appIconPicker
             }
 
             Section {
@@ -143,6 +146,51 @@ struct SettingsView: View {
                 viewModel.replaceEngine(runtime.engine)
             }
         }
+    }
+
+    /// Two-choice icon picker; setAlternateIconName persists across launches
+    /// on its own and shows the system's confirmation alert.
+    private var appIconPicker: some View {
+        HStack(spacing: 14) {
+            appIconOption(title: "Classic", assetName: nil, preview: "AppIconPreview")
+            appIconOption(title: "Trail", assetName: "AppIconAlt", preview: "AppIconAltPreview")
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
+        .onAppear { currentAlternateIcon = UIApplication.shared.alternateIconName }
+    }
+
+    private func appIconOption(
+        title: String,
+        assetName: String?,
+        preview: String
+    ) -> some View {
+        let selected = currentAlternateIcon == assetName
+        return Button {
+            UIApplication.shared.setAlternateIconName(assetName)
+            currentAlternateIcon = assetName
+        } label: {
+            VStack(spacing: 6) {
+                Image(preview)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 52, height: 52)
+                    .clipShape(.rect(cornerRadius: 12))
+                    .overlay {
+                        if selected {
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(.tint, lineWidth: 3)
+                        }
+                    }
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(selected ? .primary : .secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title) app icon")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("app-icon-\(title.lowercased())")
     }
 
     /// Reminders-style accent swatches: one tap sets and persists the tint.

@@ -35,7 +35,7 @@ final class FCTCAttendanceUITests: XCTestCase {
         XCTAssertEqual(aaron.value as? String, "Checked")
         app.buttons["confirm-attendance"].tap()
 
-        XCTAssertTrue(app.navigationBars["FCTC"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
         app.buttons["home-unsynced"].tap()
         XCTAssertTrue(outboxEmpty.waitForExistence(timeout: 5))
     }
@@ -57,7 +57,7 @@ final class FCTCAttendanceUITests: XCTestCase {
         XCTAssertTrue(merge.waitForExistence(timeout: 3))
         XCTAssertTrue(overwrite.exists)
         merge.tap()
-        XCTAssertTrue(app.navigationBars["FCTC"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
     }
 
     func testOfflineQueueAppearsThenManualRetryDrainsIt() {
@@ -67,7 +67,7 @@ final class FCTCAttendanceUITests: XCTestCase {
 
         app.buttons["member-Aaron"].tap()
         app.buttons["confirm-attendance"].tap()
-        XCTAssertTrue(app.navigationBars["FCTC"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
 
         app.buttons["home-unsynced"].tap()
         let queued = app.descendants(matching: .any).matching(
@@ -206,7 +206,7 @@ final class FCTCAttendanceUITests: XCTestCase {
 
     private func launch() {
         app.launch()
-        XCTAssertTrue(app.navigationBars["FCTC"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
     }
 
     private func configureApp(

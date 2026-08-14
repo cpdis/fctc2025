@@ -59,6 +59,9 @@ targets:
         SUPPORTS_MACCATALYST: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        # The user-selectable alternate icon (Settings > App Icon).
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: AppIconAlt
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
         CODE_SIGN_ENTITLEMENTS: FCTCAttendance/FCTCAttendance.entitlements
     info:
       path: FCTCAttendance/Info.plist
