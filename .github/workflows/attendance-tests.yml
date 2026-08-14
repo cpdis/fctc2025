@@ -1,0 +1,39 @@
+# Tests for the FCTC Attendance app's non-Xcode parts.
+#
+# Scope, deliberately: the Apps Script pure logic and the shared fixtures. The Swift
+# side needs Xcode 26 and is verified on Colin's Mac (no macOS runner is forced on a
+# hobby repo — see the plan's Agent Orchestration section).
+#
+# The dashboard's own Vitest suite is not run here; this workflow only fires for PRs
+# that touch the attendance directories.
+
+name: Attendance Tests
+
+on:
+  pull_request:
+    paths:
+      - 'apps-script/**'
+      - 'fixtures/attendance/**'
+      - '.github/workflows/attendance-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apps-script:
+    name: node --test apps-script/test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # No dependencies to install: the harness is node:test + built-ins only
+      # (zero-third-party rule), so this is a bare `node --test`.
+      - name: Run Apps Script + fixture tests
+        run: node --test apps-script/test

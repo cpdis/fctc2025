@@ -1,0 +1,17 @@
+{
+  "fixture": "voice-1.transcript.txt",
+  "kind": "voice-transcript",
+  "season": 2026,
+  "notes": [
+    "The plain case: three names, an unnamed guest count, a spoken decimal distance.",
+    "'Colin' -> 'Col' via the nickname table (the sheet's short name is canonical).",
+    "'plus two guests' -> plusOnes 2 with no guest names offered.",
+    "'eight point seven k' -> 8.7 (spelled-out number, trailing bare 'k')."
+  ],
+  "names": ["Aaron", "Adam", "Col"],
+  "plusOnes": 2,
+  "distanceKm": 8.7,
+  "guestNames": [],
+  "ambiguous": [],
+  "unmatchedRaw": []
+}

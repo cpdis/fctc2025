@@ -1,0 +1,13 @@
+{
+  "_comment": [
+    "Copy this file to .clasp.json (which is gitignored — it names a real script) and",
+    "replace scriptId with the container-bound script's ID.",
+    "Find it via: open the FCTC spreadsheet > Extensions > Apps Script > Project",
+    "Settings > 'Script ID'. Or run `clasp create --type sheets --parentId <SHEET_ID>`",
+    "from this directory, which writes .clasp.json for you.",
+    "rootDir stays '.' so clasp pushes exactly the files in apps-script/ (test/ and",
+    "package.json are excluded by .claspignore)."
+  ],
+  "scriptId": "REPLACE_ME_WITH_THE_BOUND_SCRIPT_ID",
+  "rootDir": "."
+}

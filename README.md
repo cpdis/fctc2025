@@ -119,6 +119,26 @@ Configure these at the top of `.github/workflows/weekly-data-sync.yml`:
 `https://docs.google.com/spreadsheets/d/<SHEET_ID>/export?format=csv&gid=<SHEET_GID>`
 (a Publish-to-web `/pub?...output=csv` alternative is commented in the workflow).
 
+## Attendance app
+
+A native iOS app (SwiftUI, iOS 26) for recording attendance and actual kms right after
+a run — manually, from a WhatsApp poll screenshot (on-device OCR), or by voice — writing
+straight back into the **same Google Sheet this dashboard reads**. The sheet stays the
+canonical record; the app is a new *writer*, and this dashboard's weekly sync, parser and
+build are untouched by it.
+
+- `ios/` — the app. The Xcode project is generated, not committed:
+  `cd ios && xcodegen generate` (XcodeGen reads `ios/project.yml`). All non-UI logic
+  lives in the `FCTCAttendanceKit` framework so it is unit-testable.
+- `apps-script/` — the Google Apps Script Web App the phone posts to (JSON + shared
+  secret, no OAuth in the app). Runbook: `apps-script/README.md`.
+  Tests: `node --test apps-script/test`.
+- `fixtures/attendance/` — shared fixtures (season CSV snapshots, OCR line dumps, voice
+  transcripts + expected parse results). Schema: `fixtures/attendance/README.md`.
+
+Plan (architecture, API contract, design language, work units):
+`docs/plans/2026-08-14-001-feat-fctc-attendance-ios-app-plan.md`.
+
 ## Deployment
 
 Vercel (hobby), SPA rewrites in `vercel.json`. Pushes to the default branch auto-deploy. After

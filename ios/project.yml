@@ -1,0 +1,133 @@
+# XcodeGen spec for the FCTC Attendance iOS app.
+#
+# The .xcodeproj is GENERATED, never hand-edited or committed:
+#
+#   brew install xcodegen        # once
+#   cd ios && xcodegen generate  # after any change to this file or to the file tree
+#   open FCTCAttendance.xcodeproj
+#
+# Targets:
+#   FCTCAttendance        — SwiftUI app shell (views + app entry only)
+#   FCTCAttendanceKit     — framework holding ALL non-UI logic so it is unit-testable
+#   FCTCAttendanceKitTests — unit tests for the kit (Swift Testing)
+#
+# Zero third-party dependencies by design (see plan: Key Technical Decisions #2).
+
+name: FCTCAttendance
+
+options:
+  bundleIdPrefix: com.cpdis
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "26.0"
+  groupSortPosition: top
+  minimumXcodeGenVersion: "2.38.0"
+  xcodeVersion: "26.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    CLANG_ENABLE_MODULES: YES
+    # Colin: set your team here (or in Xcode's Signing & Capabilities) before a
+    # device build / TestFlight upload (U8).
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  FCTCAttendance:
+    type: application
+    platform: iOS
+    sources:
+      - path: FCTCAttendance
+    dependencies:
+      - target: FCTCAttendanceKit
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance
+        PRODUCT_NAME: FCTC Attendance
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1" # iPhone only
+        SUPPORTS_MACCATALYST: NO
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    info:
+      path: FCTCAttendance/Info.plist
+      properties:
+        CFBundleDisplayName: FCTC
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: ""
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        ITSAppUsesNonExemptEncryption: false
+        # Usage descriptions — all three smart-modality permissions (R4, R5).
+        NSPhotoLibraryUsageDescription: >-
+          FCTC Attendance reads WhatsApp poll screenshots you choose so it can
+          pre-fill the attendance checklist. Screenshots stay on your device.
+        NSSpeechRecognitionUsageDescription: >-
+          FCTC Attendance transcribes your spoken run summary on-device to
+          pre-fill the attendance checklist.
+        NSMicrophoneUsageDescription: >-
+          FCTC Attendance records your voice only while you are dictating a run
+          summary, so it can pre-fill the attendance checklist.
+
+  FCTCAttendanceKit:
+    type: framework
+    platform: iOS
+    sources:
+      - path: FCTCAttendanceKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance.kit
+        PRODUCT_NAME: FCTCAttendanceKit
+        DEFINES_MODULE: YES
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: NO
+
+  FCTCAttendanceKitTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: FCTCAttendanceKitTests
+    dependencies:
+      - target: FCTCAttendanceKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance.kit-tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  FCTCAttendance:
+    build:
+      targets:
+        FCTCAttendance: all
+        FCTCAttendanceKit: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - FCTCAttendanceKitTests
+    archive:
+      config: Release
+
+  FCTCAttendanceKit:
+    build:
+      targets:
+        FCTCAttendanceKit: all
+        FCTCAttendanceKitTests: [test]
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - FCTCAttendanceKitTests
