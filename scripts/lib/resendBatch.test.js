@@ -195,4 +195,33 @@ describe('sendResendBatch', () => {
     expect(error).toMatchObject({ category: 'timeout', attempts: 3 })
     expect(error.message).not.toContain('private timeout detail')
   })
+
+  it('keeps the timeout active while the response body is read', async () => {
+    vi.useFakeTimers()
+    const fetchImpl = vi.fn((_url, { signal }) => Promise.resolve({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      body: {
+        getReader: () => ({
+          read: () => new Promise((_resolve, reject) => {
+            signal.addEventListener('abort', () => {
+              reject(new DOMException('private body timeout detail', 'AbortError'))
+            }, { once: true })
+          }),
+          cancel: vi.fn().mockResolvedValue(undefined),
+        }),
+      },
+    }))
+    const promise = sendResendBatch(requestOptions({ fetchImpl, timeoutMs: 10 }))
+      .catch((value) => value)
+
+    await vi.runAllTimersAsync()
+    const error = await promise
+    vi.useRealTimers()
+
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
+    expect(error).toMatchObject({ category: 'timeout', attempts: 3 })
+    expect(error.message).not.toContain('private body timeout detail')
+  })
 })

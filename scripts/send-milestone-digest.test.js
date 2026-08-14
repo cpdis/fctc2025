@@ -136,6 +136,10 @@ describe('parseRecipients', () => {
     ['first\n@example.com', 'newline'],
     ['first\0@example.com', 'NUL'],
     ['not-an-email', 'invalid mailbox'],
+    ['.first@example.com', 'leading local-part dot'],
+    ['first.@example.com', 'trailing local-part dot'],
+    ['first..last@example.com', 'consecutive local-part dots'],
+    [`${'a'.repeat(65)}@example.com`, 'oversized local part'],
     [`${'a'.repeat(245)}@example.com`, 'oversized mailbox'],
   ])('rejects an invalid recipient: %s', (value) => {
     let error
@@ -274,6 +278,8 @@ describe('runMilestoneDigest', () => {
         RESEND_API_KEY: 're_private',
         MILESTONE_SMOKE_RECIPIENT: 'colin@example.com',
         MILESTONE_FROM: 'FCTC Milestones <runs@notifications.fctc.cpd.dev>',
+        GITHUB_RUN_ID: '123456789',
+        GITHUB_RUN_ATTEMPT: '2',
       },
       readFileImpl: vi.fn().mockRejectedValue(new Error('attendance must not be read')),
     })
@@ -287,7 +293,7 @@ describe('runMilestoneDigest', () => {
 
     expect(options.readFileImpl).not.toHaveBeenCalled()
     const request = options.sendBatchImpl.mock.calls[0][0]
-    expect(request.idempotencyKey).toBe('fctc-milestones-smoke/2026-08-16')
+    expect(request.idempotencyKey).toBe('fctc-milestones-smoke/123456789/2')
     expect(request.items[0]).toMatchObject({
       to: ['colin@example.com'],
       subject: '[TEST] FCTC milestone email',
@@ -322,6 +328,36 @@ describe('runMilestoneDigest', () => {
     expect(written).not.toContain('colin@example.com')
   })
 
+  it('writes a safe failed state when a normal provider request fails', async () => {
+    const appendFileImpl = vi.fn().mockResolvedValue(undefined)
+    const options = runOptions({
+      args: ['--send'],
+      env: {
+        RESEND_API_KEY: 're_private',
+        MILESTONE_RECIPIENTS: 'private@example.com',
+        MILESTONE_FROM: 'FCTC Milestones <runs@notifications.fctc.cpd.dev>',
+        GITHUB_STEP_SUMMARY: '/github/summary',
+      },
+      appendFileImpl,
+      sendBatchImpl: vi.fn().mockRejectedValue(
+        new ResendBatchError('provider_temporary', { status: 503, attempts: 3 })
+      ),
+    })
+
+    await expect(runMilestoneDigest(options)).rejects.toMatchObject({
+      category: 'provider_temporary',
+    })
+
+    const written = appendFileImpl.mock.calls.map(([, content]) => content).join('\n')
+    expect(written).toContain('Candidate count | 1')
+    expect(written).toContain('Recipient count | 1')
+    expect(written).toContain('Accepted item count | 0')
+    expect(written).toContain('failed-provider_temporary')
+    expect(written).not.toContain('Jane Doe')
+    expect(written).not.toContain('private@example.com')
+    expect(written).not.toContain('re_private')
+  })
+
   it('rejects malformed sender syntax before a provider request', async () => {
     const options = runOptions({
       args: ['--send'],
@@ -329,6 +365,20 @@ describe('runMilestoneDigest', () => {
         RESEND_API_KEY: 're_private',
         MILESTONE_RECIPIENTS: 'private@example.com',
         MILESTONE_FROM: 'runs@notifications.fctc.cpd.dev>',
+      },
+    })
+
+    await expect(runMilestoneDigest(options)).rejects.toThrow('Sender configuration is invalid')
+    expect(options.sendBatchImpl).not.toHaveBeenCalled()
+  })
+
+  it('rejects invalid dot-atom sender syntax before a provider request', async () => {
+    const options = runOptions({
+      args: ['--send'],
+      env: {
+        RESEND_API_KEY: 're_private',
+        MILESTONE_RECIPIENTS: 'private@example.com',
+        MILESTONE_FROM: 'FCTC Milestones <runs..team@notifications.fctc.cpd.dev>',
       },
     })
 

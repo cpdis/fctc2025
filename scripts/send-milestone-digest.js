@@ -16,7 +16,13 @@ import { ResendBatchError, sendResendBatch } from './lib/resendBatch.js'
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url)
 const DEFAULT_ROOT = resolve(dirname(SCRIPT_PATH), '..')
-const EMAIL_PATTERN = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i
+const LOCAL_ATOM = "[a-z0-9!#$%&'*+/=?^_`{|}~-]+"
+const EMAIL_PATTERN = new RegExp(
+  `^(${LOCAL_ATOM}(?:\\.${LOCAL_ATOM})*)@` +
+  '[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?' +
+  '(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$',
+  'i'
+)
 const SAFE_CONFIGURATION_PATTERN = /^[^\r\n\0]+$/
 const SMOKE_SUBJECT = '[TEST] FCTC milestone email'
 const SMOKE_TEXT = [
@@ -96,8 +102,7 @@ export function parseRecipients(value) {
   const recipients = new Map()
   for (const part of parts) {
     const recipient = part.trim()
-    if (/\s/.test(recipient) || Buffer.byteLength(recipient, 'utf8') > 254 ||
-        !EMAIL_PATTERN.test(recipient)) {
+    if (/\s/.test(recipient) || !isValidMailbox(recipient)) {
       recipientError()
     }
     recipients.set(recipient.toLowerCase(), recipient.toLowerCase())
@@ -270,7 +275,7 @@ async function runSmoke({ env, now, week, sendBatchImpl }) {
   const providerResult = await sendBatchImpl({
     apiKey,
     items,
-    idempotencyKey: `fctc-milestones-smoke/${getPerthCalendarDate(now)}`,
+    idempotencyKey: getSmokeIdempotencyKey(env, now),
   })
   return { recipientCount: 1, acceptedCount: providerResult.acceptedCount, weekStart: week.weekStart }
 }
@@ -291,10 +296,31 @@ function validateSender(value) {
   const friendlyMatch = /^[^<>]+ <([^<>\s]+)>$/.exec(value)
   const bareMatch = /^([^<>\s]+)$/.exec(value)
   const address = friendlyMatch?.[1] ?? bareMatch?.[1]
-  if (!address || !EMAIL_PATTERN.test(address)) {
+  if (!address || !isValidMailbox(address)) {
     throw new MilestoneDigestError('sender', 'Sender configuration is invalid')
   }
   return value
+}
+
+function isValidMailbox(value) {
+  if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > 254) return false
+  const match = EMAIL_PATTERN.exec(value)
+  return Boolean(match && Buffer.byteLength(match[1], 'utf8') <= 64)
+}
+
+function getSmokeIdempotencyKey(env, now) {
+  const runId = typeof env.GITHUB_RUN_ID === 'string' && /^\d+$/.test(env.GITHUB_RUN_ID)
+    ? env.GITHUB_RUN_ID
+    : null
+  const runAttempt = typeof env.GITHUB_RUN_ATTEMPT === 'string' && /^\d+$/.test(env.GITHUB_RUN_ATTEMPT)
+    ? env.GITHUB_RUN_ATTEMPT
+    : '1'
+
+  if (runId) return `fctc-milestones-smoke/${runId}/${runAttempt}`
+
+  // Local smoke runs have no GitHub run ID. Use the injected instant so a retry
+  // after configuration changes reaches Resend instead of its prior cache entry.
+  return `fctc-milestones-smoke/local/${getPerthCalendarDate(now)}/${now.getTime()}`
 }
 
 async function writeGitHubOutput({ path, appendFileImpl, hasCandidates }) {

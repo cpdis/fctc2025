@@ -25,7 +25,7 @@ describe('weekly notification workflow contract', () => {
     expect(workflow).toContain('timezone: Australia/Perth')
     expect(workflow).toMatch(/notification_mode:\n\s+description:.*\n\s+required: true\n\s+default: preview\n\s+type: choice/)
     expect(workflow).toMatch(/options:\n\s+- preview\n\s+- send\n\s+- smoke/)
-    expect(workflow).toMatch(/concurrency:\n\s+group: weekly-data-sync\n\s+cancel-in-progress: false/)
+    expect(workflow).toMatch(/concurrency:\n\s+group: weekly-data-sync\n\s+queue: max\n\s+cancel-in-progress: false/)
   })
 
   it('limits write access to sync and runs notify only after successful main sync', () => {
@@ -42,6 +42,7 @@ describe('weekly notification workflow contract', () => {
     expect(notify).toContain("github.ref == 'refs/heads/main'")
     expect(notify).toMatch(/environment:\n\s+name: milestone-production/)
     expect(notify).toMatch(/permissions:\n\s+contents: read/)
+    expect(notify).toContain('timeout-minutes: 10')
   })
 
   it('checks out latest main without credentials and previews without secrets', () => {
@@ -68,6 +69,7 @@ describe('weekly notification workflow contract', () => {
     expect(send).toContain("vars.MILESTONE_EMAIL_ENABLED == 'true'")
     expect(send).toContain("steps.milestones.outputs.has_candidates == 'true'")
     expect(send).toContain("github.event_name == 'schedule'")
+    expect(send).toContain("github.run_attempt == 1")
     expect(send).toContain("github.event_name == 'workflow_dispatch'")
     expect(send).toContain("inputs.notification_mode == 'send'")
     expect(send).toContain("github.ref == 'refs/heads/main'")
@@ -77,6 +79,34 @@ describe('weekly notification workflow contract', () => {
     expect(send).toMatch(/env:\n\s+RESEND_API_KEY:.*\n\s+MILESTONE_RECIPIENTS:.*\n\s+MILESTONE_FROM:/)
     expect(send).not.toContain('MILESTONE_SMOKE_RECIPIENT')
     expect(send).not.toContain('continue-on-error')
+  })
+
+  it('uses the exact schedule and manual authorization expression', () => {
+    const send = between('      - name: Send milestone notifications', '      - name: Send milestone smoke test')
+    const expected = [
+      "vars.MILESTONE_EMAIL_ENABLED == 'true' &&",
+      "steps.milestones.outputs.has_candidates == 'true' &&",
+      '(',
+      "(github.event_name == 'schedule' && github.run_attempt == 1) ||",
+      '(',
+      "github.event_name == 'workflow_dispatch' &&",
+      "inputs.notification_mode == 'send' &&",
+      "github.ref == 'refs/heads/main' &&",
+      "github.actor == 'cpdis' &&",
+      "github.triggering_actor == 'cpdis'",
+      ')',
+      ')',
+    ].join(' ')
+    const actual = send.match(/if: >-\n([\s\S]*?)\n\s+run:/)?.[1]
+      ?.trim()
+      .replace(/\s+/g, ' ')
+
+    expect(actual).toBe(expected)
+  })
+
+  it('reports refused manual sends and skipped scheduled reruns', () => {
+    expect(workflow).toContain('milestone_notification delivery=refused reason=unauthorized')
+    expect(workflow).toContain('milestone_notification delivery=skipped reason=scheduled-rerun')
   })
 
   it('allows smoke only on main for both actors, without the normal gate', () => {

@@ -407,7 +407,8 @@ flowchart TD
 - In preview mode, write the target week and candidate count to the job summary. Write a `has_candidates` step output for workflow conditions.
 - In send mode, validate `RESEND_API_KEY`, `MILESTONE_RECIPIENTS`, and `MILESTONE_FROM`.
 - In smoke mode, send fixed safe content only to `MILESTONE_SMOKE_RECIPIENT`. Do not accept custom smoke content or recipients.
-- Use a separate `fctc-milestones-smoke/<Perth-date>` idempotency namespace and a `[TEST]` subject for smoke email.
+- Use a separate `fctc-milestones-smoke/<run-id>/<attempt>` idempotency namespace and a
+  `[TEST]` subject for smoke email. Keep it stable only within one workflow attempt.
 - Trim, validate, deduplicate case-insensitively, and sort recipient addresses.
 - Accept conservative single-mailbox addresses only. Reject display names, whitespace, CR, LF, NUL, addresses over 254 bytes, and empty list items.
 - Reject zero recipients and more than 100 recipients.
@@ -463,19 +464,24 @@ flowchart TD
 - Use Sunday 17:17 local time unless club operations require a different time.
 - Add `timezone: Australia/Perth` to the schedule entry.
 - Add a `workflow_dispatch` choice input named `notification_mode`. Use `preview` as the default, with `send` and `smoke` as explicit choices.
-- Add workflow concurrency. Use one stable group and `cancel-in-progress: false`.
+- Add workflow concurrency. Use one stable group, `queue: max`, and
+  `cancel-in-progress: false`.
 - Add `actions/setup-node@v6` with Node 24.
 - Pin GitHub-owned actions to reviewed commit SHAs and keep readable version comments.
-- Run `npm ci --ignore-scripts` before the script because the existing parser imports PapaParse.
+- Run `npm ci --omit=dev --ignore-scripts` before the script because the runtime imports
+  PapaParse but does not need build dependencies.
 - Keep the notification steps after `Commit + push if changed`.
+- Limit the notification job to 10 minutes.
 - Run `--preview` first without secrets and expose `has_candidates`.
-- Run `--send` for scheduled runs only when the gate is true and candidates exist.
+- Run `--send` for the first scheduled attempt only when the gate is true and candidates
+  exist. A scheduled rerun must preview and report a skipped send.
 - Run `--send` for manual runs only when the gate is true, candidates exist, the mode is `send`, the ref is `main`, and the actor is `cpdis`.
 - Run `--smoke` only when the manual mode is `smoke`, the ref is `main`, and the actor is `cpdis`. The gate can remain false.
 - Provide `RESEND_API_KEY` and `MILESTONE_RECIPIENTS` only to the normal send step.
 - Provide `RESEND_API_KEY` and `MILESTONE_SMOKE_RECIPIENT` only to the smoke step.
 - Provide `MILESTONE_FROM` as non-secret workflow configuration.
-- Keep `contents: write` as the only workflow permission.
+- Keep top-level and notification access read-only. Grant `contents: write` only to the sync
+  job.
 - Report disabled, preview, no-op, smoke, accepted, and failed states without private data.
 
 GitHub now supports timezone-aware schedules. It still warns that scheduled runs can be delayed during high load. See [schedule syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule), [workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax), and [setup-node v6](https://github.com/actions/setup-node).

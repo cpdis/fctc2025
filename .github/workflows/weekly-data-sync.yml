@@ -54,6 +54,7 @@ permissions:
 # Queue scheduled and manual syncs. Never cancel a data push or email request.
 concurrency:
   group: weekly-data-sync
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -124,6 +125,7 @@ jobs:
         )
       )
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: milestone-production
     permissions:
@@ -155,7 +157,7 @@ jobs:
       - name: Report disabled delivery
         if: >-
           (
-            github.event_name == 'schedule' ||
+            (github.event_name == 'schedule' && github.run_attempt == 1) ||
             (
               github.event_name == 'workflow_dispatch' &&
               inputs.notification_mode == 'send'
@@ -164,12 +166,24 @@ jobs:
           vars.MILESTONE_EMAIL_ENABLED != 'true'
         run: echo "milestone_notification delivery=disabled"
 
+      - name: Report skipped scheduled rerun
+        if: github.event_name == 'schedule' && github.run_attempt != 1
+        run: echo "milestone_notification delivery=skipped reason=scheduled-rerun"
+
+      - name: Report refused manual delivery
+        if: >-
+          github.event_name == 'workflow_dispatch' &&
+          inputs.notification_mode == 'send' &&
+          vars.MILESTONE_EMAIL_ENABLED == 'true' &&
+          (github.actor != 'cpdis' || github.triggering_actor != 'cpdis')
+        run: echo "milestone_notification delivery=refused reason=unauthorized"
+
       - name: Send milestone notifications
         if: >-
           vars.MILESTONE_EMAIL_ENABLED == 'true' &&
           steps.milestones.outputs.has_candidates == 'true' &&
           (
-            github.event_name == 'schedule' ||
+            (github.event_name == 'schedule' && github.run_attempt == 1) ||
             (
               github.event_name == 'workflow_dispatch' &&
               inputs.notification_mode == 'send' &&

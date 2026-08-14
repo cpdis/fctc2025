@@ -44,6 +44,7 @@ export async function sendResendBatch({
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), timeoutMs)
     let response
+    let responseText
 
     try {
       response = await fetchImpl(RESEND_BATCH_URL, {
@@ -57,6 +58,13 @@ export async function sendResendBatch({
         body,
         signal: controller.signal,
       })
+      responseText = await readResponseText(response)
+
+      // Node's fetch signal also controls body consumption. Keep the same timer
+      // active until the complete response is available for validation.
+      if (controller.signal.aborted) {
+        throw new DOMException('Request timed out', 'AbortError')
+      }
     } catch (error) {
       clearTimeout(timeout)
       const category = controller.signal.aborted || error?.name === 'AbortError'
@@ -72,7 +80,6 @@ export async function sendResendBatch({
     }
 
     clearTimeout(timeout)
-    const responseText = await readResponseText(response)
 
     if (response.ok) {
       const parsed = parseJson(responseText)
@@ -147,22 +154,18 @@ async function readResponseText(response) {
         }
         text += decoder.decode(value, { stream: true })
       }
-    } catch {
+    } catch (error) {
       try {
         await reader.cancel()
       } catch {
-        // The safe empty response below is enough when cancellation also fails.
+        // Keep the original read error. Provider details remain private.
       }
-      return ''
+      throw error
     }
   }
 
-  try {
-    const text = await response.text()
-    return Buffer.byteLength(text, 'utf8') <= MAX_RESPONSE_BYTES ? text : ''
-  } catch {
-    return ''
-  }
+  const text = await response.text()
+  return Buffer.byteLength(text, 'utf8') <= MAX_RESPONSE_BYTES ? text : ''
 }
 
 function parseJson(value) {

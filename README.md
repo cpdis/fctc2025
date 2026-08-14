@@ -102,6 +102,9 @@ Google Sheets every **Sunday at 17:17 Australia/Perth** and commits it to
 schedule congestion. GitHub can still delay a scheduled run during high load. It can also
 disable a public repository's schedule after 60 days without repository activity. See the
 [GitHub schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+The workflow uses one ordered concurrency group with `queue: max`. GitHub can hold up to 100
+pending runs in that group without replacing an earlier pending run. See the
+[GitHub concurrency guide](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
 
 Vercel's GitHub integration deploys on push. `workflow_dispatch` is also enabled for
 manual/on-demand runs and as the schedule fallback. `scripts/fetch-sheet.sh` fetches and
@@ -184,7 +187,11 @@ Run the workflow from the GitHub Actions page and select `notification_mode`:
   `github.triggering_actor` set to `cpdis`.
 - `smoke` sends fixed `[TEST]` content only to `MILESTONE_SMOKE_RECIPIENT`. It includes no
   attendance content. It needs `main` and both actors set to `cpdis`, but it does not need
-  the enable gate.
+  the enable gate. Each workflow run uses a new smoke idempotency key, so a rerun after a
+  configuration fix reaches Resend.
+
+A re-run of a scheduled workflow never sends email. Use a new manual `send` dispatch when a
+live retry is required. An unauthorized manual send stays provider-free and reports refusal.
 
 An `accepted` result means that Resend accepted each batch item. It does not prove inbox
 delivery. Use the Resend dashboard and the recipient inbox to prove delivery.
@@ -220,9 +227,10 @@ leak, or incorrect content.
 
 ### Retries, disable, and recovery
 
-Provider requests have a 10-second timeout and at most three attempts. The script retries
-temporary failures only. It reuses the weekly idempotency key, which Resend retains for 24
-hours. See the [Resend idempotency guide](https://resend.com/docs/dashboard/emails/idempotency-keys).
+Provider requests have a 10-second timeout for headers and response content. They have at
+most three attempts. The notify job also has a 10-minute limit. The script retries temporary
+failures only. It reuses the weekly idempotency key, which Resend retains for 24 hours. See
+the [Resend idempotency guide](https://resend.com/docs/dashboard/emails/idempotency-keys).
 
 Do not start a manual live send while a scheduled run is queued or running. Keep the gate
 enabled for one controlled same-week retry. Disable it after a repeated failure. After 24
