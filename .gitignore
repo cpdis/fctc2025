@@ -62,3 +62,6 @@ ios/FCTCAttendance/Info.plist
 .playwright-mcp/theme-*.png
 .playwright-mcp/wide-*.png
 .playwright-mcp/check-*.png
+
+# Local xcodebuild DerivedData (orchestrator verification runs)
+ios/.ddata/

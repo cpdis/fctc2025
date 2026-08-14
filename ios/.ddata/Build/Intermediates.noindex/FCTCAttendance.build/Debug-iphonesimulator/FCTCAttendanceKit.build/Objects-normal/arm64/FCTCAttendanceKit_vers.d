@@ -1,3 +1,0 @@
-dependencies: \
-  /tmp/claude-501/-Users-colin-Documents-Personal-Projects-FCTC-Dashboard/ecc11dbb-2d38-47a6-926c-2493c20aed92/scratchpad/u4-ui/ios/.ddata/Build/Products/Debug-iphonesimulator/FCTCAttendanceKit.framework/Modules/module.modulemap \
-  /tmp/claude-501/-Users-colin-Documents-Personal-Projects-FCTC-Dashboard/ecc11dbb-2d38-47a6-926c-2493c20aed92/scratchpad/u4-ui/ios/.ddata/Build/Intermediates.noindex/FCTCAttendance.build/Debug-iphonesimulator/FCTCAttendanceKit.build/DerivedSources/FCTCAttendanceKit_vers.c
