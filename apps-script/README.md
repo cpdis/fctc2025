@@ -6,9 +6,10 @@ over POST. The iOS app therefore needs no Google OAuth at all — just a URL and
 shared secret.
 
 Plan: `docs/plans/2026-08-14-001-feat-fctc-attendance-ios-app-plan.md`.
-Status: **implemented (U2)** — all four actions are live and covered by
-`node --test apps-script/test`. Not yet verified against a real spreadsheet: run
-`test/smoke.md` against a COPY of the sheet before pointing a phone at it.
+Status: **release candidate (U8)** — all four actions are covered by
+`node --test apps-script/test`. The 2026-08-14 smoke run verified the deployment,
+formulas, concurrency, date handling, and sheet-safety carve-out against a copy.
+Run `test/smoke.md` again after a write-layer change.
 
 ## API contract (frozen — changes require a plan PR first)
 
@@ -56,9 +57,12 @@ and writes nothing. Three operational codes round it out: `sheet_unreadable` (th
 | `appsscript.json` | Manifest: V8, web app `ANYONE_ANONYMOUS` / execute as `USER_DEPLOYING`. |
 | `.clasp.json.example` | Template for the (gitignored) `.clasp.json`. |
 | `.claspignore` | Keeps `test/`, `package.json` and this README out of the pushed project. |
-| `test/` | Node tests (`node --test apps-script/test`): `sheetops.checks.js` (geometry, table-driven over both season CSVs), `api.checks.js` (`Code.gs` running for real against a fake Apps Script runtime), `fixtures.checks.js` (U1 fixture integrity). |
+| `test/` | Node tests (`node --test apps-script/test`): sheet geometry, the fake Apps Script runtime, fixture integrity, and setup-QR structure. |
 | `test/support/` | Test-only helpers: a quote-aware CSV reader, the season fixture facts, and the in-memory `SpreadsheetApp`/`LockService`/`PropertiesService` fakes. |
 | `test/smoke.md` | The manual run-once-against-a-copy plan — the things no fake can prove (formulas, real locking, a real deploy). |
+| `make-setup-qr.js` | Zero-dependency CLI that writes a private, self-contained setup QR page. |
+| `qr-encode.js` | Shared byte-mode QR encoder used by the CLI and Node checks. |
+| `test/verify-sync-fidelity.md` | First-real-run check from the sheet through the weekly CSV sync. |
 
 ### The dual-environment module pattern
 
@@ -134,12 +138,32 @@ Push and deploy:
 
 ```bash
 clasp push                                  # upload appsscript.json, Code.gs, SheetOps.js
-clasp deploy --deploymentId <existing-id> --description "U2 API"
+clasp deploy -i <existing-id> --description "FCTC Attendance update"
 ```
 
-Use **`--deploymentId` with the same deployment** every time: the Web App URL stays
+Use **`-i` with the same deployment** every time: the Web App URL stays
 stable, so the phones never need reconfiguring. `clasp deployments` lists them; the
 first ever deploy (`clasp deploy`) creates the ID to reuse.
+
+Before a production push, re-check `apps-script/.clasp.json`. The smoke run left the
+local file pointing at its disposable copy. Set it to the real sheet's bound Script
+ID before `clasp push`. See `docs/plans/packets/U8-release-runbook.md` for the full
+production sequence.
+
+### Setup QR
+
+Generate one private HTML page per phone:
+
+```bash
+FCTC_SETUP_SECRET='<secret>' node apps-script/make-setup-qr.js \
+  --url 'https://script.google.com/macros/s/<deployment-id>/exec' \
+  --device 'Colin iPhone' \
+  --output /tmp/setup-qr-colin.html
+```
+
+The command prints the exact JSON payload for review. The HTML needs no network
+connection. Do not commit or share it. The app stores its imported secret in
+Keychain, not UserDefaults. Use manual Settings entry if camera access is unavailable.
 
 Authorize once by opening the deployed URL as the deploying user; anonymous access is
 what lets the app POST without OAuth, and the shared secret is what stops anyone else.

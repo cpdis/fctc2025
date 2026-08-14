@@ -58,6 +58,8 @@ public enum SyncEvent: Hashable, Sendable {
     case conflict(id: UUID, reason: String, message: String, state: SheetState)
     case parked(id: UUID, message: String)
     case failed(id: UUID, message: String)
+    case authenticationRequired(id: UUID)
+    case serviceFailed(message: String)
     case rosterRefreshed(SheetState)
 }
 

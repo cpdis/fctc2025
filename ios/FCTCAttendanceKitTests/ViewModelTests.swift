@@ -38,6 +38,69 @@ struct ViewModelTests {
         #expect(viewModel.todayRun?.rowIndex == 2)
     }
 
+    @Test("Home shows first-load progress only when the cache is empty")
+    func homeInitialLoading() async {
+        let client = ViewModelSyncClient(suspendRefresh: true)
+        let viewModel = HomeViewModel(engine: client)
+        let refresh = Task { await viewModel.refresh(hasCachedState: false) }
+        await client.waitUntilRefreshRequested()
+
+        #expect(viewModel.isInitialLoading)
+
+        await client.resumeRefresh()
+        await refresh.value
+        #expect(!viewModel.isInitialLoading)
+
+        let cachedClient = ViewModelSyncClient(suspendRefresh: true)
+        let cachedViewModel = HomeViewModel(engine: cachedClient)
+        let cachedRefresh = Task { await cachedViewModel.refresh(hasCachedState: true) }
+        await cachedClient.waitUntilRefreshRequested()
+
+        #expect(!cachedViewModel.isInitialLoading)
+
+        await cachedClient.resumeRefresh()
+        await cachedRefresh.value
+    }
+
+    @Test("Home keeps an empty-cache load failure distinct from no runs")
+    func homeInitialLoadFailure() async {
+        let client = ViewModelSyncClient(refreshFailures: 1)
+        let viewModel = HomeViewModel(engine: client)
+
+        await viewModel.refresh(hasCachedState: false)
+
+        #expect(viewModel.initialLoadFailed)
+        #expect(viewModel.syncBanner?.kind == .offline)
+
+        await viewModel.retry(hasCachedState: false)
+
+        #expect(!viewModel.initialLoadFailed)
+        #expect(viewModel.syncBanner == nil)
+    }
+
+    @Test("Sync events become human and actionable home banners")
+    func homeSyncBanners() async {
+        let client = ViewModelSyncClient()
+        let viewModel = HomeViewModel(engine: client)
+        viewModel.update(
+            runs: [],
+            submissions: [submission(status: .conflict)]
+        )
+        #expect(viewModel.conflictCount == 1)
+
+        await client.emit(.parked(id: UUID(), message: UserFacingError.busy))
+        await waitUntil { viewModel.syncBanner?.kind == .parked }
+        #expect(viewModel.syncBanner?.message == UserFacingError.busy)
+
+        await client.emit(.parked(id: UUID(), message: UserFacingError.offline))
+        await waitUntil { viewModel.syncBanner?.kind == .offline }
+        #expect(viewModel.syncBanner?.message == UserFacingError.offline)
+
+        await client.emit(.authenticationRequired(id: UUID()))
+        await waitUntil { viewModel.syncBanner?.kind == .authentication }
+        #expect(viewModel.syncBanner?.message == "The shared secret was rejected. Open Settings and scan a new setup code.")
+    }
+
     @Test("Run picker selects the latest unrecorded run at or before now")
     func defaultRunSkipsRecorded() {
         let runs = [
@@ -111,7 +174,7 @@ struct ViewModelTests {
         await #expect(throws: ViewModelTestError.offline) {
             try await failingViewModel.addRun(request)
         }
-        #expect(failingViewModel.errorMessage == "Offline")
+        #expect(failingViewModel.errorMessage == "The app could not update the sheet. Try again from the outbox.")
         #expect(!failingViewModel.isAddingRun)
     }
 
@@ -327,7 +390,7 @@ struct ViewModelTests {
             try await viewModel.resolve(id: UUID(), action: .merge)
         }
 
-        #expect(viewModel.errorMessage == "Offline")
+        #expect(viewModel.errorMessage == "The app could not update the sheet. Try again from the outbox.")
         #expect(!viewModel.isResolving)
     }
 
@@ -357,14 +420,11 @@ struct ViewModelTests {
         let viewModel = SettingsViewModel(persistence: persistence, engine: client)
 
         #expect(viewModel.endpoint == "https://example.test/exec")
-        viewModel.importConfiguration(
-            AppConfig(
-                endpoint: URL(string: "https://new.example/exec"),
-                secret: "new-secret",
-                deviceName: "Run phone"
-            )
+        let saved = try viewModel.importAndSaveSetupCode(
+            """
+            {"endpoint":"https://new.example/exec","secret":"new-secret","deviceName":"Run phone"}
+            """
         )
-        let saved = try viewModel.save()
         try await viewModel.refreshRoster()
 
         #expect(saved.secret == "new-secret")
@@ -372,7 +432,7 @@ struct ViewModelTests {
         #expect(await client.refreshCount == 1)
     }
 
-    @Test("Production config persistence sends the secret only to its secure seam")
+    @Test("Scanned config persistence sends the secret only to its secure seam")
     func configPersistenceSeparatesSecret() throws {
         let suite = "FCTCAttendanceKitTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -382,18 +442,21 @@ struct ViewModelTests {
             defaults: defaults,
             secretStore: secretStore
         )
-        let config = AppConfig(
-            endpoint: URL(string: "https://example.test/exec"),
-            secret: "keychain-only",
-            deviceName: "Run phone"
+        let viewModel = SettingsViewModel(
+            persistence: persistence,
+            engine: ViewModelSyncClient()
         )
 
-        try persistence.save(config)
+        let config = try viewModel.importAndSaveSetupCode(
+            """
+            {"endpoint":"https://example.test/exec","secret":"qr-secret-not-real","deviceName":"Run phone"}
+            """
+        )
 
         #expect(try persistence.load() == config)
-        #expect(secretStore.value == "keychain-only")
+        #expect(secretStore.value == "qr-secret-not-real")
         #expect(!defaults.dictionaryRepresentation().values.contains {
-            ($0 as? String) == "keychain-only"
+            ($0 as? String) == "qr-secret-not-real"
         })
     }
 
@@ -441,6 +504,10 @@ struct ViewModelTests {
             createdAt: now
         )
     }
+
+    private func waitUntil(_ condition: @escaping @MainActor () -> Bool) async {
+        for _ in 0..<30 where !condition() { await Task.yield() }
+    }
 }
 
 private struct ResolutionCall: Hashable, Sendable {
@@ -464,20 +531,43 @@ private actor ViewModelSyncClient: SyncEngineClient {
     private var addMemberFailures: Int
     private var addRunFailures: Int
     private var resolutionFailures: Int
+    private let suspendRefresh: Bool
+    private var refreshFailures: Int
+    private var refreshContinuation: CheckedContinuation<SheetState, Never>?
 
     init(
         addMemberFailures: Int = 0,
         addRunFailures: Int = 0,
-        resolutionFailures: Int = 0
+        resolutionFailures: Int = 0,
+        suspendRefresh: Bool = false,
+        refreshFailures: Int = 0
     ) {
         self.addMemberFailures = addMemberFailures
         self.addRunFailures = addRunFailures
         self.resolutionFailures = resolutionFailures
+        self.suspendRefresh = suspendRefresh
+        self.refreshFailures = refreshFailures
     }
 
     func refreshState() async throws -> SheetState {
         refreshCount += 1
+        if refreshFailures > 0 {
+            refreshFailures -= 1
+            throw SheetAPIError.network("Offline")
+        }
+        if suspendRefresh {
+            return await withCheckedContinuation { refreshContinuation = $0 }
+        }
         return SheetState(sheetRevision: "rev-1")
+    }
+
+    func waitUntilRefreshRequested() async {
+        while refreshCount == 0 { await Task.yield() }
+    }
+
+    func resumeRefresh() {
+        refreshContinuation?.resume(returning: SheetState(sheetRevision: "rev-1"))
+        refreshContinuation = nil
     }
 
     func enqueue(_ submission: AttendanceSubmission) async throws -> UUID { UUID() }

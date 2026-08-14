@@ -138,6 +138,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         } catch {
             // A cache error cannot safely identify one row. The next foreground or
             // explicit refresh gets another chance to open and drain the store.
+            eventBroadcaster.yield(.serviceFailed(message: UserFacingError.sync(error)))
         }
     }
 
@@ -259,7 +260,8 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                 do {
                     try await clock.sleep(for: retryPolicy.delay(forAttempt: attempt))
                 } catch {
-                    try? markQueued(id: id, message: String(describing: error))
+                    try? markQueued(id: id, message: UserFacingError.offline)
+                    eventBroadcaster.yield(.parked(id: id, message: UserFacingError.offline))
                     return
                 }
             }
@@ -271,7 +273,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                 }
                 submission = snapshot
             } catch {
-                eventBroadcaster.yield(.failed(id: id, message: String(describing: error)))
+                eventBroadcaster.yield(.serviceFailed(message: UserFacingError.sync(error)))
                 return
             }
 
@@ -309,21 +311,26 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                 }
                 return
             } catch let error as SheetAPIError {
-                try? markQueued(id: id, message: error.localizedDescription)
+                let message = UserFacingError.sync(error)
+                try? markQueued(id: id, message: message)
+                if case .badSecret = error {
+                    eventBroadcaster.yield(.authenticationRequired(id: id))
+                    return
+                }
                 if !error.isRetryable {
-                    eventBroadcaster.yield(.failed(id: id, message: error.localizedDescription))
+                    eventBroadcaster.yield(.failed(id: id, message: message))
                     return
                 }
                 if attempt == retryPolicy.maxAttempts {
-                    eventBroadcaster.yield(.parked(id: id, message: error.localizedDescription))
+                    eventBroadcaster.yield(.parked(id: id, message: message))
                     return
                 }
             } catch {
                 // A custom test client can throw an untyped transport error. Treat it
                 // like a network failure; the concrete SheetAPI already normalizes it.
-                try? markQueued(id: id, message: String(describing: error))
+                try? markQueued(id: id, message: UserFacingError.offline)
                 if attempt == retryPolicy.maxAttempts {
-                    eventBroadcaster.yield(.parked(id: id, message: String(describing: error)))
+                    eventBroadcaster.yield(.parked(id: id, message: UserFacingError.offline))
                     return
                 }
             }

@@ -12,6 +12,7 @@ struct SettingsView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: SettingsViewModel
+    @State private var showingSetupScanner = false
 
     init(runtime: AppRuntime, configurationRequired: Bool = false) {
         self.runtime = runtime
@@ -46,6 +47,14 @@ struct SettingsView: View {
             }
 
             Section("Sheet connection") {
+                Button {
+                    showingSetupScanner = true
+                } label: {
+                    Label("Scan setup code", systemImage: "qrcode.viewfinder")
+                }
+                .accessibilityHint("Scans the endpoint, shared secret, and device name.")
+                .accessibilityIdentifier("settings-scan-setup-code")
+
                 TextField("Endpoint URL", text: $viewModel.endpoint)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
@@ -86,19 +95,6 @@ struct SettingsView: View {
                 Text("Refresh replaces the local cache with the current sheet roster and runs.")
             }
 
-            Section {
-                LabeledContent {
-                    Text("Setup release")
-                        .foregroundStyle(.secondary)
-                } label: {
-                    Label("Import QR Code", systemImage: "qrcode.viewfinder")
-                }
-                .accessibilityHint("QR import arrives in U8.")
-                .accessibilityIdentifier("settings-qr-seam")
-            } footer: {
-                Text("The QR scanner will use the same validated import seam as this form.")
-            }
-
             if let error = viewModel.errorMessage {
                 Section {
                     Label(error, systemImage: "exclamationmark.triangle")
@@ -119,6 +115,13 @@ struct SettingsView: View {
                     .fontWeight(.semibold)
                     .disabled(!viewModel.canSave)
                     .accessibilityIdentifier("settings-save")
+            }
+        }
+        .sheet(isPresented: $showingSetupScanner) {
+            SetupCodeScannerView { payload in
+                let config = try viewModel.importAndSaveSetupCode(payload)
+                runtime.apply(config)
+                viewModel.replaceEngine(runtime.engine)
             }
         }
     }

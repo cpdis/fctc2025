@@ -100,15 +100,24 @@ public final class RunPickerViewModel {
         do {
             _ = try await engine.addRun(request)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.sync(error)
             throw error
         }
     }
 
     private func observeEvents() {
         eventMonitor.start(engine: engine) { [weak self] event in
-            if case .failed(_, let message) = event {
+            switch event {
+            case .failed(_, let message), .serviceFailed(let message):
                 self?.errorMessage = message
+            case .authenticationRequired:
+                self?.errorMessage = UserFacingError.authentication
+            case .parked(_, let message):
+                self?.errorMessage = message
+            case .conflict:
+                self?.errorMessage = UserFacingError.conflict
+            case .queued, .written, .rosterRefreshed:
+                break
             }
         }
     }

@@ -36,50 +36,86 @@ struct HomeView: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
-                summarySection
-
-                Section("Runs") {
-                    if let todayRun = viewModel.todayRun {
-                        NavigationLink(value: HomeRoute.checklist(todayRun)) {
-                            HomeRow(
-                                title: "Today's Run",
-                                subtitle: todayRun.detailLabel,
-                                systemImage: "calendar.badge.clock",
-                                tint: .accentColor
-                            )
+                if viewModel.isInitialLoading && cachedRuns.isEmpty {
+                    Section {
+                        HStack(spacing: 12) {
+                            ProgressView()
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Loading the season")
+                                    .font(.headline)
+                                Text("Fetching the roster and scheduled runs…")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                        .accessibilityIdentifier("home-todays-run")
-                    } else {
-                        NavigationLink(value: HomeRoute.runPicker(.all)) {
-                            HomeRow(
-                                title: "Today's Run",
-                                subtitle: "Choose a scheduled run",
-                                systemImage: "calendar.badge.clock",
-                                tint: .accentColor
-                            )
+                        .padding(.vertical, 10)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Loading the season")
+                        .accessibilityIdentifier("home-initial-loading")
+                    }
+                } else {
+                    summarySection
+
+                    Section("Runs") {
+                        if viewModel.initialLoadFailed && cachedRuns.isEmpty {
+                            ContentUnavailableView {
+                                Label("Runs Unavailable", systemImage: "wifi.exclamationmark")
+                            } description: {
+                                Text("The app could not load the season. Check the message below and try again.")
+                            } actions: {
+                                Button("Try Again") {
+                                    Task {
+                                        await viewModel.retry(hasCachedState: false)
+                                        updateFromCache()
+                                    }
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                            .accessibilityIdentifier("home-runs-unavailable")
+                        } else {
+                            if let todayRun = viewModel.todayRun {
+                                NavigationLink(value: HomeRoute.checklist(todayRun)) {
+                                    HomeRow(
+                                        title: "Today's Run",
+                                        subtitle: todayRun.detailLabel,
+                                        systemImage: "calendar.badge.clock",
+                                        tint: .accentColor
+                                    )
+                                }
+                                .accessibilityIdentifier("home-todays-run")
+                            } else {
+                                NavigationLink(value: HomeRoute.runPicker(.all)) {
+                                    HomeRow(
+                                        title: "No Run Today",
+                                        subtitle: "Choose another scheduled run",
+                                        systemImage: "calendar.badge.exclamationmark",
+                                        tint: .accentColor
+                                    )
+                                }
+                                .accessibilityIdentifier("home-no-run-today")
+                            }
+
+                            NavigationLink(value: HomeRoute.runPicker(.all)) {
+                                HomeRow(
+                                    title: "All Runs",
+                                    subtitle: "Scheduled and recorded runs",
+                                    systemImage: "calendar",
+                                    tint: .blue
+                                )
+                            }
+                            .accessibilityIdentifier("home-all-runs")
+
+                            NavigationLink(value: HomeRoute.runPicker(.past)) {
+                                HomeRow(
+                                    title: "Past Runs",
+                                    subtitle: "Fill in a missed row",
+                                    systemImage: "clock.arrow.circlepath",
+                                    tint: .gray
+                                )
+                            }
+                            .accessibilityIdentifier("home-past-runs")
                         }
-                        .accessibilityIdentifier("home-todays-run")
                     }
-
-                    NavigationLink(value: HomeRoute.runPicker(.all)) {
-                        HomeRow(
-                            title: "All Runs",
-                            subtitle: "Scheduled and recorded runs",
-                            systemImage: "calendar",
-                            tint: .blue
-                        )
-                    }
-                    .accessibilityIdentifier("home-all-runs")
-
-                    NavigationLink(value: HomeRoute.runPicker(.past)) {
-                        HomeRow(
-                            title: "Past Runs",
-                            subtitle: "Fill in a missed row",
-                            systemImage: "clock.arrow.circlepath",
-                            tint: .gray
-                        )
-                    }
-                    .accessibilityIdentifier("home-past-runs")
                 }
 
                 Section("Sync") {
@@ -91,7 +127,10 @@ struct HomeView: View {
                             subtitle: outboxSubtitle,
                             systemImage: "tray.and.arrow.up",
                             tint: .orange,
-                            badge: viewModel.unsyncedCount
+                            badge: viewModel.conflictCount > 0
+                                ? viewModel.conflictCount
+                                : viewModel.unsyncedCount,
+                            badgeTint: viewModel.conflictCount > 0 ? .red : .orange
                         )
                     }
                     .accessibilityIdentifier("home-outbox")
@@ -109,11 +148,10 @@ struct HomeView: View {
                     .accessibilityIdentifier("home-settings")
                 }
 
-                if let message = viewModel.lastSyncMessage {
-                    Section {
-                        Label(message, systemImage: "info.circle")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                if let banner = viewModel.syncBanner {
+                    HomeSyncBanner(banner: banner, runtime: runtime) {
+                        await viewModel.retry(hasCachedState: !cachedRuns.isEmpty)
+                        updateFromCache()
                     }
                 }
             }
@@ -129,19 +167,19 @@ struct HomeView: View {
                 }
             }
             .refreshable {
-                await viewModel.refresh()
+                await viewModel.refresh(hasCachedState: !cachedRuns.isEmpty)
                 updateFromCache()
             }
             .task {
                 updateFromCache()
-                await viewModel.refresh()
+                await viewModel.refresh(hasCachedState: !cachedRuns.isEmpty)
                 updateFromCache()
             }
             .onChange(of: cacheFingerprint) { _, _ in updateFromCache() }
             .onChange(of: runtime.generation) { _, _ in
                 viewModel.replaceEngine(runtime.engine)
                 Task {
-                    await viewModel.refresh()
+                    await viewModel.refresh(hasCachedState: !cachedRuns.isEmpty)
                     updateFromCache()
                 }
             }
@@ -183,7 +221,10 @@ struct HomeView: View {
     }
 
     private var outboxSubtitle: String {
-        viewModel.unsyncedCount == 0
+        if viewModel.conflictCount > 0 {
+            return "\(viewModel.conflictCount) conflict\(viewModel.conflictCount == 1 ? "" : "s") needs review"
+        }
+        return viewModel.unsyncedCount == 0
             ? "Nothing waiting"
             : "\(viewModel.unsyncedCount) waiting"
     }
@@ -210,6 +251,7 @@ private struct HomeRow: View {
     let systemImage: String
     let tint: Color
     var badge: Int = 0
+    var badgeTint: Color = .orange
 
     var body: some View {
         HStack(spacing: 12) {
@@ -237,12 +279,76 @@ private struct HomeRow: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(.orange, in: .capsule)
+                    .background(badgeTint, in: .capsule)
                     .accessibilityHidden(true)
             }
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
+    }
+}
+
+private struct HomeSyncBanner: View {
+    let banner: SyncBanner
+    let runtime: AppRuntime
+    let retry: @MainActor () async -> Void
+
+    var body: some View {
+        Section {
+            Label(banner.message, systemImage: icon)
+                .font(.footnote)
+                .foregroundStyle(tint)
+                .accessibilityIdentifier("home-sync-banner")
+
+            switch banner.kind {
+            case .offline, .parked:
+                Button("Retry Now", systemImage: "arrow.clockwise") {
+                    Task { await retry() }
+                }
+                .accessibilityIdentifier("home-sync-retry")
+            case .conflict:
+                NavigationLink {
+                    OutboxView(runtime: runtime)
+                } label: {
+                    Label("Review Conflict", systemImage: "exclamationmark.triangle")
+                }
+                .accessibilityIdentifier("home-review-conflict")
+            case .authentication:
+                NavigationLink {
+                    SettingsView(runtime: runtime)
+                } label: {
+                    Label("Open Settings", systemImage: "gearshape")
+                }
+                .accessibilityIdentifier("home-open-settings")
+            case .error:
+                NavigationLink {
+                    OutboxView(runtime: runtime)
+                } label: {
+                    Label("Open Outbox", systemImage: "tray.and.arrow.up")
+                }
+            case .success:
+                EmptyView()
+            }
+        }
+    }
+
+    private var icon: String {
+        switch banner.kind {
+        case .success: "checkmark.circle.fill"
+        case .offline: "wifi.slash"
+        case .parked: "hourglass"
+        case .conflict: "exclamationmark.triangle.fill"
+        case .authentication: "key.slash"
+        case .error: "exclamationmark.circle.fill"
+        }
+    }
+
+    private var tint: Color {
+        switch banner.kind {
+        case .success: .green
+        case .offline, .parked, .conflict: .orange
+        case .authentication, .error: .red
+        }
     }
 }
 

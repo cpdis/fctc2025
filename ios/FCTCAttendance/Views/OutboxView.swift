@@ -16,6 +16,7 @@ struct OutboxView: View {
     ) private var cachedSubmissions: [PendingSubmission]
     @State private var viewModel: OutboxViewModel
     @State private var selectedConflict: PendingSubmissionSnapshot?
+    @State private var showingSettings = false
 
     init(runtime: AppRuntime) {
         self.runtime = runtime
@@ -28,6 +29,34 @@ struct OutboxView: View {
         )
 
         List {
+            if let banner = viewModel.syncBanner {
+                Section {
+                    Label(
+                        banner.message,
+                        systemImage: banner.kind == .offline
+                            ? "wifi.slash"
+                            : banner.kind == .parked
+                                ? "hourglass"
+                                : "exclamationmark.triangle.fill"
+                    )
+                        .font(.footnote)
+                        .foregroundStyle(banner.kind == .authentication ? .red : .orange)
+                        .accessibilityIdentifier("outbox-sync-banner")
+
+                    if banner.kind == .offline || banner.kind == .parked {
+                        Button("Retry Now", systemImage: "arrow.clockwise") {
+                            Task { await viewModel.retry() }
+                        }
+                        .accessibilityIdentifier("outbox-banner-retry")
+                    } else if banner.kind == .authentication {
+                        Button("Open Settings", systemImage: "gearshape") {
+                            showingSettings = true
+                        }
+                        .accessibilityIdentifier("outbox-open-settings")
+                    }
+                }
+            }
+
             if outstanding.isEmpty {
                 ContentUnavailableView(
                     "Outbox Clear",
@@ -56,7 +85,7 @@ struct OutboxView: View {
                 }
             }
 
-            if let message = viewModel.errorMessage {
+            if let message = viewModel.errorMessage, viewModel.syncBanner == nil {
                 Section {
                     Label(message, systemImage: "exclamationmark.triangle")
                         .font(.footnote)
@@ -79,6 +108,9 @@ struct OutboxView: View {
         }
         .sheet(item: $selectedConflict) { submission in
             ConflictResolutionView(submission: submission, viewModel: viewModel)
+        }
+        .sheet(isPresented: $showingSettings) {
+            NavigationStack { SettingsView(runtime: runtime) }
         }
         .onChange(of: runtime.generation) { _, _ in
             viewModel.replaceEngine(runtime.engine)
@@ -144,7 +176,7 @@ private struct OutboxRow: View {
 
     private var detail: String {
         switch submission.status {
-        case .queued: submission.lastError ?? "Waiting to sync"
+        case .queued: submission.lastError == nil ? "Waiting to sync" : "Waiting for a connection"
         case .inFlight: "Sending"
         case .conflict: submission.conflictMessage ?? "Sheet changes need review"
         case .done: "Synced"

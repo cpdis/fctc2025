@@ -29,13 +29,13 @@ public final class SettingsViewModel {
         do {
             importConfiguration(try persistence.load())
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "The saved settings could not be read. Enter them again."
         }
         observeEvents()
     }
 
     public var canSave: Bool {
-        validatedEndpoint != nil && !secret.isEmpty
+        validatedEndpoint != nil && validatedSecret != nil
     }
 
     public func replaceEngine(_ engine: any SyncEngineClient) {
@@ -48,7 +48,7 @@ public final class SettingsViewModel {
         guard let endpoint = validatedEndpoint else {
             throw SettingsError.invalidEndpoint
         }
-        guard !secret.isEmpty else { throw SettingsError.emptySecret }
+        guard let secret = validatedSecret else { throw SettingsError.emptySecret }
         let config = AppConfig(
             endpoint: endpoint,
             secret: secret,
@@ -60,8 +60,8 @@ public final class SettingsViewModel {
             successMessage = "Settings saved."
             return config
         } catch {
-            errorMessage = error.localizedDescription
-            throw error
+            errorMessage = "The shared secret could not be saved to Keychain. Try again."
+            throw SettingsError.secureStorageUnavailable
         }
     }
 
@@ -74,7 +74,7 @@ public final class SettingsViewModel {
             _ = try await engine.refreshState()
             successMessage = "Roster refreshed."
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.sync(error)
             throw error
         }
     }
@@ -87,13 +87,35 @@ public final class SettingsViewModel {
         deviceName = config.deviceName ?? ""
     }
 
+    /// A successful scan is the onboarding action. Persist it immediately so the
+    /// secret reaches SecretStoring without a second tap.
+    @discardableResult
+    public func importAndSaveSetupCode(
+        _ payload: String,
+        parser: any SetupCodePayloadParsing = SetupCodeParser()
+    ) throws -> AppConfig {
+        let config: AppConfig
+        do {
+            config = try parser.parse(payload)
+        } catch {
+            errorMessage = error.localizedDescription
+            successMessage = nil
+            throw error
+        }
+        importConfiguration(config)
+        return try save()
+    }
+
     private var validatedEndpoint: URL? {
         guard let url = URL(string: endpoint.trimmingCharacters(in: .whitespacesAndNewlines)),
-              let scheme = url.scheme?.lowercased(),
-              ["https", "http"].contains(scheme),
+              url.scheme?.lowercased() == "https",
               url.host != nil
         else { return nil }
         return url
+    }
+
+    private var validatedSecret: String? {
+        secret.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
     }
 
     private func observeEvents() {
@@ -108,11 +130,14 @@ public final class SettingsViewModel {
 public enum SettingsError: LocalizedError, Sendable, Equatable {
     case invalidEndpoint
     case emptySecret
+    case secureStorageUnavailable
 
     public var errorDescription: String? {
         switch self {
-        case .invalidEndpoint: "Enter a valid HTTP or HTTPS endpoint."
+        case .invalidEndpoint: "Enter a valid HTTPS endpoint."
         case .emptySecret: "Enter the shared secret."
+        case .secureStorageUnavailable:
+            "The shared secret could not be saved to Keychain. Try again."
         }
     }
 }
