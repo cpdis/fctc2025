@@ -28,38 +28,53 @@ name: Weekly Data Sync
 
 on:
   schedule:
-    # Cron is ALWAYS in UTC. The club is Australian (AEST = UTC+10, AEDT = UTC+11).
-    # '0 9 * * 0' = Sunday 09:00 UTC = Sun 7:00pm AEST / Sun 8:00pm AEDT.
     # Sunday evening local time: the week's runs are logged, sheet is up to date.
+    # The off-minute start reduces common schedule congestion.
     # (Note: GitHub may delay scheduled runs under load, and auto-disables the
     #  schedule after 60 days of repo inactivity — use the manual trigger then.)
-    - cron: '0 9 * * 0'
+    - cron: '17 17 * * 0'
+      timezone: Australia/Perth
   # Manual trigger for testing / on-demand pulls (and the 60-day fallback).
   workflow_dispatch:
+    inputs:
+      notification_mode:
+        description: Milestone notification mode
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - send
+          - smoke
 
-# Needed so the GITHUB_TOKEN can push the updated CSV back to the repo.
+# Jobs opt in to only the access they need.
 permissions:
-  contents: write
+  contents: read
 
-# ----------------------------------------------------------------------------
-#  Configuration — the bits Colin changes. Everything else is mechanism.
-# ----------------------------------------------------------------------------
-env:
-  # The spreadsheet ID from the sheet URL (already filled in — this is FCTC's sheet):
-  #   https://docs.google.com/spreadsheets/d/<THIS_ID>/edit
-  SHEET_ID: "1YEKXqp6A4LoGUyg7Rsm3w3MUkbfgRNIAWQkGBYulO2o"
-  # The current-season tab's gid (the "2026" tab; verified to match public/data/2026.csv).
-  SHEET_GID: "764664511"
-  # The season being synced. Bump this each new year (must match a file/entry
-  # the app knows about, i.e. public/data/<CURRENT_YEAR>.csv + src/config/years.js).
-  CURRENT_YEAR: "2026"
+# Queue scheduled and manual syncs. Never cancel a data push or email request.
+concurrency:
+  group: weekly-data-sync
+  cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # Sync configuration is not inherited by the notification job.
+    env:
+      # The spreadsheet ID from the sheet URL (already filled in — this is FCTC's sheet):
+      #   https://docs.google.com/spreadsheets/d/<THIS_ID>/edit
+      SHEET_ID: "1YEKXqp6A4LoGUyg7Rsm3w3MUkbfgRNIAWQkGBYulO2o"
+      # The current-season tab's gid (the "2026" tab; verified to match public/data/2026.csv).
+      SHEET_GID: "764664511"
+      # The season being synced. Bump this each new year (must match a file/entry
+      # the app knows about, i.e. public/data/<CURRENT_YEAR>.csv + src/config/years.js).
+      CURRENT_YEAR: "2026"
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        # actions/checkout v6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Fetch + validate current season CSV
         run: |
@@ -96,3 +111,88 @@ jobs:
           git add "$DEST" "$STAMP"
           git commit -m "chore(data): weekly sync of ${CURRENT_YEAR} season from Google Sheet"
           git push
+
+  notify:
+    needs: sync
+    if: >-
+      success() &&
+      (
+        github.event_name == 'schedule' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.ref == 'refs/heads/main'
+        )
+      )
+    runs-on: ubuntu-latest
+    environment:
+      name: milestone-production
+    permissions:
+      contents: read
+    steps:
+      # Sync can push a new commit, so read the latest main branch state.
+      - name: Checkout latest main
+        # actions/checkout v6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Node.js
+        # actions/setup-node v6.4.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Install notification dependencies
+        run: npm ci --ignore-scripts
+
+      # Detection receives no provider credentials or recipient configuration.
+      - name: Preview milestone notifications
+        id: milestones
+        run: node scripts/send-milestone-digest.js --preview
+
+      - name: Report disabled delivery
+        if: >-
+          (
+            github.event_name == 'schedule' ||
+            (
+              github.event_name == 'workflow_dispatch' &&
+              inputs.notification_mode == 'send'
+            )
+          ) &&
+          vars.MILESTONE_EMAIL_ENABLED != 'true'
+        run: echo "milestone_notification delivery=disabled"
+
+      - name: Send milestone notifications
+        if: >-
+          vars.MILESTONE_EMAIL_ENABLED == 'true' &&
+          steps.milestones.outputs.has_candidates == 'true' &&
+          (
+            github.event_name == 'schedule' ||
+            (
+              github.event_name == 'workflow_dispatch' &&
+              inputs.notification_mode == 'send' &&
+              github.ref == 'refs/heads/main' &&
+              github.actor == 'cpdis' &&
+              github.triggering_actor == 'cpdis'
+            )
+          )
+        run: node scripts/send-milestone-digest.js --send
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MILESTONE_RECIPIENTS: ${{ secrets.MILESTONE_RECIPIENTS }}
+          MILESTONE_FROM: FCTC Milestones <runs@notifications.fctc.cpd.dev>
+
+      - name: Send milestone smoke test
+        if: >-
+          github.event_name == 'workflow_dispatch' &&
+          inputs.notification_mode == 'smoke' &&
+          github.ref == 'refs/heads/main' &&
+          github.actor == 'cpdis' &&
+          github.triggering_actor == 'cpdis'
+        run: node scripts/send-milestone-digest.js --smoke
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MILESTONE_SMOKE_RECIPIENT: ${{ secrets.MILESTONE_SMOKE_RECIPIENT }}
+          MILESTONE_FROM: FCTC Milestones <runs@notifications.fctc.cpd.dev>
