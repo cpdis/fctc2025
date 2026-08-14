@@ -132,22 +132,6 @@ struct HomeView: View {
 
                 Section("Sync") {
                     NavigationLink {
-                        OutboxView(runtime: runtime)
-                    } label: {
-                        HomeRow(
-                            title: "Outbox",
-                            subtitle: outboxSubtitle,
-                            systemImage: "tray.and.arrow.up",
-                            tint: .orange,
-                            badge: viewModel.conflictCount > 0
-                                ? viewModel.conflictCount
-                                : viewModel.unsyncedCount,
-                            badgeTint: viewModel.conflictCount > 0 ? .red : .orange
-                        )
-                    }
-                    .accessibilityIdentifier("home-outbox")
-
-                    NavigationLink {
                         SettingsView(runtime: runtime)
                     } label: {
                         HomeRow(
@@ -265,29 +249,30 @@ struct HomeView: View {
                 Button {
                     path.append(HomeRoute.outbox)
                 } label: {
+                    // The tile is the only Outbox entry point (the Sync-section
+                    // row is gone), so it also carries the conflict signal.
                     SummaryTile(
-                        title: "Unsynced",
-                        value: viewModel.unsyncedCount,
-                        systemImage: "arrow.trianglehead.2.clockwise",
-                        tint: .orange
+                        title: viewModel.conflictCount > 0 ? "Conflicts" : "Unsynced",
+                        value: viewModel.conflictCount > 0
+                            ? viewModel.conflictCount
+                            : viewModel.unsyncedCount,
+                        systemImage: viewModel.conflictCount > 0
+                            ? "exclamationmark.triangle.fill"
+                            : "arrow.trianglehead.2.clockwise",
+                        tint: viewModel.conflictCount > 0 ? .red : .orange
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Unsynced, \(viewModel.unsyncedCount) submissions")
+                .accessibilityLabel(
+                    viewModel.conflictCount > 0
+                        ? "Conflicts, \(viewModel.conflictCount) need review"
+                        : "Unsynced, \(viewModel.unsyncedCount) submissions"
+                )
                 .accessibilityIdentifier("home-unsynced")
             }
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
         }
-    }
-
-    private var outboxSubtitle: String {
-        if viewModel.conflictCount > 0 {
-            return "\(viewModel.conflictCount) conflict\(viewModel.conflictCount == 1 ? "" : "s") needs review"
-        }
-        return viewModel.unsyncedCount == 0
-            ? "Nothing waiting"
-            : "\(viewModel.unsyncedCount) waiting"
     }
 
     private var cacheFingerprint: String {
@@ -526,9 +511,12 @@ private struct SummaryTile: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.85))
         }
-        .padding(12)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(tint.gradient, in: .rect(cornerRadius: 14))
+        // 26 matches the inset-grouped section radius the list masks outer row
+        // edges with; a smaller radius leaves the inner corners visibly sharper
+        // than the outer ones (Colin's review).
+        .background(tint.gradient, in: .rect(cornerRadius: 26))
         .contentShape(.rect)
     }
 }

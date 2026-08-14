@@ -36,7 +36,7 @@ final class FCTCAttendanceUITests: XCTestCase {
         app.buttons["confirm-attendance"].tap()
 
         XCTAssertTrue(app.navigationBars["FCTC"].waitForExistence(timeout: 5))
-        app.buttons["home-outbox"].tap()
+        app.buttons["home-unsynced"].tap()
         XCTAssertTrue(outboxEmpty.waitForExistence(timeout: 5))
     }
 
@@ -69,7 +69,7 @@ final class FCTCAttendanceUITests: XCTestCase {
         app.buttons["confirm-attendance"].tap()
         XCTAssertTrue(app.navigationBars["FCTC"].waitForExistence(timeout: 5))
 
-        app.buttons["home-outbox"].tap()
+        app.buttons["home-unsynced"].tap()
         let queued = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier BEGINSWITH 'outbox-row-'")
         ).firstMatch
