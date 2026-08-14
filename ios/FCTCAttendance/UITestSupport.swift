@@ -6,13 +6,62 @@
 //  `-ui-testing`. Production launches never construct these values.
 //
 
+import CoreGraphics
 import FCTCAttendanceKit
 import Foundation
 import SwiftData
 
 enum UITestSupport {
+    private static let coachPreferenceKey = "screenshotImport.hideCoach"
+
     static var isEnabled: Bool {
         ProcessInfo.processInfo.arguments.contains("-ui-testing")
+    }
+
+    static var hasScreenshotImportFixture: Bool {
+        screenshotFixture != nil
+    }
+
+    static var shouldSkipScreenshotCoach: Bool {
+        guard let screenshotFixture else { return false }
+        return screenshotFixture != .coach
+    }
+
+    static func prepareLaunch() {
+        guard ProcessInfo.processInfo.arguments.contains("-ui-reset-screenshot-coach") else {
+            return
+        }
+        UserDefaults.standard.removeObject(forKey: coachPreferenceKey)
+    }
+
+    static func screenshotParser() -> PollScreenshotParser {
+        guard let screenshotFixture else { return PollScreenshotParser() }
+        return PollScreenshotParser(
+            recognizer: UITestTextRecognizer(lines: screenshotFixture.lines)
+        )
+    }
+
+    static func screenshotImages() -> [CGImage] {
+        guard hasScreenshotImportFixture,
+              let context = CGContext(
+                data: nil,
+                width: 8,
+                height: 8,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ),
+              let image = context.makeImage() else { return [] }
+        return [image]
+    }
+
+    private static var screenshotFixture: ScreenshotFixture? {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-ui-screenshot-nameless") { return .nameless }
+        if arguments.contains("-ui-screenshot-coach") { return .coach }
+        if arguments.contains("-ui-screenshot-import") { return .detail }
+        return nil
     }
 
     @MainActor
@@ -42,6 +91,27 @@ enum UITestSupport {
         )
     }
 }
+
+private enum ScreenshotFixture {
+    case detail
+    case nameless
+    case coach
+
+    var lines: [String] {
+        switch self {
+        case .detail, .coach:
+            [
+                "9:41", "Poll", "FCTC", "Friday run?", "Select one or more",
+                "Yes ✓ 3 votes", "Aaron", "Dan", "Priya B", "No 1 vote", "Col",
+            ]
+        case .nameless:
+            [
+                "9:41", "Poll", "FCTC", "Friday run?", "Select one or more",
+                "Yes 3 votes", "No 1 vote", "4 votes",
+            ]
+        }
+    }
+}
 private final class UITestConfigPersistence: AppConfigPersisting, @unchecked Sendable {
     private var config: AppConfig
 
@@ -65,7 +135,8 @@ private actor UITestSheetAPI: SheetAPIClient {
             roster: [
                 RosterEntry(name: "Aaron", colIndex: 6),
                 RosterEntry(name: "Col", colIndex: 7),
-                RosterEntry(name: "Dan B", colIndex: 8),
+                RosterEntry(name: "Dan", colIndex: 8),
+                RosterEntry(name: "Dan B", colIndex: 9),
             ],
             runs: [
                 RunRecord(
@@ -141,5 +212,29 @@ private actor UITestSheetAPI: SheetAPIClient {
         )
         state.sheetRevision += "-run"
         return AddRunResult(runs: state.runs, sheetRevision: state.sheetRevision)
+    }
+}
+
+/// Fixture OCR lives behind the same seam as Vision. The lines include one strong
+/// match, one real roster collision and one unmatched name for the triage UI test.
+private actor UITestTextRecognizer: TextRecognizer {
+    private let lines: [String]
+
+    init(lines: [String]) {
+        self.lines = lines
+    }
+
+    func recognizeText(in image: CGImage) async throws -> [RecognizedTextLine] {
+        lines.enumerated().reversed().map { index, line in
+            RecognizedTextLine(
+                text: line,
+                boundingBox: CGRect(
+                    x: 0,
+                    y: 1 - (CGFloat(index + 1) / CGFloat(lines.count + 1)),
+                    width: 0.8,
+                    height: 0.02
+                )
+            )
+        }
     }
 }

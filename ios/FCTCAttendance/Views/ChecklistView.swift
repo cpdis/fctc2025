@@ -23,6 +23,7 @@ struct ChecklistView: View {
     @State private var viewModel: ChecklistViewModel
     @State private var searchText = ""
     @State private var showingRecordedChoice = false
+    @State private var showingScreenshotImport = false
 
     init(
         runtime: AppRuntime,
@@ -121,6 +122,16 @@ struct ChecklistView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Find a person")
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    showingScreenshotImport = true
+                } label: {
+                    Label("Import poll…", systemImage: "photo.badge.plus")
+                }
+                .disabled(viewModel.roster.isEmpty)
+                .accessibilityHint("Imports voter names as attendance suggestions.")
+                .accessibilityIdentifier("import-poll")
+            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Confirm") {
                     if viewModel.requiresRecordedChoice {
@@ -151,6 +162,23 @@ struct ChecklistView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Merge keeps sheet checks. Overwrite can remove them.")
+        }
+        .sheet(isPresented: $showingScreenshotImport) {
+            ScreenshotImportView(
+                roster: viewModel.roster,
+                parser: UITestSupport.screenshotParser(),
+                initialImages: UITestSupport.screenshotImages(),
+                skipCoach: UITestSupport.shouldSkipScreenshotCoach,
+                onApply: { set, checks in
+                    viewModel.applyProposals(checks: checks, from: set)
+                    showingScreenshotImport = false
+                },
+                onAddPerson: addScreenshotPerson,
+                onCancel: {
+                    showingScreenshotImport = false
+                }
+            )
+            .interactiveDismissDisabled(viewModel.isAddingPerson)
         }
         .task { updateCachedValues() }
         .onChange(of: cacheFingerprint) { _, _ in updateCachedValues() }
@@ -200,6 +228,14 @@ struct ChecklistView: View {
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
             }
         }
+    }
+
+    private func addScreenshotPerson(_ name: String) async throws {
+        viewModel.quickAddName = name
+        try await viewModel.commitQuickAdd()
+        // Quick-add is normally a manual checklist action. This name came from an
+        // explicit proposal choice, so the frozen apply seam supplies provenance.
+        viewModel.uncheckMember(name)
     }
 }
 
