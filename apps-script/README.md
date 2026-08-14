@@ -6,8 +6,9 @@ over POST. The iOS app therefore needs no Google OAuth at all — just a URL and
 shared secret.
 
 Plan: `docs/plans/2026-08-14-001-feat-fctc-attendance-ios-app-plan.md`.
-Status: **scaffold only (U1)** — `doPost` answers
-`{ ok: false, error: "not_implemented" }`; U2 implements the four actions.
+Status: **implemented (U2)** — all four actions are live and covered by
+`node --test apps-script/test`. Not yet verified against a real spreadsheet: run
+`test/smoke.md` against a COPY of the sheet before pointing a phone at it.
 
 ## API contract (frozen — changes require a plan PR first)
 
@@ -27,7 +28,24 @@ retrying a queued submission is idempotent — that is what makes the offline ou
 
 **Sheet-safety invariant:** nothing is ever written outside a run row's member band +
 `Actual kms` + `+1's` cells, the member-band header row, or an inserted run row.
-Formula and summary rows/columns are sacrosanct.
+Formula and summary rows/columns are sacrosanct. Enforced in code: every write to an
+existing run row goes through `writeRowRange_`, which refuses any rectangle
+`SheetOps.isWriteWithinBand` rejects, and `test/api.checks.js` re-checks every
+recorded write against the band derived from the season fixture.
+
+**Indices on the wire are 1-based sheet coordinates.** `roster[].colIndex` is the
+real column, `runs[].rowIndex` the real row — what you see in the Sheets UI, and what
+`submitAttendance { rowIndex }` sends straight back.
+
+### Error codes
+
+`bad_secret`, `unknown_action`, `duplicate_member`, `bad_payload` come back as
+`{ ok: false, error, message }`. `row_mismatch` and `stale_revision` are **conflict
+reasons**, not errors: `submitAttendance` answers
+`{ ok: true, conflict: { reason, message, state } }` with a fresh `getState` payload
+and writes nothing. Three operational codes round it out: `sheet_unreadable` (the
+`SEASON_SHEET_NAME` tab is missing or has no recognisable header row), `busy`
+(another writer held the script lock), `internal_error`.
 
 ## Files
 
@@ -38,7 +56,9 @@ Formula and summary rows/columns are sacrosanct.
 | `appsscript.json` | Manifest: V8, web app `ANYONE_ANONYMOUS` / execute as `USER_DEPLOYING`. |
 | `.clasp.json.example` | Template for the (gitignored) `.clasp.json`. |
 | `.claspignore` | Keeps `test/`, `package.json` and this README out of the pushed project. |
-| `test/` | Node tests for the pure functions (`node --test apps-script/test`). |
+| `test/` | Node tests (`node --test apps-script/test`): `sheetops.checks.js` (geometry, table-driven over both season CSVs), `api.checks.js` (`Code.gs` running for real against a fake Apps Script runtime), `fixtures.checks.js` (U1 fixture integrity). |
+| `test/support/` | Test-only helpers: a quote-aware CSV reader, the season fixture facts, and the in-memory `SpreadsheetApp`/`LockService`/`PropertiesService` fakes. |
+| `test/smoke.md` | The manual run-once-against-a-copy plan — the things no fake can prove (formulas, real locking, a real deploy). |
 
 ### The dual-environment module pattern
 
@@ -49,10 +69,18 @@ plain top-level `function`s and exports them at the bottom behind a guard:
 ```js
 function cellText(value) { /* ... */ }
 
+// One namespace object, gathered at the bottom of the file.
+var SheetOps = { cellText: cellText /* , ... */ };
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { cellText: cellText };
+  module.exports = SheetOps;
 }
 ```
+
+That object is a plain global in Apps Script and the CommonJS export in Node, so
+`Code.gs` and the tests both say `SheetOps.findHeaderRow(...)`. The tests assert that
+`Code.gs` never calls a geometry helper bare, never indexes the grid, and never
+re-declares a name SheetOps already exports.
 
 Apps Script skips the block (`module` is undefined there); Node gets a normal CommonJS
 module. Consequences to respect:

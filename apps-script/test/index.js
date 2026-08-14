@@ -12,8 +12,11 @@
  *     therefore resolves to this `index.js`, which requires each checks file so every
  *     suite still runs from the one documented command.
  *
- * Add a new suite = drop a `*.checks.js` file here and require it below.
+ * Add a new suite = drop a `*.checks.js` file here and require it below. Shared
+ * helpers live in `test/support/` as plain modules — they are NOT `*.checks.js`, so
+ * they are only ever loaded by the suite that requires them.
  */
 
 require('./sheetops.checks.js');
+require('./api.checks.js');
 require('./fixtures.checks.js');
