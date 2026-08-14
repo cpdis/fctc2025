@@ -96,8 +96,17 @@ ASC API, installed locally). The ASC API key `NJDJN4V5L3` (Downloads and
      -authenticationKeyIssuerID 69a6de7a-eb61-47e3-e053-5b8c7c11a4d1
    ```
 
-3. Wait for Apple to finish processing the build.
-4. Install that same build on Colin's and Aaron's phones.
+3. Set the "What to Test" notes and attach the build to the tester groups
+   (waits for processing on its own):
+
+   ```bash
+   python3 ios/Tools/testflight-notes.py "What changed in this build."
+   ```
+
+   Write the notes from the user-facing commits since the last upload. Internal
+   testers get the build immediately; external testers get it when Apple's
+   (first-build-only) beta review clears.
+4. Install that same build on the phones.
 5. The distribution certificate expires 2027-08-14; renew via the ASC API
    (certificates endpoint) with a fresh CSR and recreate both profiles.
 
