@@ -188,6 +188,33 @@ describe('findUpcomingMilestones', () => {
     ])
   })
 
+  it('uses only target runs after the cutoff for a manual mid-week retry', () => {
+    const runs = [
+      completedRun('2026-08-10', 'Mon', { 'One Away': true, 'Two Away': true }),
+      completedRun('2026-08-12', 'Wed', { 'One Away': true, 'Two Away': true }),
+      completedRun('2026-08-14', 'Fri', { 'One Away': true, 'Two Away': true }),
+      completedRun('2026-08-17', 'Mon', { 'One Away': true, 'Two Away': true }),
+      completedRun('2026-08-19', 'Wed', { 'One Away': true, 'Two Away': true }),
+    ]
+    const targetWeek = { weekStart: '2026-08-17', weekEnd: '2026-08-23' }
+
+    expect(findUpcomingMilestones(
+      totals([['One Away', 49], ['Two Away', 48]]),
+      runs,
+      '2026-08-19',
+      targetWeek
+    )).toEqual([
+      {
+        name: 'One Away',
+        currentRuns: 49,
+        milestone: 50,
+        runsNeeded: 1,
+        chance: 1,
+        label: 'Very likely',
+      },
+    ])
+  })
+
   it('uses raw chance boundaries for inclusion and plain confidence labels', () => {
     expect(getMilestoneForecastLabel(0.4, 1)).toBe('Possible')
     expect(getMilestoneForecastLabel(0.5, 2)).toBe('Likely')

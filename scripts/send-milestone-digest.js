@@ -194,7 +194,7 @@ export async function runMilestoneDigest({
 
   const data = await loadAllTimeData({ years, rootDir, readFileImpl })
   const cutoffDate = getAttendanceCutoff(data.runs)
-  const candidates = findUpcomingMilestones(data.memberTotals, data.runs, cutoffDate)
+  const candidates = findUpcomingMilestones(data.memberTotals, data.runs, cutoffDate, week)
   const candidateCount = candidates.length
   const digest = formatMilestoneDigest({
     candidates,

@@ -70,6 +70,51 @@ function forecastChanceCsv(name, year = 2026) {
   ].join('\n')
 }
 
+function manualRetryCsv(name, year = 2026) {
+  const priorRuns = [
+    ['Mon', 5],
+    ['Wed', 7],
+    ['Fri', 9],
+  ].map(([weekday, day]) => `"${weekday}, ${day}-Jan",Meet,Social,5,5,x,0`)
+  const fillerRuns = Array.from(
+    { length: 43 },
+    () => '"Sat, 3-Jan",Meet,Social,5,5,x,0'
+  )
+
+  return [
+    'Summary row',
+    `Date,Meet,Run,Approx kms,Actual kms,${name},+1's`,
+    ...fillerRuns,
+    ...priorRuns,
+    '"Mon, 17-Aug",Meet,Social,5,5,x,0',
+    '"Wed, 19-Aug",Meet,Social,5,5,x,0',
+    `,,${year}`,
+  ].join('\n')
+}
+
+function thresholdForecastCsv(year = 2026) {
+  const fillerRuns = Array.from(
+    { length: 45 },
+    () => '"Sat, 3-Jan",Meet,Social,5,5,x,x,x,0'
+  )
+  const opportunityRows = [
+    '"Mon, 5-Jan",Meet,Social,5,5,,x,x,0',
+    '"Wed, 7-Jan",Meet,Social,5,5,,x,x,0',
+    '"Fri, 9-Jan",Meet,Social,5,5,,x,x,0',
+    '"Mon, 12-Jan",Meet,Social,5,5,x,,x,0',
+    '"Wed, 14-Jan",Meet,Social,5,5,x,,x,0',
+    '"Fri, 16-Jan",Meet,Social,5,5,x,,x,0',
+  ]
+
+  return [
+    'Summary row',
+    "Date,Meet,Run,Approx kms,Actual kms,Above Gate,Below Gate,History Anchor,+1's",
+    ...fillerRuns,
+    ...opportunityRows,
+    `,,${year}`,
+  ].join('\n')
+}
+
 function runOptions(overrides = {}) {
   return {
     args: ['--preview'],
@@ -281,6 +326,51 @@ describe('runMilestoneDigest', () => {
       acceptedCount: 0,
     })
     expect(options.sendBatchImpl).not.toHaveBeenCalled()
+  })
+
+  it('does not reuse completed target runs during a Wednesday retry', async () => {
+    const options = runOptions({
+      args: ['--send'],
+      now: new Date('2026-08-19T05:00:00.000Z'),
+      readFileImpl: fixtureReader({
+        '/repo/public/data/2026.csv': manualRetryCsv('Needs Two Runs'),
+      }),
+    })
+
+    await expect(runMilestoneDigest(options)).resolves.toMatchObject({
+      weekStart: '2026-08-17',
+      candidateCount: 0,
+      acceptedCount: 0,
+    })
+    expect(options.sendBatchImpl).not.toHaveBeenCalled()
+  })
+
+  it('connects parsed weekday history to the raw 50 percent gate', async () => {
+    const data = await loadAllTimeData({
+      years: { 2026: '/data/2026.csv' },
+      rootDir: '/repo',
+      readFileImpl: fixtureReader({
+        '/repo/public/data/2026.csv': thresholdForecastCsv(),
+      }),
+    })
+    const targetWeek = { weekStart: '2026-01-19', weekEnd: '2026-01-25' }
+    const candidates = findUpcomingMilestones(
+      data.memberTotals,
+      data.runs,
+      getAttendanceCutoff(data.runs),
+      targetWeek
+    )
+
+    expect(candidates).toHaveLength(1)
+    expect(candidates[0]).toMatchObject({
+      name: 'Above Gate',
+      currentRuns: 48,
+      runsNeeded: 2,
+      label: 'Likely',
+    })
+    expect(candidates[0].chance).toBeCloseTo(0.5324506750080484, 12)
+    expect(candidates[0].chance).toBeGreaterThan(0.5)
+    expect(candidates.map(({ name }) => name)).not.toContain('Below Gate')
   })
 
   it('sends one private item per validated recipient with the weekly key', async () => {

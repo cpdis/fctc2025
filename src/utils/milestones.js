@@ -51,6 +51,7 @@ const UNSAFE_NAME_PATTERN = /[\p{Cc}\u2028\u2029\u202a-\u202e\u2066-\u2069]/u
  * @param {Record<string, { name: string, totalRuns: number }>} memberTotals
  * @param {Array<Object>} runs parsed run records from every registered season
  * @param {string | null} cutoffDate inclusive ISO attendance cutoff
+ * @param {{ weekStart: string, weekEnd: string } | null} targetWeek forecast week
  * @returns {Array<{
  *   name: string,
  *   currentRuns: number,
@@ -60,10 +61,16 @@ const UNSAFE_NAME_PATTERN = /[\p{Cc}\u2028\u2029\u202a-\u202e\u2066-\u2069]/u
  *   label: string,
  * }>}
  */
-export function findUpcomingMilestones(memberTotals, runs = [], cutoffDate = null) {
+export function findUpcomingMilestones(
+  memberTotals,
+  runs = [],
+  cutoffDate = null,
+  targetWeek = null
+) {
   const candidates = []
   let completedRuns
   let completedRunsPrepared = false
+  let targetWeekdayAvailability
 
   for (const member of Object.values(memberTotals ?? {})) {
     const currentRuns = member?.totalRuns
@@ -79,10 +86,12 @@ export function findUpcomingMilestones(memberTotals, runs = [], cutoffDate = nul
     // exists. This preserves the empty-result path for an unused bad cutoff.
     if (!completedRunsPrepared) {
       completedRuns = getCompletedRunsThroughCutoff(runs, cutoffDate)
+      targetWeekdayAvailability = getTargetWeekdayAvailability(cutoffDate, targetWeek)
       completedRunsPrepared = true
     }
 
     const weekdayRates = getMemberWeekdayRates(member.name, completedRuns)
+      .map((rate, index) => targetWeekdayAvailability[index] ? rate : 0)
     const chance = calculateMilestoneChance(weekdayRates, runsNeeded)
     const label = getMilestoneForecastLabel(chance, runsNeeded)
     if (!label) continue
@@ -92,6 +101,28 @@ export function findUpcomingMilestones(memberTotals, runs = [], cutoffDate = nul
   }
 
   return candidates.sort(compareCandidates)
+}
+
+/** Mark target-week runs already included in the totals as unavailable. */
+function getTargetWeekdayAvailability(cutoffDate, targetWeek) {
+  if (targetWeek === null || targetWeek === undefined) return [true, true, true]
+
+  const cutoffKey = parseOptionalIsoCalendarDate(cutoffDate)
+  if (cutoffKey === null) return [true, true, true]
+
+  const weekStart = parseIsoCalendarDate(targetWeek?.weekStart, 'Target week is invalid').date
+  const weekEnd = parseIsoCalendarDate(targetWeek?.weekEnd, 'Target week is invalid').date
+  if (weekEnd.getTime() - weekStart.getTime() !== 6 * 24 * 60 * 60 * 1000) {
+    throw new Error('Target week is invalid')
+  }
+
+  return [0, 2, 4].map((dayOffset) => {
+    const targetDate = addUtcDays(weekStart, dayOffset)
+    const targetKey = targetDate.getUTCFullYear() * 10_000 +
+      (targetDate.getUTCMonth() + 1) * 100 +
+      targetDate.getUTCDate()
+    return targetKey > cutoffKey
+  })
 }
 
 /** Convert raw forecast chance to its plain confidence label and inclusion decision. */
