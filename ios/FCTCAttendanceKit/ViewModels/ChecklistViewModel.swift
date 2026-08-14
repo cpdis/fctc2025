@@ -194,7 +194,7 @@ public final class ChecklistViewModel {
             draft.guests = oldGuests
             draft.plusOnesOverride = oldPlusOnesOverride
             quickAddName = clean
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.sync(error)
             throw error
         }
     }
@@ -225,7 +225,7 @@ public final class ChecklistViewModel {
             )
             return id
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.sync(error)
             throw error
         }
     }
@@ -240,9 +240,14 @@ public final class ChecklistViewModel {
     private func observeEvents() {
         eventMonitor.start(engine: engine) { [weak self] event in
             switch event {
-            case .failed(_, let message), .parked(_, let message),
-                 .conflict(_, _, let message, _):
+            case .failed(_, let message), .serviceFailed(let message):
                 self?.errorMessage = message
+            case .parked(_, let message):
+                self?.errorMessage = message
+            case .conflict:
+                self?.errorMessage = UserFacingError.conflict
+            case .authenticationRequired:
+                self?.errorMessage = UserFacingError.authentication
             case .queued, .written, .rosterRefreshed:
                 break
             }

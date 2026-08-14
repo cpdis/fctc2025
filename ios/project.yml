@@ -55,6 +55,7 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1" # iPhone only
         SUPPORTS_MACCATALYST: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
     info:
       path: FCTCAttendance/Info.plist
@@ -80,6 +81,9 @@ targets:
         NSMicrophoneUsageDescription: >-
           FCTC Attendance records your voice only while you are dictating a run
           summary, so it can pre-fill the attendance checklist.
+        NSCameraUsageDescription: >-
+          FCTC Attendance uses the camera to scan a setup code containing the
+          sheet endpoint, shared secret, and this phone's name.
 
   FCTCAttendanceKit:
     type: framework

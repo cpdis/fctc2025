@@ -329,7 +329,7 @@ struct ProposalTriageView: View {
             } catch is CancellationError {
                 isApplying = false
             } catch {
-                applyErrorMessage = error.localizedDescription
+                applyErrorMessage = UserFacingError.sync(error)
                 isApplying = false
             }
         }

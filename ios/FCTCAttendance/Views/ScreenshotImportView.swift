@@ -295,7 +295,9 @@ struct ScreenshotImportView: View {
                 return
             } catch {
                 guard photoLoadGeneration == generation else { return }
-                errorMessage = error.localizedDescription
+                errorMessage = loaded.isEmpty
+                    ? "One selected screenshot could not be read."
+                    : "Some screenshots could not be read. The others are ready."
             }
         }
         guard !Task.isCancelled, photoLoadGeneration == generation else { return }
@@ -352,7 +354,7 @@ struct ScreenshotImportView: View {
             return
         } catch {
             guard recognitionGeneration == generation else { return }
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.screenshot(error)
         }
     }
 }

@@ -11,8 +11,13 @@ import Observation
 public final class HomeViewModel {
     public private(set) var thisWeekCount = 0
     public private(set) var unsyncedCount = 0
+    public private(set) var conflictCount = 0
     public private(set) var todayRun: RunSnapshot?
-    public private(set) var lastSyncMessage: String?
+    public private(set) var syncBanner: SyncBanner?
+    public private(set) var isInitialLoading = false
+    public private(set) var initialLoadFailed = false
+
+    public var lastSyncMessage: String? { syncBanner?.message }
 
     @ObservationIgnored private var engine: any SyncEngineClient
     @ObservationIgnored private let eventMonitor = SyncEventMonitor()
@@ -47,16 +52,35 @@ public final class HomeViewModel {
         }
         thisWeekCount = weekCount
         unsyncedCount = submissions.filter(\.isOutstanding).count
+        conflictCount = submissions.filter { $0.status == .conflict }.count
         todayRun = earliestToday
     }
 
-    public func refresh() async {
+    public func refresh(hasCachedState: Bool = true) async {
+        if !hasCachedState {
+            isInitialLoading = true
+            initialLoadFailed = false
+        }
+        defer {
+            if isInitialLoading { isInitialLoading = false }
+        }
         do {
             _ = try await engine.refreshState()
-            lastSyncMessage = nil
+            initialLoadFailed = false
+            if syncBanner != nil { syncBanner = nil }
         } catch {
-            lastSyncMessage = error.localizedDescription
+            if !hasCachedState { initialLoadFailed = true }
+            syncBanner = Self.banner(for: error)
         }
+    }
+
+    public func retry(hasCachedState: Bool = true) async {
+        if initialLoadFailed {
+            await refresh(hasCachedState: hasCachedState)
+            return
+        }
+        if syncBanner != nil { syncBanner = nil }
+        await engine.drain()
     }
 
     private func observeEvents() {
@@ -64,14 +88,39 @@ public final class HomeViewModel {
             guard let self else { return }
             switch event {
             case .written:
-                lastSyncMessage = "Attendance synced."
-            case .conflict(_, _, let message, _), .parked(_, let message),
-                 .failed(_, let message):
-                lastSyncMessage = message
+                syncBanner = SyncBanner(kind: .success, message: "Attendance synced.")
+            case .conflict:
+                syncBanner = SyncBanner(kind: .conflict, message: UserFacingError.conflict)
+            case .parked(_, let message):
+                syncBanner = SyncBanner(
+                    kind: message == UserFacingError.offline ? .offline : .parked,
+                    message: message
+                )
+            case .authenticationRequired:
+                syncBanner = SyncBanner(kind: .authentication, message: UserFacingError.authentication)
+            case .failed(_, let message), .serviceFailed(let message):
+                syncBanner = SyncBanner(kind: .error, message: message)
             case .queued, .rosterRefreshed:
                 break
             }
         }
+    }
+
+    private static func banner(for error: any Error) -> SyncBanner {
+        let message = UserFacingError.sync(error)
+        if let sheetError = error as? SheetAPIError {
+            switch sheetError {
+            case .network:
+                return SyncBanner(kind: .offline, message: message)
+            case .busy:
+                return SyncBanner(kind: .parked, message: message)
+            case .badSecret:
+                return SyncBanner(kind: .authentication, message: message)
+            default:
+                break
+            }
+        }
+        return SyncBanner(kind: .error, message: message)
     }
 
     private static func ascending(_ lhs: RunSnapshot, _ rhs: RunSnapshot) -> Bool {

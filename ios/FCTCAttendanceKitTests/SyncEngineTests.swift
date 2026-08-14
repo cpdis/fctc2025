@@ -112,6 +112,44 @@ struct SyncEngineTests {
         #expect(pending.attemptCount == 6)
     }
 
+    @Test("Busy retry exhaustion stays distinct from offline")
+    func busyRetryExhaustion() async throws {
+        let container = try makeContainer()
+        let response = json("{\"ok\":false,\"error\":\"busy\",\"message\":\"Locked\"}")
+        let transport = StubTransport(Array(repeating: .response(response), count: 5))
+        let engine = makeEngine(container: container, transport: transport)
+        var events = engine.events.makeAsyncIterator()
+        let id = try await engine.enqueue(.fixture)
+
+        await engine.drain()
+
+        #expect(await events.next() == .queued(id: id))
+        #expect(
+            await events.next() == .parked(
+                id: id,
+                message: "The sheet is busy with another update. Wait a moment and try again."
+            )
+        )
+        #expect(try fetchPending(container, id: id)?.attemptCount == 5)
+    }
+
+    @Test("A rejected secret emits a Settings route instead of a raw error")
+    func badSecretRoutesToSettings() async throws {
+        let container = try makeContainer()
+        let transport = StubTransport([
+            .response(json("{\"ok\":false,\"error\":\"bad_secret\",\"message\":\"Nope\"}")),
+        ])
+        let engine = makeEngine(container: container, transport: transport)
+        var events = engine.events.makeAsyncIterator()
+        let id = try await engine.enqueue(.fixture)
+
+        await engine.drain()
+
+        _ = await events.next()
+        #expect(await events.next() == .authenticationRequired(id: id))
+        #expect(try fetchPending(container, id: id)?.status == .queued)
+    }
+
     @Test("An ambiguous timeout safely submits the same absolute payload twice")
     func idempotentRetry() async throws {
         let container = try makeContainer()

@@ -252,7 +252,7 @@ struct VoiceEntryTests {
             toSession: 0
         )
 
-        #expect(errorViewModel.phase == .failed("Recognition unavailable"))
+        #expect(errorViewModel.phase == .failed("Speech recognition stopped before it finished. Try again."))
         #expect(errorTranscriber.stopCount == 1)
     }
 

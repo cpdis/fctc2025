@@ -139,6 +139,13 @@ build are untouched by it.
 Plan (architecture, API contract, design language, work units):
 `docs/plans/2026-08-14-001-feat-fctc-attendance-ios-app-plan.md`.
 
+Release operations live in `docs/plans/packets/U8-release-runbook.md`. Keep one
+production Apps Script deployment ID and update it with `clasp deploy -i`; a plain
+deploy changes the phone endpoint. Generate private setup pages with
+`apps-script/make-setup-qr.js`. The app validates HTTPS setup payloads and stores the
+shared secret in Keychain. For a new season, add the sheet tab and change the
+`SEASON_SHEET_NAME` script property; each phone refreshes itself through `getState`.
+
 ## Deployment
 
 Vercel (hobby), SPA rewrites in `vercel.json`. Pushes to the default branch auto-deploy. After

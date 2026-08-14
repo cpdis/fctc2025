@@ -300,7 +300,7 @@ struct VoiceEntryView: View {
                 try await checklistViewModel.commitQuickAdd()
                 viewModel.updateRoster(checklistViewModel.roster)
             } catch {
-                addPersonError = error.localizedDescription
+                addPersonError = UserFacingError.sync(error)
             }
         }
     }

@@ -169,7 +169,9 @@ public final class SpeechService: Transcriber {
                 isFinal: isTerminal,
                 // A recognizer can return its final result and a terminal error
                 // together. Preserve the usable result and only surface lone errors.
-                errorMessage: result == nil ? error?.localizedDescription : nil
+                errorMessage: result == nil && error != nil
+                    ? UserFacingError.voiceStopped
+                    : nil
             )
             Task { @MainActor [weak self] in
                 guard let self, self.sessionID == sessionID else { return }

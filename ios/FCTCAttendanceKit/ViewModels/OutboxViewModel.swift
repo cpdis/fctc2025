@@ -11,6 +11,7 @@ import Observation
 public final class OutboxViewModel {
     public private(set) var isResolving = false
     public private(set) var errorMessage: String?
+    public private(set) var syncBanner: SyncBanner?
 
     @ObservationIgnored private var engine: any SyncEngineClient
     @ObservationIgnored private let eventMonitor = SyncEventMonitor()
@@ -64,12 +65,13 @@ public final class OutboxViewModel {
         do {
             return try await engine.resolveConflict(id: id, action: action)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.sync(error)
             throw error
         }
     }
 
     public func retry() async {
+        syncBanner = nil
         await engine.drain()
     }
 
@@ -85,11 +87,21 @@ public final class OutboxViewModel {
     private func observeEvents() {
         eventMonitor.start(engine: engine) { [weak self] event in
             switch event {
-            case .failed(_, let message), .parked(_, let message),
-                 .conflict(_, _, let message, _):
+            case .failed(_, let message), .serviceFailed(let message):
                 self?.errorMessage = message
+                self?.syncBanner = SyncBanner(kind: .error, message: message)
+            case .parked(_, let message):
+                self?.syncBanner = SyncBanner(
+                    kind: message == UserFacingError.offline ? .offline : .parked,
+                    message: message
+                )
+            case .conflict:
+                self?.syncBanner = SyncBanner(kind: .conflict, message: UserFacingError.conflict)
+            case .authenticationRequired:
+                self?.syncBanner = SyncBanner(kind: .authentication, message: UserFacingError.authentication)
             case .written:
                 self?.errorMessage = nil
+                self?.syncBanner = nil
             case .queued, .rosterRefreshed:
                 break
             }

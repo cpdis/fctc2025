@@ -87,7 +87,7 @@ public final class VoiceEntryViewModel {
         } catch {
             self.recordingID = nil
             transcriber.stop()
-            phase = .failed(error.localizedDescription)
+            phase = .failed(UserFacingError.voice(error))
         }
     }
 
@@ -101,7 +101,7 @@ public final class VoiceEntryViewModel {
         } catch {
             recordingID = nil
             transcriber.stop()
-            phase = .failed(error.localizedDescription)
+            phase = .failed(UserFacingError.voice(error))
         }
     }
 
@@ -134,7 +134,7 @@ public final class VoiceEntryViewModel {
             finalizationTask?.cancel()
             self.recordingID = nil
             transcriber.stop()
-            phase = .failed(message)
+            phase = .failed(UserFacingError.voiceStopped)
             return
         }
         if transcript != update.transcript {
@@ -174,7 +174,7 @@ public final class VoiceEntryViewModel {
             )
             phase = .triage
         } catch {
-            phase = .failed(error.localizedDescription)
+            phase = .failed(UserFacingError.voice(error))
         }
     }
 
