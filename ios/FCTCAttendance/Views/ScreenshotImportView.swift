@@ -2,8 +2,9 @@
 //  ScreenshotImportView.swift
 //  FCTCAttendance
 //
-//  U6 screenshot capture flow. Photos stay in memory only, are reduced to the OCR
-//  pixel budget as soon as they load, and end at the shared proposal triage view.
+//  U6 screenshot capture flow. Picked photos stay in memory. Share-extension files
+//  use the protected App Group inbox until this view loads and clears them. Both
+//  sources are reduced to the OCR pixel budget before proposal triage.
 //
 
 import CoreGraphics
@@ -18,6 +19,7 @@ struct ScreenshotImportView: View {
 
     let roster: [String]
     let parser: PollScreenshotParser
+    let onInitialFilesConsumed: () -> Void
     let onApply: (DraftProposalSet, [String]) -> Void
     let onAddPerson: (String) async throws -> Void
     let onCancel: () -> Void
@@ -27,6 +29,8 @@ struct ScreenshotImportView: View {
     @State private var doNotShowAgain = true
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var screenshots: [ImportedScreenshot]
+    @State private var initialFileURLs: [URL]
+    @State private var didLoadInitialFiles = false
     @State private var isLoadingPhotos = false
     @State private var isRecognizing = false
     @State private var recognizedCount = 0
@@ -42,13 +46,16 @@ struct ScreenshotImportView: View {
         roster: [String],
         parser: PollScreenshotParser = PollScreenshotParser(),
         initialImages: [CGImage] = [],
+        initialFileURLs: [URL] = [],
         skipCoach: Bool = false,
+        onInitialFilesConsumed: @escaping () -> Void = {},
         onApply: @escaping (DraftProposalSet, [String]) -> Void,
         onAddPerson: @escaping (String) async throws -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.roster = roster
         self.parser = parser
+        self.onInitialFilesConsumed = onInitialFilesConsumed
         self.onApply = onApply
         self.onAddPerson = onAddPerson
         self.onCancel = onCancel
@@ -62,6 +69,7 @@ struct ScreenshotImportView: View {
                 return ImportedScreenshot(image: prepared)
             }
         )
+        _initialFileURLs = State(initialValue: initialFileURLs)
     }
 
     var body: some View {
@@ -84,6 +92,7 @@ struct ScreenshotImportView: View {
             photoLoadTask?.cancel()
             recognitionTask?.cancel()
         }
+        .task { await loadInitialFilesIfNeeded() }
     }
 
     private var coach: some View {
@@ -304,6 +313,34 @@ struct ScreenshotImportView: View {
         screenshots = loaded
     }
 
+    private func loadInitialFilesIfNeeded() async {
+        guard !didLoadInitialFiles, !initialFileURLs.isEmpty else { return }
+        didLoadInitialFiles = true
+        isLoadingPhotos = true
+        errorMessage = nil
+        defer {
+            initialFileURLs = []
+            isLoadingPhotos = false
+            onInitialFilesConsumed()
+        }
+
+        var loaded: [ImportedScreenshot] = []
+        for url in initialFileURLs {
+            do {
+                try Task<Never, Never>.checkCancellation()
+                loaded.append(try await ImportedScreenshot.prepare(fileURL: url))
+            } catch is CancellationError {
+                return
+            } catch {
+                errorMessage = loaded.isEmpty
+                    ? "One shared screenshot could not be read."
+                    : "Some shared screenshots could not be read. The others are ready."
+            }
+        }
+        guard !Task.isCancelled else { return }
+        screenshots.append(contentsOf: loaded)
+    }
+
     private func recognizeScreenshots() {
         let images = screenshots.map(\.image)
         guard !images.isEmpty else { return }
@@ -372,13 +409,24 @@ private struct ImportedScreenshot: Identifiable, @unchecked Sendable {
 
     static func prepare(data: Data) async throws -> ImportedScreenshot {
         try await Task.detached(priority: .userInitiated) {
-            guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-                  let decoded = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-                throw ScreenshotImportError.unreadableImage
-            }
-            let prepared = try PollScreenshotParser.prepareForRecognition(decoded)
-            return ImportedScreenshot(image: prepared)
+            try prepareSynchronously(data: data)
         }.value
+    }
+
+    static func prepare(fileURL: URL) async throws -> ImportedScreenshot {
+        try await Task.detached(priority: .userInitiated) {
+            let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+            return try prepareSynchronously(data: data)
+        }.value
+    }
+
+    private static func prepareSynchronously(data: Data) throws -> ImportedScreenshot {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let decoded = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            throw ScreenshotImportError.unreadableImage
+        }
+        let prepared = try PollScreenshotParser.prepareForRecognition(decoded)
+        return ImportedScreenshot(image: prepared)
     }
 
     private static func resize(

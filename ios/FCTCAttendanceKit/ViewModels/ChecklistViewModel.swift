@@ -20,6 +20,7 @@ public final class ChecklistViewModel {
     public private(set) var isAddingPerson = false
     public private(set) var errorMessage: String?
     public private(set) var guestHistory: [Guest]
+    public private(set) var guestFrequencyCounts: [String: Int]
 
     @ObservationIgnored private var engine: any SyncEngineClient
     @ObservationIgnored private let deviceName: String?
@@ -42,6 +43,9 @@ public final class ChecklistViewModel {
         self.run = run
         self.roster = roster.sorted(by: Member.sheetOrder)
         self.guestHistory = Self.uniqueGuests(named: guestHistory)
+        self.guestFrequencyCounts = GuestPromotionCounter.counts(
+            in: guestHistory.map { [$0] }
+        )
         self.engine = engine
         self.deviceName = deviceName
 
@@ -129,6 +133,16 @@ public final class ChecklistViewModel {
 
     public func updateGuestHistory(_ names: [String]) {
         guestHistory = Self.uniqueGuests(named: names)
+        guestFrequencyCounts = GuestPromotionCounter.counts(in: names.map { [$0] })
+    }
+
+    public func updateGuestSubmissionHistory(_ submissions: [[String]]) {
+        guestHistory = Self.uniqueGuests(named: submissions.flatMap { $0 })
+        guestFrequencyCounts = GuestPromotionCounter.counts(in: submissions)
+    }
+
+    public func isFrequentGuest(_ name: String) -> Bool {
+        GuestPromotionCounter.isFrequent(name, counts: guestFrequencyCounts)
     }
 
     public func toggleMember(_ name: String) {
@@ -255,8 +269,7 @@ public final class ChecklistViewModel {
     }
 
     private static func canonical(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        GuestPromotionCounter.canonical(value)
     }
 
     private static func uniqueGuests(named names: [String]) -> [Guest] {

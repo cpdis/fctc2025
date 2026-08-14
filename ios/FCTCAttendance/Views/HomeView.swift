@@ -13,13 +13,20 @@ import SwiftUI
 /// confirmed submission (packet R6: Confirm returns Home). Clearing `path`
 /// is the only pop-to-root mechanism SwiftUI guarantees.
 enum HomeRoute: Hashable {
-    case checklist(RunSnapshot)
+    case checklist(RunSnapshot, ChecklistPresentation)
     case runPicker(RunPickerScope)
     case outbox
 }
 
+enum ChecklistPresentation: Hashable {
+    case standard
+    case dictation
+    case sharedScreenshots
+}
+
 struct HomeView: View {
     let runtime: AppRuntime
+    let pendingRoutes: PendingRouteStore
 
     @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
     @Query(
@@ -28,9 +35,13 @@ struct HomeView: View {
     ) private var cachedSubmissions: [PendingSubmission]
     @State private var viewModel: HomeViewModel
     @State private var path: [HomeRoute] = []
+    @State private var deferredRoute: PendingAppRoute?
+    @State private var sharedScreenshotCount = 0
+    @State private var showingSharedScreenshotOffer = false
 
-    init(runtime: AppRuntime) {
+    init(runtime: AppRuntime, pendingRoutes: PendingRouteStore = .shared) {
         self.runtime = runtime
+        self.pendingRoutes = pendingRoutes
         _viewModel = State(initialValue: HomeViewModel(engine: runtime.engine))
     }
 
@@ -39,19 +50,11 @@ struct HomeView: View {
             List {
                 if viewModel.isInitialLoading && cachedRuns.isEmpty {
                     Section {
-                        HStack(spacing: 12) {
-                            ProgressView()
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Loading the season")
-                                    .font(.headline)
-                                Text("Fetching the roster and scheduled runs…")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding(.vertical, 10)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("Loading the season")
+                        ContentUnavailableView(
+                            "Loading Season",
+                            systemImage: "calendar.badge.clock",
+                            description: Text("Fetching the roster and scheduled runs.")
+                        )
                         .accessibilityIdentifier("home-initial-loading")
                     }
                 } else {
@@ -75,14 +78,14 @@ struct HomeView: View {
                             .accessibilityIdentifier("home-runs-unavailable")
                         } else {
                             if let todayRun = viewModel.todayRun {
-                                NavigationLink(value: HomeRoute.checklist(todayRun)) {
-                                    HomeRow(
-                                        title: "Today's Run",
-                                        subtitle: todayRun.detailLabel,
-                                        systemImage: "calendar.badge.clock",
-                                        tint: .accentColor
-                                    )
+                                Button {
+                                    path.append(.checklist(todayRun, .standard))
+                                } label: {
+                                    TodayRunHero(run: todayRun)
                                 }
+                                .buttonStyle(.plain)
+                                .listRowInsets(EdgeInsets())
+                                .listRowBackground(Color.clear)
                                 .accessibilityIdentifier("home-todays-run")
                             } else {
                                 NavigationLink(value: HomeRoute.runPicker(.all)) {
@@ -160,9 +163,21 @@ struct HomeView: View {
             .navigationTitle("FCTC")
             .navigationDestination(for: HomeRoute.self) { route in
                 switch route {
-                case .checklist(let run):
+                case .checklist(let run, let presentation):
                     // Confirm must land back on Home (R6), from any depth.
-                    ChecklistView(runtime: runtime, run: run) { path.removeAll() }
+                    ChecklistView(
+                        runtime: runtime,
+                        run: run,
+                        presentation: presentation
+                    ) { nextRun in
+                        if let nextRun {
+                            // Collapse a picker -> checklist stack. The next
+                            // catch-up screen must still have Home as its Back target.
+                            path = [.checklist(nextRun, .standard)]
+                        } else {
+                            path.removeAll()
+                        }
+                    }
                 case .runPicker(let scope):
                     RunPickerView(runtime: runtime, scope: scope)
                 case .outbox:
@@ -175,16 +190,45 @@ struct HomeView: View {
             }
             .task {
                 updateFromCache()
+                handlePendingRoute()
+                checkSharedScreenshotInbox()
                 await viewModel.refresh(hasCachedState: !cachedRuns.isEmpty)
                 updateFromCache()
+                handlePendingRoute()
+                checkSharedScreenshotInbox()
             }
-            .onChange(of: cacheFingerprint) { _, _ in updateFromCache() }
+            .onChange(of: cacheFingerprint) { _, _ in
+                updateFromCache()
+                handlePendingRoute()
+            }
             .onChange(of: runtime.generation) { _, _ in
                 viewModel.replaceEngine(runtime.engine)
                 Task {
                     await viewModel.refresh(hasCachedState: !cachedRuns.isEmpty)
                     updateFromCache()
+                    handlePendingRoute()
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: PendingRouteStore.changed)) { _ in
+                handlePendingRoute()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .fctcAppDidActivate)) { _ in
+                handlePendingRoute()
+                checkSharedScreenshotInbox()
+            }
+            .alert(
+                "Import \(sharedScreenshotCount) shared screenshot\(sharedScreenshotCount == 1 ? "" : "s")?",
+                isPresented: $showingSharedScreenshotOffer
+            ) {
+                Button("Import") {
+                    guard let todayRun = viewModel.todayRun else { return }
+                    path.append(.checklist(todayRun, .sharedScreenshots))
+                }
+                Button("Dismiss", role: .cancel) {
+                    try? runtime.sharedScreenshotInbox.clear()
+                }
+            } message: {
+                Text("Open today's checklist and review the imported poll.")
             }
         }
     }
@@ -251,6 +295,92 @@ struct HomeView: View {
             runs: cachedRuns.map(RunSnapshot.init),
             submissions: cachedSubmissions.map(PendingSubmissionSnapshot.init)
         )
+    }
+
+    private func handlePendingRoute() {
+        let route = deferredRoute ?? pendingRoutes.consume()
+        guard let route else { return }
+        let target: RunSnapshot?
+        let presentation: ChecklistPresentation
+        switch route {
+        case .todayChecklist:
+            target = viewModel.todayRun
+            presentation = .standard
+        case .todayDictation:
+            target = viewModel.todayRun
+            presentation = .dictation
+        case .checklist(let rowIndex, let date, let run):
+            target = cachedRuns.map(RunSnapshot.init).first {
+                $0.rowIndex == rowIndex && $0.date == date && $0.run == run
+            }
+            presentation = .standard
+        }
+        guard let target else {
+            deferredRoute = route
+            return
+        }
+        deferredRoute = nil
+        path = [.checklist(target, presentation)]
+    }
+
+    private func checkSharedScreenshotInbox() {
+        guard !showingSharedScreenshotOffer,
+              path.isEmpty, viewModel.todayRun != nil,
+              let count = try? runtime.sharedScreenshotInbox.list().count,
+              count > 0
+        else { return }
+        sharedScreenshotCount = count
+        showingSharedScreenshotOffer = true
+    }
+}
+
+private struct TodayRunHero: View {
+    let run: RunSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("TODAY'S RUN")
+                        .font(.caption.weight(.bold))
+                        .tracking(0.8)
+                        .foregroundStyle(.white.opacity(0.78))
+                    Text(run.run)
+                        .font(.title2.bold())
+                        .foregroundStyle(.white)
+                }
+                Spacer(minLength: 12)
+                Text(run.date)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(run.meet)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                    if let km = run.approxKm {
+                        Text("About \(km.formatted(.number.precision(.fractionLength(0...2)))) km")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                }
+                Spacer(minLength: 12)
+                Text("Record")
+                    .font(.headline)
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 9)
+                    .background(.white, in: .capsule)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(18)
+        .background(Color.accentColor.gradient, in: .rect(cornerRadius: 18))
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Today's Run, \(run.detailLabel), \(run.date), Record")
     }
 }
 

@@ -32,14 +32,19 @@ worktree. Keep the setup QR and shared secret private.
 3. Open **Signing & Capabilities**.
 4. Set `DEVELOPMENT_TEAM` to Colin's Apple development team.
 5. Confirm that the bundle identifier is `com.cpdis.fctc-attendance`.
+6. Select the `FCTCAttendance` and `FCTCAttendanceShare` targets.
+7. Confirm that both targets use the App Group
+   `group.com.cpdis.fctc-attendance`.
+8. Create or enable that App Group for both App IDs in the Apple Developer portal.
+9. Refresh the profiles before a device archive or TestFlight upload.
 
 ## 3. Run the iOS test gates
 
 1. Select the `FCTCAttendanceKit` scheme.
-2. Run its full test suite. Confirm that the original 151 kit tests stay green.
+2. Run its full test suite. Confirm that the original 164 kit tests stay green.
 3. Confirm that every new U8 setup, loading, and sync-error test also passes.
 4. Select the `FCTCAttendance` scheme.
-5. Run its full test suite. Confirm that all kit tests and the 7 UI tests pass.
+5. Run its full test suite. Confirm that all kit tests and the 8 UI tests pass.
 6. Stop if an original test disappears or any test fails.
 
 The matching command-line build gate is:
@@ -203,6 +208,12 @@ Complete every check on a physical phone before the first real submission:
 16. Set a wrong secret briefly. Confirm that the app routes to Settings with clear text.
 17. Restore the production secret before the real submission.
 18. Confirm the no-runs-today and empty-outbox states.
+19. Enable run reminders. Test allow and deny permission paths.
+20. Tap a delivered reminder. Confirm that its checklist opens.
+21. Share 1 and 12 screenshots from Photos. Confirm that the import offer appears.
+22. Dismiss one shared import. Confirm that the offer does not return.
+23. Run both Attendance shortcuts. Confirm the checklist and dictation routes.
+24. Queue an offline submission. Background the app and verify one background drain.
 
 ## 13. Record the first real run
 
