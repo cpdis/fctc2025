@@ -1,7 +1,7 @@
 import {
   calculateMilestoneChance,
   calculateWeightedAttendanceRate,
-} from './milestoneForecast'
+} from './milestoneForecast.js'
 
 const PERTH_TIME_ZONE = 'Australia/Perth'
 const MAX_NAME_CODE_POINTS = 200
