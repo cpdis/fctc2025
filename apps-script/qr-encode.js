@@ -5,17 +5,20 @@
  *
  * This is a purpose-built CommonJS subset of Project Nayuki's public-domain
  * QR Code generator algorithm: https://www.nayuki.io/page/qr-code-generator-library
- * It supports versions 1 through 10 at error-correction level M. That covers
- * setup payloads up to 213 bytes while keeping the release tool dependency-free.
+ * It supports versions 1 through 14 at error-correction level M. That covers
+ * setup payloads up to 331 bytes while keeping the release tool dependency-free.
+ * (A production /exec URL plus a strong secret is ~250 bytes, which overflowed
+ * the original version-10 ceiling of 213 on the first real deploy.)
  */
 
 const MIN_VERSION = 1;
-const MAX_VERSION = 10;
+const MAX_VERSION = 14;
 const FORMAT_BITS_MEDIUM = 0;
 
-// Index zero is unused, matching QR version numbers directly.
-const ECC_CODEWORDS_PER_BLOCK = [-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26];
-const NUM_ERROR_CORRECTION_BLOCKS = [-1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5];
+// Index zero is unused, matching QR version numbers directly. Values are the
+// spec's error-correction-level-M rows, as in Nayuki's reference tables.
+const ECC_CODEWORDS_PER_BLOCK = [-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24];
+const NUM_ERROR_CORRECTION_BLOCKS = [-1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9];
 
 function encodeText(text, options = {}) {
   if (typeof text !== 'string') throw new TypeError('QR input must be text.');

@@ -119,3 +119,24 @@ function assertFinder(matrix, originX, originY) {
     }
   }
 }
+
+test('a production-length payload encodes above the old version-10 ceiling', () => {
+  // Regression (2026-08-14 first real deploy): a real /exec URL plus a strong
+  // secret is ~250 bytes, which overflowed the encoder's original 213-byte
+  // version-10-M ceiling. The tables now extend to version 14.
+  const payload = buildPayload({
+    url: `https://script.google.com/macros/s/${'A'.repeat(71)}/exec`,
+    secret: `fctc-${'a'.repeat(48)}`,
+    device: 'Colin iPhone',
+  });
+  assert.ok(payload.length > 213, `expected an over-ceiling payload, got ${payload.length}`);
+
+  const qr = encodeText(payload);
+  assert.ok(qr.version >= 11, `expected version 11+, got ${qr.version}`);
+  assert.ok(qr.version <= 14);
+  assert.equal(qr.size, qr.version * 4 + 17);
+  assert.equal(qr.matrix.length, qr.size);
+  assertFinder(qr.matrix, 0, 0);
+  assertFinder(qr.matrix, qr.size - 7, 0);
+  assertFinder(qr.matrix, 0, qr.size - 7);
+});
