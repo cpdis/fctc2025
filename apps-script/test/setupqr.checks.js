@@ -140,3 +140,20 @@ test('a production-length payload encodes above the old version-10 ceiling', () 
   assertFinder(qr.matrix, qr.size - 7, 0);
   assertFinder(qr.matrix, 0, qr.size - 7);
 });
+
+test('the PNG renderer emits a valid grayscale image with dark finder corners', () => {
+  const zlib = require('node:zlib');
+  const { renderPng } = require('../make-setup-qr-png.js');
+  const qr = encodeText('png renderer check');
+  const png = renderPng(qr.matrix, 4, 2);
+  assert.deepEqual([...png.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const size = png.readUInt32BE(16); // IHDR width
+  assert.equal(size, (qr.size + 4) * 4);
+  // Decompress the image data and check the first finder module is dark.
+  const idatLen = png.readUInt32BE(33);
+  const raw = zlib.inflateSync(png.subarray(41, 41 + idatLen));
+  const quiet = 2 * 4;
+  assert.equal(raw[quiet * (size + 1) + 1 + quiet], 0);
+  // And the quiet zone is white.
+  assert.equal(raw[1], 0xff);
+});

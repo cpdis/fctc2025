@@ -199,11 +199,23 @@ FCTC_SETUP_SECRET='<shared secret>' node make-setup-qr.js \
   --output setup-qr-aaron.html
 ```
 
-1. Read the JSON printed to the terminal.
+For the in-person handoff (scan from a phone screen), generate a badged PNG
+per tester instead. The badge shows the tester's initial, the caption their
+name, and the script verifies the badged code still decodes via Vision:
+
+```bash
+FCTC_SETUP_SECRET='<shared secret>' node apps-script/make-setup-qr-png.js \
+  --url 'https://script.google.com/macros/s/<deployment-id>/exec' \
+  --device 'Aaron iPhone' --output /tmp/qr-aaron.png
+swift ios/Tools/badge-qr.swift /tmp/qr-aaron.png ~/Desktop/setup-qr-aaron.png A Aaron
+```
+
+1. Read the JSON printed to the terminal (HTML flavour) or trust the VERIFY
+   line (PNG flavour).
 2. Confirm the HTTPS endpoint and device name.
-3. Open each HTML file locally.
-4. Do not upload or commit either file.
-5. Remove the files after both phones are configured.
+3. AirDrop the PNGs to a phone for screen-to-screen scanning.
+4. Do not upload or commit any of these files.
+5. Remove the files after every phone is configured.
 
 ## 11. Configure both phones
 
