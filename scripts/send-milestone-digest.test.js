@@ -11,6 +11,7 @@ import {
   runMilestoneDigest,
 } from './send-milestone-digest.js'
 import { ResendBatchError } from './lib/resendBatch.js'
+import { findUpcomingMilestones, getAttendanceCutoff } from '../src/utils/milestones.js'
 
 const fixtureDir = join(import.meta.dirname, '..', 'src', 'test', 'fixtures')
 const csv2025 = readFileSync(join(fixtureDir, '2025.csv'), 'utf8')
@@ -32,14 +33,84 @@ function fixtureReader(paths = {}) {
 }
 
 function attendanceCsv(name, count, year = 2026) {
-  const rows = Array.from({ length: count }, (_, index) => {
+  return attendanceCsvForMembers([[name, count]], year)
+}
+
+function attendanceCsvForMembers(entries, year = 2026) {
+  const rows = Array.from({ length: Math.max(...entries.map(([, count]) => count)) }, (_, index) => {
     const day = (index % 28) + 1
-    return `"Fri, ${day}-Jan",Meet,Social,5,5,x,0`
+    const attendance = entries.map(([, count]) => index < count ? 'x' : '').join(',')
+    return `"Fri, ${day}-Jan",Meet,Social,5,5,${attendance},0`
   })
   return [
     'Summary row',
-    `Date,Meet,Run,Approx kms,Actual kms,${name},+1's`,
+    `Date,Meet,Run,Approx kms,Actual kms,${entries.map(([name]) => name).join(',')},+1's`,
     ...rows,
+    `,,${year}`,
+  ].join('\n')
+}
+
+function forecastChanceCsv(name, year = 2026) {
+  const weekdays = ['Mon', 'Wed', 'Fri']
+  const attendedRows = Array.from({ length: 49 }, (_, index) => {
+    const month = index < 28 ? 'Jan' : 'Feb'
+    const day = index < 28 ? index + 1 : index - 27
+    return `"${weekdays[index % weekdays.length]}, ${day}-${month}",Meet,Social,5,5,x,,0`
+  })
+  const absenceRows = weekdays.map((weekday, index) => (
+    `"${weekday}, ${index + 22}-Feb",Meet,Social,5,5,,x,0`
+  ))
+
+  return [
+    'Summary row',
+    `Date,Meet,Run,Approx kms,Actual kms,${name},Other Runner,+1's`,
+    ...attendedRows,
+    ...absenceRows,
+    `,,${year}`,
+  ].join('\n')
+}
+
+function manualRetryCsv(name, year = 2026) {
+  const priorRuns = [
+    ['Mon', 5],
+    ['Wed', 7],
+    ['Fri', 9],
+  ].map(([weekday, day]) => `"${weekday}, ${day}-Jan",Meet,Social,5,5,x,0`)
+  const fillerRuns = Array.from(
+    { length: 43 },
+    () => '"Sat, 3-Jan",Meet,Social,5,5,x,0'
+  )
+
+  return [
+    'Summary row',
+    `Date,Meet,Run,Approx kms,Actual kms,${name},+1's`,
+    ...fillerRuns,
+    ...priorRuns,
+    '"Mon, 17-Aug",Meet,Social,5,5,x,0',
+    '"Wed, 19-Aug",Meet,Social,5,5,x,0',
+    `,,${year}`,
+  ].join('\n')
+}
+
+function thresholdForecastCsv(year = 2026) {
+  const fillerRuns = Array.from(
+    { length: 45 },
+    () => '"Sat, 3-Jan",Meet,Social,5,5,x,x,x,0'
+  )
+  const opportunityRows = [
+    '"Mon, 5-Jan",Meet,Social,5,5,,x,x,0',
+    '"Wed, 7-Jan",Meet,Social,5,5,,x,x,0',
+    '"Fri, 9-Jan",Meet,Social,5,5,,x,x,0',
+    '"Mon, 12-Jan",Meet,Social,5,5,x,,x,0',
+    '"Wed, 14-Jan",Meet,Social,5,5,x,,x,0',
+    '"Fri, 16-Jan",Meet,Social,5,5,x,,x,0',
+  ]
+
+  return [
+    'Summary row',
+    "Date,Meet,Run,Approx kms,Actual kms,Above Gate,Below Gate,History Anchor,+1's",
+    ...fillerRuns,
+    ...opportunityRows,
     `,,${year}`,
   ].join('\n')
 }
@@ -257,6 +328,51 @@ describe('runMilestoneDigest', () => {
     expect(options.sendBatchImpl).not.toHaveBeenCalled()
   })
 
+  it('does not reuse completed target runs during a Wednesday retry', async () => {
+    const options = runOptions({
+      args: ['--send'],
+      now: new Date('2026-08-19T05:00:00.000Z'),
+      readFileImpl: fixtureReader({
+        '/repo/public/data/2026.csv': manualRetryCsv('Needs Two Runs'),
+      }),
+    })
+
+    await expect(runMilestoneDigest(options)).resolves.toMatchObject({
+      weekStart: '2026-08-17',
+      candidateCount: 0,
+      acceptedCount: 0,
+    })
+    expect(options.sendBatchImpl).not.toHaveBeenCalled()
+  })
+
+  it('connects parsed weekday history to the raw 50 percent gate', async () => {
+    const data = await loadAllTimeData({
+      years: { 2026: '/data/2026.csv' },
+      rootDir: '/repo',
+      readFileImpl: fixtureReader({
+        '/repo/public/data/2026.csv': thresholdForecastCsv(),
+      }),
+    })
+    const targetWeek = { weekStart: '2026-01-19', weekEnd: '2026-01-25' }
+    const candidates = findUpcomingMilestones(
+      data.memberTotals,
+      data.runs,
+      getAttendanceCutoff(data.runs),
+      targetWeek
+    )
+
+    expect(candidates).toHaveLength(1)
+    expect(candidates[0]).toMatchObject({
+      name: 'Above Gate',
+      currentRuns: 48,
+      runsNeeded: 2,
+      label: 'Likely',
+    })
+    expect(candidates[0].chance).toBeCloseTo(0.5324506750080484, 12)
+    expect(candidates[0].chance).toBeGreaterThan(0.5)
+    expect(candidates.map(({ name }) => name)).not.toContain('Below Gate')
+  })
+
   it('sends one private item per validated recipient with the weekly key', async () => {
     const options = runOptions({
       args: ['--send'],
@@ -265,10 +381,17 @@ describe('runMilestoneDigest', () => {
         MILESTONE_RECIPIENTS: 'two@example.com,one@example.com',
         MILESTONE_FROM: 'FCTC Milestones <runs@notifications.fctc.cpd.dev>',
       },
+      readFileImpl: fixtureReader({
+        '/repo/public/data/2026.csv': attendanceCsvForMembers([
+          ['Jane Doe', 49],
+          ['Sam Lee', 49],
+        ]),
+      }),
       sendBatchImpl: vi.fn().mockResolvedValue({ acceptedCount: 2 }),
     })
 
     await expect(runMilestoneDigest(options)).resolves.toMatchObject({
+      candidateCount: 2,
       recipientCount: 2,
       acceptedCount: 2,
     })
@@ -280,8 +403,12 @@ describe('runMilestoneDigest', () => {
       ['two@example.com'],
     ])
     expect(request.items[0].text).toContain('Jane Doe')
+    expect(request.items[0].text).toContain('Sam Lee')
+    expect(request.items[0].text).toContain('Very likely · needs 1 run')
     expect(request.items[0].text).toBe(request.items[1].text)
     expect(request.items[0].html).toContain('Jane Doe')
+    expect(request.items[0].html).toContain('Sam Lee')
+    expect(request.items[0].html).toContain('Very likely &middot; needs 1 run')
     expect(request.items[0].html).toContain('href="https://fctc.fun/dashboard"')
     expect(request.items[0].html).toBe(request.items[1].html)
   })
@@ -316,8 +443,50 @@ describe('runMilestoneDigest', () => {
     expect(request.items[0].text).not.toContain('Jane Doe')
     expect(request.items[0].text).not.toContain('run from')
     expect(request.items[0].html).toContain('FCTC Test Runner')
-    expect(request.items[0].html).toContain('Approaching their 50th run')
+    expect(request.items[0].html).toContain('Very likely &middot; needs 1 run for their 50th run')
     expect(request.items[0].html).not.toContain('Jane Doe')
+  })
+
+  it('keeps the exact forecast chance out of email, logs, and workflow summaries', async () => {
+    const privateName = 'Private Forecast Runner'
+    const csv = forecastChanceCsv(privateName)
+    const readFileImpl = fixtureReader({ '/repo/public/data/2026.csv': csv })
+    const data = await loadAllTimeData({
+      years: { 2026: '/data/2026.csv' },
+      rootDir: '/repo',
+      readFileImpl,
+    })
+    const cutoffDate = getAttendanceCutoff(data.runs)
+    const [candidate] = findUpcomingMilestones(data.memberTotals, data.runs, cutoffDate)
+    const chanceSentinel = String(candidate.chance)
+    expect(candidate.chance).toBeGreaterThan(0)
+    expect(candidate.chance).toBeLessThan(1)
+
+    const appendFileImpl = vi.fn().mockResolvedValue(undefined)
+    const log = vi.fn()
+    const options = runOptions({
+      args: ['--send'],
+      env: {
+        RESEND_API_KEY: 're_private',
+        MILESTONE_RECIPIENTS: 'private@example.com',
+        MILESTONE_FROM: 'FCTC Milestones <runs@notifications.fctc.cpd.dev>',
+        GITHUB_STEP_SUMMARY: '/github/summary',
+      },
+      readFileImpl: fixtureReader({ '/repo/public/data/2026.csv': csv }),
+      appendFileImpl,
+      log,
+    })
+
+    await runMilestoneDigest(options)
+
+    const request = options.sendBatchImpl.mock.calls[0][0]
+    const logs = log.mock.calls.flat().join('\n')
+    const summary = appendFileImpl.mock.calls.map(([, content]) => content).join('\n')
+    expect(`${request.items[0].subject}\n${request.items[0].text}\n${request.items[0].html}`)
+      .not.toContain(chanceSentinel)
+    expect(logs).not.toContain(chanceSentinel)
+    expect(summary).not.toContain(chanceSentinel)
+    expect(summary).not.toContain(privateName)
   })
 
   it('writes a safe failed state when the smoke provider request fails', async () => {

@@ -31,7 +31,12 @@ const SMOKE_TEXT = [
   'No attendance data is included.',
 ].join('\n')
 const SMOKE_DIGEST = Object.freeze({
-  candidates: [{ name: 'FCTC Test Runner', currentRuns: 49, milestone: 50 }],
+  candidates: [{
+    name: 'FCTC Test Runner',
+    milestone: 50,
+    runsNeeded: 1,
+    label: 'Very likely',
+  }],
   weekStart: '2026-01-05',
   cutoffDate: '2026-01-04',
 })
@@ -188,12 +193,13 @@ export async function runMilestoneDigest({
   }
 
   const data = await loadAllTimeData({ years, rootDir, readFileImpl })
-  const candidates = findUpcomingMilestones(data.memberTotals)
+  const cutoffDate = getAttendanceCutoff(data.runs)
+  const candidates = findUpcomingMilestones(data.memberTotals, data.runs, cutoffDate, week)
   const candidateCount = candidates.length
   const digest = formatMilestoneDigest({
     candidates,
     weekStart: week.weekStart,
-    cutoffDate: getAttendanceCutoff(data.runs),
+    cutoffDate,
   })
 
   await writeGitHubOutput({

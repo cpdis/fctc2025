@@ -6,6 +6,7 @@ import {
   findUpcomingMilestones,
   formatMilestoneDigest,
   getAttendanceCutoff,
+  getMilestoneForecastLabel,
   getPerthCalendarDate,
   getPerthTargetWeek,
 } from './milestones'
@@ -27,6 +28,25 @@ function catchError(callback) {
   throw new Error('Expected callback to throw')
 }
 
+function completedRun(date, dayOfWeek, attendance, totalAttendance = 1) {
+  return {
+    parsedDate: date instanceof Date ? date : new Date(`${date}T00:00:00`),
+    dayOfWeek,
+    attendance,
+    totalAttendance,
+  }
+}
+
+function digestCandidate(overrides = {}) {
+  return {
+    name: 'Jane Doe',
+    milestone: 50,
+    runsNeeded: 1,
+    label: 'Possible',
+    ...overrides,
+  }
+}
+
 describe('findUpcomingMilestones', () => {
   it('selects every positive 50n - 1 boundary without a fixed maximum', () => {
     const candidates = findUpcomingMilestones(totals([
@@ -43,12 +63,12 @@ describe('findUpcomingMilestones', () => {
     ]))
 
     expect(candidates).toEqual([
-      { name: 'Forty Nine', currentRuns: 49, milestone: 50 },
-      { name: 'Ninety Nine', currentRuns: 99, milestone: 100 },
-      { name: 'One Forty Nine', currentRuns: 149, milestone: 150 },
-      { name: 'One Ninety Nine', currentRuns: 199, milestone: 200 },
-      { name: 'Two Forty Nine', currentRuns: 249, milestone: 250 },
-      { name: 'No Ceiling', currentRuns: 999, milestone: 1000 },
+      { name: 'Forty Nine', currentRuns: 49, milestone: 50, runsNeeded: 1, chance: 0, label: 'Possible' },
+      { name: 'Ninety Nine', currentRuns: 99, milestone: 100, runsNeeded: 1, chance: 0, label: 'Possible' },
+      { name: 'One Forty Nine', currentRuns: 149, milestone: 150, runsNeeded: 1, chance: 0, label: 'Possible' },
+      { name: 'One Ninety Nine', currentRuns: 199, milestone: 200, runsNeeded: 1, chance: 0, label: 'Possible' },
+      { name: 'Two Forty Nine', currentRuns: 249, milestone: 250, runsNeeded: 1, chance: 0, label: 'Possible' },
+      { name: 'No Ceiling', currentRuns: 999, milestone: 1000, runsNeeded: 1, chance: 0, label: 'Possible' },
     ])
   })
 
@@ -72,7 +92,7 @@ describe('findUpcomingMilestones', () => {
     const name = 'Alex 👑, Jr. (Coach)'
 
     expect(findUpcomingMilestones(totals([[name, 49]]))).toEqual([
-      { name, currentRuns: 49, milestone: 50 },
+      { name, currentRuns: 49, milestone: 50, runsNeeded: 1, chance: 0, label: 'Possible' },
     ])
   })
 
@@ -107,10 +127,111 @@ describe('findUpcomingMilestones', () => {
     const allTime = combineYearData([data2025, data2026])
 
     expect(allTime.memberTotals.Darren.totalRuns).toBe(49)
-    expect(findUpcomingMilestones(allTime.memberTotals)).toEqual([
-      { name: 'Darren', currentRuns: 49, milestone: 50 },
+    expect(findUpcomingMilestones(
+      allTime.memberTotals,
+      allTime.runs,
+      getAttendanceCutoff(allTime.runs)
+    )).toEqual([
+      expect.objectContaining({ name: 'Darren', currentRuns: 49, milestone: 50, runsNeeded: 1 }),
     ])
     expect(getAttendanceCutoff(allTime.runs)).toBe('2026-05-25')
+  })
+
+  it('forecasts up to three runs away and keeps missing weekdays at zero', () => {
+    const memberTotals = totals([
+      ['One Away', 49],
+      ['Two Away', 48],
+      ['Three Away', 47],
+      ['Four Away', 46],
+      ['Beyond Two Hundred', 249],
+      ['Fractional', 48.5],
+      ['Negative', -1],
+      ['Not Numeric', '49'],
+    ])
+    const attendance = Object.fromEntries(
+      Object.keys(memberTotals).map((name) => [name, true])
+    )
+    const runs = [
+      completedRun('2026-08-10', 'Mon', attendance),
+      completedRun('2026-08-12', 'Wed', attendance),
+      completedRun('2026-08-14', 'Fri', attendance),
+    ]
+
+    expect(findUpcomingMilestones(memberTotals, runs, '2026-08-14')).toEqual([
+      { name: 'One Away', currentRuns: 49, milestone: 50, runsNeeded: 1, chance: 1, label: 'Very likely' },
+      { name: 'Three Away', currentRuns: 47, milestone: 50, runsNeeded: 3, chance: 1, label: 'Very likely' },
+      { name: 'Two Away', currentRuns: 48, milestone: 50, runsNeeded: 2, chance: 1, label: 'Very likely' },
+      { name: 'Beyond Two Hundred', currentRuns: 249, milestone: 250, runsNeeded: 1, chance: 1, label: 'Very likely' },
+    ])
+
+    expect(findUpcomingMilestones(
+      totals([['Needs Three', 47]]),
+      runs.slice(0, 2).map((run) => ({ ...run, attendance: { 'Needs Three': true } })),
+      '2026-08-14'
+    )).toEqual([])
+  })
+
+  it('uses valid completed history from first attendance through the inclusive cutoff', () => {
+    const name = 'History Rules'
+    const runs = [
+      completedRun('2026-01-05', 'Mon', { [name]: false }),
+      completedRun('2026-01-07', 'Wed', { [name]: true }),
+      completedRun('2026-01-09', 'Fri', { [name]: true }),
+      completedRun('2026-01-12', 'Mon', { [name]: true }),
+      completedRun('2026-01-14', 'Wed', { [name]: false }, 0),
+      completedRun('2026-01-16', 'Fri', { [name]: false }),
+      completedRun(new Date('invalid'), 'Mon', { [name]: false }),
+    ]
+
+    expect(findUpcomingMilestones(totals([[name, 47]]), runs, '2026-01-12')).toEqual([
+      { name, currentRuns: 47, milestone: 50, runsNeeded: 3, chance: 1, label: 'Very likely' },
+    ])
+  })
+
+  it('uses only target runs after the cutoff for a manual mid-week retry', () => {
+    const runs = [
+      completedRun('2026-08-10', 'Mon', { 'One Away': true, 'Two Away': true }),
+      completedRun('2026-08-12', 'Wed', { 'One Away': true, 'Two Away': true }),
+      completedRun('2026-08-14', 'Fri', { 'One Away': true, 'Two Away': true }),
+      completedRun('2026-08-17', 'Mon', { 'One Away': true, 'Two Away': true }),
+      completedRun('2026-08-19', 'Wed', { 'One Away': true, 'Two Away': true }),
+    ]
+    const targetWeek = { weekStart: '2026-08-17', weekEnd: '2026-08-23' }
+
+    expect(findUpcomingMilestones(
+      totals([['One Away', 49], ['Two Away', 48]]),
+      runs,
+      '2026-08-19',
+      targetWeek
+    )).toEqual([
+      {
+        name: 'One Away',
+        currentRuns: 49,
+        milestone: 50,
+        runsNeeded: 1,
+        chance: 1,
+        label: 'Very likely',
+      },
+    ])
+  })
+
+  it('uses raw chance boundaries for inclusion and plain confidence labels', () => {
+    expect(getMilestoneForecastLabel(0.4, 1)).toBe('Possible')
+    expect(getMilestoneForecastLabel(0.5, 2)).toBe('Likely')
+    expect(getMilestoneForecastLabel(0.5 - Number.EPSILON, 2)).toBeNull()
+    expect(getMilestoneForecastLabel(0.5, 3)).toBe('Likely')
+    expect(getMilestoneForecastLabel(0.5 - Number.EPSILON, 3)).toBeNull()
+    expect(getMilestoneForecastLabel(0.8, 1)).toBe('Very likely')
+    expect(getMilestoneForecastLabel(0.8 - Number.EPSILON, 1)).toBe('Likely')
+  })
+
+  it('produces deterministic candidates for the same inputs', () => {
+    const memberTotals = totals([['Zoë', 49], ['Ámy', 49]])
+    const first = findUpcomingMilestones(memberTotals, [], '2026-08-14')
+    const second = findUpcomingMilestones(memberTotals, [], '2026-08-14')
+
+    expect(first).toEqual(second)
+    expect(first.map(({ name }) => name)).toEqual(['Ámy', 'Zoë'])
   })
 })
 
@@ -180,21 +301,28 @@ describe('formatMilestoneDigest', () => {
     expect(formatMilestoneDigest({ candidates: [], weekStart, cutoffDate })).toBeNull()
   })
 
-  it('formats one deterministic text and HTML digest with plural grammar', () => {
-    const candidates = findUpcomingMilestones(totals([
-      ['Sam Lee', 149],
-      ['Jane Doe', 99],
-    ]))
+  it('formats several forecast candidates with labels and singular or plural run needs', () => {
+    const candidates = [
+      digestCandidate({ milestone: 100, chance: 0.73123456789, label: 'Very likely' }),
+      digestCandidate({
+        name: 'Sam Lee',
+        milestone: 150,
+        runsNeeded: 2,
+        chance: 0.65,
+        label: 'Likely',
+      }),
+    ]
+    const chanceSentinel = String(candidates[0].chance)
 
     const digest = formatMilestoneDigest({ candidates, weekStart, cutoffDate })
 
     expect(digest).toMatchObject({
       subject: 'FCTC milestone runs — week of 17 Aug 2026',
       body: [
-        '2 runners are one recorded run from a milestone:',
+        '2 runners could reach a milestone this week:',
         '',
-        '- Jane Doe — 100th run',
-        '- Sam Lee — 150th run',
+        '- Jane Doe — 100th run — Very likely · needs 1 run',
+        '- Sam Lee — 150th run — Likely · needs 2 runs',
         '',
         'Based on FCTC attendance recorded through 16 Aug 2026.',
       ].join('\n'),
@@ -207,17 +335,18 @@ describe('formatMilestoneDigest', () => {
     expect(digest.html).toContain('WEEK OF 17 AUGUST 2026')
     expect(digest.html).toContain('MILESTONES<br>AHEAD')
     expect(digest.html).toContain('Jane Doe')
-    expect(digest.html).toContain('Approaching their 100th run')
+    expect(digest.html).toContain('Very likely &middot; needs 1 run for their 100th run')
     expect(digest.html).toContain('Sam Lee')
-    expect(digest.html).toContain('Approaching their 150th run')
+    expect(digest.html).toContain('Likely &middot; needs 2 runs for their 150th run')
     expect(digest.html).toContain('Attendance recorded through 16 Aug 2026.')
     expect(digest.html).toContain('href="https://fctc.fun/dashboard"')
     expect(digest.html).not.toContain('<img')
+    expect(`${digest.subject}\n${digest.body}\n${digest.html}`).not.toContain(chanceSentinel)
   })
 
   it('escapes candidate names before adding them to HTML', () => {
     const name = 'Alex & <Runner> "Quoted"'
-    const [candidate] = findUpcomingMilestones(totals([[name, 49]]))
+    const candidate = digestCandidate({ name })
 
     const digest = formatMilestoneDigest({ candidates: [candidate], weekStart, cutoffDate })
 
@@ -227,13 +356,15 @@ describe('formatMilestoneDigest', () => {
   })
 
   it('uses singular grammar for one candidate', () => {
-    const [candidate] = findUpcomingMilestones(totals([['Jane Doe', 49]]))
+    const candidate = digestCandidate()
 
     const digest = formatMilestoneDigest({ candidates: [candidate], weekStart, cutoffDate })
 
-    expect(digest.body).toContain('1 runner is one recorded run from a milestone:')
+    expect(digest.body).toContain('1 runner could reach a milestone this week:')
+    expect(digest.body).toContain('Possible · needs 1 run')
     expect(digest.html).toContain('One scoundrel could reach a landmark run this week.')
     expect(digest.html).toContain('One FCTC runner is approaching a milestone run this week.')
+    expect(digest.html).toContain('Possible &middot; needs 1 run for their 50th run')
     expect(digest.html).not.toContain('scoundrels could reach')
   })
 
@@ -260,13 +391,37 @@ describe('formatMilestoneDigest', () => {
   it('rejects an unsafe name supplied directly to the formatter without echoing it', () => {
     const name = 'Alice\u202eAdmin'
     const error = catchError(() => formatMilestoneDigest({
-      candidates: [{ name, currentRuns: 49, milestone: 50 }],
+      candidates: [digestCandidate({ name })],
       weekStart,
       cutoffDate,
     }))
 
     expect(error.message).toBe('Candidate name is unsafe')
     expect(error.message).not.toContain(name)
+  })
+
+  it.each([
+    [
+      'label',
+      digestCandidate({ label: '73.123456789% likely' }),
+      'Candidate label is invalid',
+    ],
+    [
+      'runs needed',
+      digestCandidate({ runsNeeded: 1.5 }),
+      'Candidate runs needed is invalid',
+    ],
+  ])('rejects invalid %s without echoing private forecast values', (_field, candidate, message) => {
+    const error = catchError(() => formatMilestoneDigest({
+      candidates: [candidate],
+      weekStart,
+      cutoffDate,
+    }))
+
+    expect(error.message).toBe(message)
+    expect(error.message).not.toContain(candidate.name)
+    expect(error.message).not.toContain(String(candidate.chance))
+    expect(error.message).not.toContain(String(candidate.label))
   })
 
   it('rejects a body over 64 KiB without echoing its content', () => {
@@ -286,8 +441,9 @@ describe('formatMilestoneDigest', () => {
   it('rejects HTML over 256 KiB while the text body remains within its limit', () => {
     const candidates = Array.from({ length: 300 }, (_, index) => ({
       name: `Runner ${String(index).padStart(4, '0')}`,
-      currentRuns: 49,
       milestone: 50,
+      runsNeeded: 1,
+      label: 'Likely',
     }))
 
     expect(() => formatMilestoneDigest({ candidates, weekStart, cutoffDate }))
@@ -310,8 +466,8 @@ describe('formatMilestoneDigest', () => {
       cutoffDate,
     })
 
-    expect(first.body).toContain('- Jane Doe — 50th run')
-    expect(next.body).toContain('- Jane Doe — 50th run')
+    expect(first.body).toContain('- Jane Doe — 50th run — Possible · needs 1 run')
+    expect(next.body).toContain('- Jane Doe — 50th run — Possible · needs 1 run')
     expect(next.subject).toBe('FCTC milestone runs — week of 24 Aug 2026')
   })
 })
