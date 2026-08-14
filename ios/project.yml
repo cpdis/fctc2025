@@ -98,6 +98,13 @@ targets:
     platform: iOS
     sources:
       - path: FCTCAttendanceKitTests
+      # U5 (orchestrator grant): the shared fixtures ship inside the test bundle, so
+      # Swift tests read them via `Bundle(for:)` instead of `#filePath` — which breaks
+      # the moment tests run from a build product rather than the source tree. A folder
+      # reference (not a group) means a new fixture file needs no `xcodegen generate`.
+      - path: ../fixtures/attendance
+        type: folder
+        buildPhase: resources
     dependencies:
       - target: FCTCAttendanceKit
     settings:

@@ -18,15 +18,19 @@ import Foundation
 
 public struct VoiceEntryParser: Sendable {
 
-    public init() {}
+    private let scanner: VoiceTranscriptScanner
+
+    public init(scanner: VoiceTranscriptScanner = VoiceTranscriptScanner()) {
+        self.scanner = scanner
+    }
 
     /// Parse a transcript into entities.
     ///
-    /// TODO(U7): tokenize, strip stop-phrases ("came", "said they", "turned up",
-    /// "plus", "and"), read spelled-out numbers, extract distance and guest count,
-    /// leave the rest as candidate names for `NameMatcher`.
+    /// U5 implemented the transcript rules in `VoiceTranscriptScanner` (the packet
+    /// gives stop-phrase stripping, spelled-out numbers and plus-ones parsing to U5's
+    /// heuristics); this type stays as the name U7 wires `SFSpeechRecognizer` up to.
     public func parse(transcript: String) -> ExtractedEntities {
-        .empty
+        scanner.scan(transcript: transcript)
     }
 }
 
