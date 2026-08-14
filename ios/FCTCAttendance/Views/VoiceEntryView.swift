@@ -34,24 +34,10 @@ struct VoiceEntryView: View {
     }
 
     var body: some View {
-        Group {
-            if let set = viewModel.proposalSet, viewModel.phase == .triage {
-                // Frozen U6 call site. The orchestrator replaces only the stand-in
-                // component file when U6 lands; this wiring stays unchanged.
-                ProposalTriageView(
-                    set: set,
-                    onApply: { checks in
-                        checklistViewModel.applyProposals(checks: checks, from: set)
-                        dismiss()
-                    },
-                    onAddPerson: addPerson,
-                    onCancel: viewModel.returnToRecording
-                )
-            } else {
-                captureView
-            }
-        }
-        .toolbar {
+        // Split into named pieces: one combined expression with the implicit
+        // sync-to-async closure conversions sends the type checker over time.
+        content
+            .toolbar {
             if viewModel.proposalSet == nil {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -79,15 +65,44 @@ struct VoiceEntryView: View {
         .onDisappear { viewModel.stop() }
         .alert(
             "Could not add person",
-            isPresented: Binding(
-                get: { addPersonError != nil },
-                set: { if !$0 { addPersonError = nil } }
-            )
+            isPresented: addPersonErrorShown
         ) {
             Button("OK") { addPersonError = nil }
         } message: {
             Text(addPersonError ?? "Try again.")
         }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let set = viewModel.proposalSet, viewModel.phase == .triage {
+            triageView(for: set)
+        } else {
+            captureView
+        }
+    }
+
+    /// The frozen U6 call site, isolated so its closure conversions type-check
+    /// on their own.
+    private func triageView(for set: DraftProposalSet) -> some View {
+        let apply: ([String]) -> Void = { checks in
+            checklistViewModel.applyProposals(checks: checks, from: set)
+            dismiss()
+        }
+        return ProposalTriageView(
+            set: set,
+            roster: checklistViewModel.roster,
+            onApply: apply,
+            onAddPerson: addPerson,
+            onCancel: viewModel.returnToRecording
+        )
+    }
+
+    private var addPersonErrorShown: Binding<Bool> {
+        Binding(
+            get: { addPersonError != nil },
+            set: { if !$0 { addPersonError = nil } }
+        )
     }
 
     private var captureView: some View {
