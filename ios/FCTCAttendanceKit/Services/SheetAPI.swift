@@ -164,11 +164,21 @@ public struct AddRunRequest: Codable, Hashable, Sendable {
 public struct AddMemberResult: Codable, Hashable, Sendable {
     public var roster: [RosterEntry]
     public var sheetRevision: String
+
+    public init(roster: [RosterEntry], sheetRevision: String) {
+        self.roster = roster
+        self.sheetRevision = sheetRevision
+    }
 }
 
 public struct AddRunResult: Codable, Hashable, Sendable {
     public var runs: [RunRecord]
     public var sheetRevision: String
+
+    public init(runs: [RunRecord], sheetRevision: String) {
+        self.runs = runs
+        self.sheetRevision = sheetRevision
+    }
 }
 
 public struct SheetConflict: Codable, Hashable, Sendable {
