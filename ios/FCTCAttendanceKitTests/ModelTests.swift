@@ -50,6 +50,9 @@ struct ModelTests {
 
         #expect(draft.attendees == ["Aaron", "Toby"])
         #expect(draft.plusOnes == 2)
+
+        draft.plusOnesOverride = 4
+        #expect(draft.plusOnes == 4)
     }
 
     @Test("A confirmed draft becomes an outbox row, guest names staying local")
@@ -73,6 +76,7 @@ struct ModelTests {
         #expect(pending.actualKm == 7.1)
         #expect(pending.mode == .merge)
         #expect(pending.status == .queued)
+        #expect(pending.state == .queued)
         #expect(pending.isOutstanding)
         #expect(pending.baseRevision == "rev-1")
     }
@@ -98,6 +102,12 @@ struct ModelTests {
     func memberOrdering() {
         let names = ["Dan B", "Aaron", "Col", "Alex Kr"]
         #expect(names.sorted(by: Member.sheetOrder) == ["Aaron", "Alex Kr", "Col", "Dan B"])
+    }
+
+    @Test("A member tracks whether its optimistic insert reached the sheet")
+    func memberIsNew() {
+        let member = Member(name: "Bilbo", colIndex: 8, isNew: true)
+        #expect(member.isNew)
     }
 
     @Test("Every persistent model is registered in the schema")

@@ -24,13 +24,22 @@ public final class Member {
     /// client-cached column number.
     public var colIndex: Int
 
+    /// True until an optimistic add-member write appears in the server roster.
+    public var isNew: Bool
+
     /// When this member was last seen in a `getState` roster. Members that vanish
     /// from the header (rare) are kept until a refresh proves them gone.
     public var lastSeenAt: Date
 
-    public init(name: String, colIndex: Int, lastSeenAt: Date = .now) {
+    public init(
+        name: String,
+        colIndex: Int,
+        isNew: Bool = false,
+        lastSeenAt: Date = .now
+    ) {
         self.name = name
         self.colIndex = colIndex
+        self.isNew = isNew
         self.lastSeenAt = lastSeenAt
     }
 }
