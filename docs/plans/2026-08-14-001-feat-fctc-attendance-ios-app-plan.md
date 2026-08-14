@@ -277,17 +277,20 @@ checkable rows — so the app borrows its idioms wholesale rather than inventing
   Code tooling on his Mac — U8 reuses that process rather than defining a new one
   (builds and uploads must run on the Mac regardless; agents in remote/Linux sessions
   cannot produce TestFlight builds).
+- **Q1 → resolved: yes** — overwrite mode may uncheck previously-recorded attendees;
+  the merge/overwrite dialog makes it deliberate.
+- **Q2 → resolved: guest names too.** The app captures guest *names*, not just a
+  count. The sheet's `+1's` column still receives only the count (no sheet-structure
+  change); names are stored in the app's local SwiftData store attached to the
+  submission (useful when guests later convert to members — "Add person" can promote
+  a known guest). Guest-name history syncs nowhere else for now.
+- **Q4 → resolved: View-votes screen.** The OCR parser is tuned for WhatsApp's
+  "View votes" detail layout; the one-time coach screen teaches this. A name-less
+  poll-card screenshot is detected and prompts the user to grab the votes view.
 
-## Open Questions (defaults chosen; flag if wrong)
+## Open Questions
 
-- **Q1.** Should unchecking a previously-recorded attendee (overwrite mode) be allowed
-  from the app? *Default: yes — the sheet is canonical and mistakes need fixing; the
-  merge/overwrite prompt makes it deliberate.*
-- **Q2.** Does `+1's` need names, or just a count? *Default: count only (matches the
-  sheet column).*
-- **Q4.** Is the WhatsApp poll's "View votes" screen the screenshot Aaron would
-  naturally take? The OCR path is tuned for it; the plain poll card (names hidden)
-  only yields counts, not names.
+None — all resolved 2026-08-14.
 
 ---
 
@@ -360,9 +363,10 @@ contract freezes (mocks let U4–U6 start even earlier).
 - **U4 — Checklist modality + Review & Confirm + run picker** (dep: U3 interfaces).
   Reminders-idiom UI per the Design Language section: home "list of lists",
   grouped-inset checklist with circular check toggles, quick-add "Add person…" row
-  (calls `addMember`, optimistic insert), +1 stepper and kms detail rows (decimal
-  pad, pre-filled with `Approx kms`), default-run selection rule (R7), provenance
-  badges, merge/overwrite dialog, outbox screen. *Accept:* UI tests: happy path,
+  (calls `addMember`, optimistic insert), guest entry (names, stored locally; count
+  derived for the sheet's `+1's`) and kms detail rows (decimal pad, pre-filled with
+  `Approx kms`), default-run selection rule (R7), provenance badges,
+  merge/overwrite dialog, outbox screen. *Accept:* UI tests: happy path,
   already-recorded-row warning, offline queue; visual pass against Reminders idioms.
 - **U5 — NameMatcher + extractors** (dep: none after U1 — pure Swift). Normalization,
   fuzzy scoring, nickname table, ambiguity rule (near-collision roster names never
