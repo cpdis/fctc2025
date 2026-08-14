@@ -130,15 +130,29 @@ Configure these at the top of `.github/workflows/weekly-data-sync.yml`:
 
 The same `Weekly Data Sync` workflow checks milestones after the CSV sync. It reads every
 season registered in `src/config/years.js` and calculates exact all-time attendance from the
-CSV run rows. A member qualifies when their total is `50n - 1`, such as 49, 99, or 149 runs.
-The same member can qualify again next week if their recorded total does not change.
+CSV run rows. For each member, it forecasts their next positive multiple of 50 across the
+fixed next Monday, Wednesday, and Friday opportunities. The forecast uses all completed
+registered-season history through the inclusive cutoff, starting with the member's first
+recorded attendance.
+
+The forecast calculates a separate recency-weighted attendance rate for each weekday. Older
+history loses half its weight after eight opportunities on the same weekday. It combines the
+three rates as an independent three-event approximation. A member who is exactly one run away
+is always included. Members who are two or three runs away are included when their raw chance
+is at least 50%. Members more than three runs away are excluded.
+
+The email shows `Very likely` for a raw chance of at least 80%, `Likely` for at least 50%, and
+`Possible` for a one-away member below 50%. It never shows the exact chance. These labels are
+heuristic. Cancellations, special schedules, and correlated absences can make the fixed
+forecast wrong. The same member can qualify again next week if their recorded total does not
+change.
 
 The feature creates one branded HTML digest for all candidates and keeps the same plain-text
 content as a fallback. It sends a separate copy to each recipient through the
 [Resend batch API](https://resend.com/docs/api-reference/emails/send-batch-emails), so
 recipients do not see other addresses. The HTML uses inline styles, email-safe fonts, and no
-remote images. A normal preview or send with no candidates stops before any provider request.
-The feature has no backend, database, or notification history.
+remote images. A normal preview or send with no candidates creates no email and stops before
+any Resend request. The feature has no backend, database, or notification history.
 
 The exact CSV header is the member identity across seasons. Keep a member's header text
 unchanged. A rename creates a separate identity and splits the all-time total.
