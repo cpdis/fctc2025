@@ -85,6 +85,8 @@ targets:
     platform: iOS
     sources:
       - path: FCTCAttendanceKit
+    dependencies:
+      - sdk: Security.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance.kit
@@ -114,6 +116,18 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance.kit-tests
         GENERATE_INFOPLIST_FILE: YES
 
+  FCTCAttendanceUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: FCTCAttendanceUITests
+    dependencies:
+      - target: FCTCAttendance
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance.ui-tests
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   FCTCAttendance:
     build:
@@ -127,6 +141,7 @@ schemes:
       gatherCoverageData: true
       targets:
         - FCTCAttendanceKitTests
+        - FCTCAttendanceUITests
     archive:
       config: Release
 

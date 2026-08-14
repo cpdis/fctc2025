@@ -1,0 +1,4 @@
+Target dependency graph (2 targets)
+Target 'FCTCAttendance' in project 'FCTCAttendance'
+➜ Explicit dependency on target 'FCTCAttendanceKit' in project 'FCTCAttendance'
+Target 'FCTCAttendanceKit' in project 'FCTCAttendance' (no dependencies)

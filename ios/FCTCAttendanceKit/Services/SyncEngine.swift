@@ -15,9 +15,9 @@ import SwiftData
 public actor SyncEngine: ModelActor, SyncEngineClient {
     public nonisolated let modelExecutor: any ModelExecutor
     public nonisolated let modelContainer: ModelContainer
-    public nonisolated let events: AsyncStream<SyncEvent>
+    public nonisolated var events: AsyncStream<SyncEvent> { eventBroadcaster.stream() }
 
-    private let eventContinuation: AsyncStream<SyncEvent>.Continuation
+    private nonisolated let eventBroadcaster: SyncEventBroadcaster
     private let api: any SheetAPIClient
     private let clock: any SyncClock
     private let retryPolicy: RetryPolicy
@@ -34,11 +34,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         retryPolicy: RetryPolicy = .default,
         automaticallyDrains: Bool = true
     ) {
-        var capturedContinuation: AsyncStream<SyncEvent>.Continuation?
-        self.events = AsyncStream(bufferingPolicy: .bufferingNewest(100)) { continuation in
-            capturedContinuation = continuation
-        }
-        self.eventContinuation = capturedContinuation!
+        self.eventBroadcaster = SyncEventBroadcaster()
         let context = ModelContext(modelContainer)
         context.autosaveEnabled = false
         let dateFormatter = DateFormatter()
@@ -55,14 +51,14 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
     }
 
     deinit {
-        eventContinuation.finish()
+        eventBroadcaster.finish()
     }
 
     public func refreshState() async throws -> SheetState {
         let state = try await api.getState()
         try reconcile(state, seenAt: await clock.now())
         try modelContext.save()
-        eventContinuation.yield(.rosterRefreshed(state))
+        eventBroadcaster.yield(.rosterRefreshed(state))
         startAutomaticDrainIfNeeded()
         return state
     }
@@ -118,8 +114,15 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         }
 
         do {
+            let queued = SubmissionStatus.queued.rawValue
+            let inFlight = SubmissionStatus.inFlight.rawValue
             let rows = try modelContext.fetch(
-                FetchDescriptor<PendingSubmission>(sortBy: [SortDescriptor(\.createdAt)])
+                FetchDescriptor<PendingSubmission>(
+                    predicate: #Predicate {
+                        $0.stateRaw == queued || $0.stateRaw == inFlight
+                    },
+                    sortBy: [SortDescriptor(\.createdAt)]
+                )
             )
             // An app termination can leave a row marked in-flight. Requeue it because
             // the payload is absolute and safe to send again.
@@ -141,19 +144,83 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
     /// Insert immediately for responsive UI, then replace coordinates with the
     /// authoritative roster returned by the sheet.
     public func addMember(name: String) async throws -> AddMemberResult {
-        try optimisticInsertMember(name: name)
-        let result = try await api.addMember(name: name)
-        try reconcileRoster(result.roster, seenAt: await clock.now())
-        try updateCachedRevision(result.sheetRevision)
-        try modelContext.save()
-        return result
+        let inserted = try optimisticInsertMember(name: name)
+        do {
+            let result = try await api.addMember(name: name)
+            try reconcileRoster(result.roster, seenAt: await clock.now())
+            try updateCachedRevision(result.sheetRevision)
+            try modelContext.save()
+            return result
+        } catch {
+            // A failed sheet write must not leave a local-only person that the UI
+            // mistakes for a canonical member on the next attempt.
+            if inserted { try? rollbackOptimisticMember(name: name) }
+            throw error
+        }
     }
 
     public func addRun(_ request: AddRunRequest) async throws -> AddRunResult {
         let result = try await api.addRun(request)
-        try reconcileRuns(result.runs, revision: result.sheetRevision, seasonYear: 0)
+        let fallbackDate = await clock.now()
+        let seasonYear = try cachedSeasonYear(fallbackDate: fallbackDate)
+        try reconcileRuns(
+            result.runs,
+            revision: result.sheetRevision,
+            seasonYear: seasonYear
+        )
         try modelContext.save()
         return result
+    }
+
+    /// Close a conflict and, for merge or overwrite, queue the same local opinion
+    /// against the fresh server revision. The old row remains retained history.
+    public func resolveConflict(
+        id: UUID,
+        action: ConflictResolutionAction
+    ) async throws -> UUID? {
+        guard let conflicted = try pending(id: id), conflicted.status == .conflict else {
+            throw SyncEngineError.conflictNotFound
+        }
+
+        if action == .discard {
+            conflicted.status = .done
+            conflicted.lastError = nil
+            conflicted.clearConflict()
+            try modelContext.save()
+            return nil
+        }
+
+        guard let state = conflicted.conflictState else {
+            throw SyncEngineError.missingConflictState
+        }
+        let serverRun = state.runs.first {
+            $0.date == conflicted.expectedDate && $0.run == conflicted.expectedRun
+        } ?? state.runs.first { $0.rowIndex == conflicted.rowIndex }
+
+        let replacement = PendingSubmission(
+            rowIndex: serverRun?.rowIndex ?? conflicted.rowIndex,
+            expectedDate: serverRun?.date ?? conflicted.expectedDate,
+            expectedRun: serverRun?.run ?? conflicted.expectedRun,
+            attendees: conflicted.attendees,
+            guestNames: conflicted.guestNames,
+            plusOnes: conflicted.plusOnes,
+            actualKm: conflicted.actualKm,
+            mode: action == .overwrite ? .overwrite : .merge,
+            status: .queued,
+            baseRevision: state.sheetRevision,
+            createdAt: await clock.now(),
+            deviceName: conflicted.deviceName
+        )
+        // Preserve a nil wire value as "no opinion".
+        replacement.plusOnesValue = conflicted.plusOnes
+        conflicted.status = .done
+        conflicted.lastError = nil
+        conflicted.clearConflict()
+        modelContext.insert(replacement)
+        try modelContext.save()
+        eventBroadcaster.yield(.queued(id: replacement.id))
+        startAutomaticDrainIfNeeded()
+        return replacement.id
     }
 
     // MARK: Queue loop
@@ -161,7 +228,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
     private func persistAndStart(_ pending: PendingSubmission) throws -> UUID {
         modelContext.insert(pending)
         try modelContext.save()
-        eventContinuation.yield(.queued(id: pending.id))
+        eventBroadcaster.yield(.queued(id: pending.id))
         startAutomaticDrainIfNeeded()
         return pending.id
     }
@@ -204,7 +271,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                 }
                 submission = snapshot
             } catch {
-                eventContinuation.yield(.failed(id: id, message: String(describing: error)))
+                eventBroadcaster.yield(.failed(id: id, message: String(describing: error)))
                 return
             }
 
@@ -213,7 +280,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                 switch outcome {
                 case .written(_, let revision):
                     try finish(id: id, submission: submission, revision: revision)
-                    eventContinuation.yield(.written(id: id))
+                    eventBroadcaster.yield(.written(id: id))
                 case .conflict(let reason, let message, let state):
                     let seenAt = await clock.now()
                     if reason == "stale_revision", state.satisfies(submission) {
@@ -226,7 +293,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                             state: state,
                             seenAt: seenAt
                         )
-                        eventContinuation.yield(.written(id: id))
+                        eventBroadcaster.yield(.written(id: id))
                     } else {
                         try recordConflict(
                             id: id,
@@ -235,7 +302,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                             state: state,
                             seenAt: seenAt
                         )
-                        eventContinuation.yield(
+                        eventBroadcaster.yield(
                             .conflict(id: id, reason: reason, message: message, state: state)
                         )
                     }
@@ -244,11 +311,11 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
             } catch let error as SheetAPIError {
                 try? markQueued(id: id, message: error.localizedDescription)
                 if !error.isRetryable {
-                    eventContinuation.yield(.failed(id: id, message: error.localizedDescription))
+                    eventBroadcaster.yield(.failed(id: id, message: error.localizedDescription))
                     return
                 }
                 if attempt == retryPolicy.maxAttempts {
-                    eventContinuation.yield(.parked(id: id, message: error.localizedDescription))
+                    eventBroadcaster.yield(.parked(id: id, message: error.localizedDescription))
                     return
                 }
             } catch {
@@ -256,7 +323,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                 // like a network failure; the concrete SheetAPI already normalizes it.
                 try? markQueued(id: id, message: String(describing: error))
                 if attempt == retryPolicy.maxAttempts {
-                    eventContinuation.yield(.parked(id: id, message: String(describing: error)))
+                    eventBroadcaster.yield(.parked(id: id, message: String(describing: error)))
                     return
                 }
             }
@@ -458,11 +525,11 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         run.cachedRevision = revision
     }
 
-    private func optimisticInsertMember(name: String) throws {
+    private func optimisticInsertMember(name: String) throws -> Bool {
         let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let members = try modelContext.fetch(FetchDescriptor<Member>())
         guard !members.contains(where: { canonicalName($0.name) == canonicalName(cleanName) }) else {
-            return
+            return false
         }
 
         let sorted = (members.map(\.name) + [cleanName]).sorted(by: Member.sheetOrder)
@@ -472,6 +539,36 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         for member in members where member.colIndex >= newColumn { member.colIndex += 1 }
         modelContext.insert(Member(name: cleanName, colIndex: newColumn, isNew: true))
         try modelContext.save()
+        return true
+    }
+
+    private func rollbackOptimisticMember(name: String) throws {
+        let key = canonicalName(name)
+        let members = try modelContext.fetch(FetchDescriptor<Member>())
+        guard let inserted = members.first(where: {
+            $0.isNew && canonicalName($0.name) == key
+        }) else {
+            return
+        }
+
+        let removedColumn = inserted.colIndex
+        modelContext.delete(inserted)
+        for member in members where member !== inserted && member.colIndex > removedColumn {
+            member.colIndex -= 1
+        }
+        try modelContext.save()
+    }
+
+    private func cachedSeasonYear(fallbackDate: Date) throws -> Int {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let runs = try modelContext.fetch(
+            FetchDescriptor<ScheduledRun>(sortBy: [SortDescriptor(\.rowIndex)])
+        )
+        if let scheduledAt = runs.compactMap(\.scheduledAt).first {
+            return calendar.component(.year, from: scheduledAt)
+        }
+        return calendar.component(.year, from: fallbackDate)
     }
 
     private func updateCachedRevision(_ revision: String) throws {
@@ -488,6 +585,18 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
     private func parseDate(_ value: String, seasonYear: Int) -> Date? {
         guard seasonYear > 0 else { return nil }
         return dateFormatter.date(from: "\(value)-\(seasonYear)")
+    }
+}
+
+public enum SyncEngineError: LocalizedError, Sendable, Equatable {
+    case conflictNotFound
+    case missingConflictState
+
+    public var errorDescription: String? {
+        switch self {
+        case .conflictNotFound: "This conflict no longer needs resolution."
+        case .missingConflictState: "This conflict has no server snapshot. Refresh and try again."
+        }
     }
 }
 

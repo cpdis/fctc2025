@@ -1,0 +1,66 @@
+{
+  "fixture": "poll-2.ocr.txt",
+  "kind": "poll-ocr",
+  "season": 2026,
+  "notes": [
+    "The hard poll: WhatsApp shows each voter's own contact display name, which is often",
+    "the long form the sheet stores short, and sometimes only a first name that collides.",
+    "Ambiguity rule (plan, Design of NameMatcher): a first-name-only hit must SUGGEST all",
+    "candidates and auto-pick none — 'Alex', 'Dan' and 'Laura' are the real 2026 collisions.",
+    "'Dan' is listed as ambiguous even though it is itself a roster key: with 'Dan B' also",
+    "on the roster the app must ask rather than guess. If U5 decides exact-key equality",
+    "should win instead, change it in the plan first, then here.",
+    "Nickname/long-form mappings exercised: 'Colin' -> 'Col', 'Alex Kravchenko' -> 'Alex Kr'.",
+    "OCR damage exercised: 'Cel este' (word split) -> 'Celeste', 'Tarquln' (l/i confusion)",
+    "-> 'Tarquin'."
+  ],
+  "isVoteDetailScreen": true,
+  "options": [
+    {
+      "label": "Yes",
+      "voteCount": 11,
+      "isAffirmative": true,
+      "rawNames": [
+        "Alex",
+        "Alex Kravchenko",
+        "Colin",
+        "Dan",
+        "Laura",
+        "Cel este",
+        "Tarquln",
+        "Kate B",
+        "Ming",
+        "Rhys",
+        "Wes"
+      ]
+    },
+    {
+      "label": "No",
+      "voteCount": 2,
+      "isAffirmative": false,
+      "rawNames": ["Deano", "Toby"]
+    }
+  ],
+  "candidateNames": [
+    "Alex",
+    "Alex Kravchenko",
+    "Colin",
+    "Dan",
+    "Laura",
+    "Cel este",
+    "Tarquln",
+    "Kate B",
+    "Ming",
+    "Rhys",
+    "Wes",
+    "Deano",
+    "Toby"
+  ],
+  "names": ["Alex Kr", "Celeste", "Col", "Kate B", "Ming", "Rhys", "Tarquin", "Wes"],
+  "ambiguous": [
+    { "raw": "Alex", "candidates": ["Alex 👑", "Alex B", "Alex Kr"] },
+    { "raw": "Dan", "candidates": ["Dan", "Dan B"] },
+    { "raw": "Laura", "candidates": ["Laura E", "Laura K"] }
+  ],
+  "unmatchedRaw": []
+}

@@ -1,0 +1,87 @@
+{
+  "fixture": "poll-1.ocr.txt",
+  "kind": "poll-ocr",
+  "season": 2026,
+  "notes": [
+    "WhatsApp 'View votes' detail screen for a straight Yes/No/Maybe poll.",
+    "Chrome lines the parser must drop: '9:41', 'Poll', the group name, the question,",
+    "'Select one or more', and each 'Yes ✓ 13 votes' style option header.",
+    "'Scot t' is a realistic Vision word-split of 'Scott' — fuzzy matching must recover it.",
+    "'Priya B' is a guest who voted in the group but is not on the roster: unmatched,",
+    "offered as add-as-new or map-to-existing.",
+    "Poll 'yes' is NOT attendance: 'names' is only the PRE-CHECK proposal set, which the",
+    "human edits on the Review screen before anything reaches the sheet."
+  ],
+  "isVoteDetailScreen": true,
+  "options": [
+    {
+      "label": "Yes",
+      "voteCount": 13,
+      "isAffirmative": true,
+      "rawNames": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Dan B",
+        "Grant",
+        "Joe",
+        "Laura K",
+        "Priya B",
+        "Scot t",
+        "Tim",
+        "Toby"
+      ]
+    },
+    {
+      "label": "No",
+      "voteCount": 4,
+      "isAffirmative": false,
+      "rawNames": ["Anna", "Claire", "Fraser", "Rhys"]
+    },
+    {
+      "label": "Maybe",
+      "voteCount": 2,
+      "isAffirmative": false,
+      "rawNames": ["Ming", "Sam"]
+    }
+  ],
+  "candidateNames": [
+    "Aaron",
+    "Adam",
+    "Alex 👑",
+    "Cam",
+    "Col",
+    "Dan B",
+    "Grant",
+    "Joe",
+    "Laura K",
+    "Priya B",
+    "Scot t",
+    "Tim",
+    "Toby",
+    "Anna",
+    "Claire",
+    "Fraser",
+    "Rhys",
+    "Ming",
+    "Sam"
+  ],
+  "names": [
+    "Aaron",
+    "Adam",
+    "Alex 👑",
+    "Cam",
+    "Col",
+    "Dan B",
+    "Grant",
+    "Joe",
+    "Laura K",
+    "Scott",
+    "Tim",
+    "Toby"
+  ],
+  "ambiguous": [],
+  "unmatchedRaw": ["Priya B"]
+}

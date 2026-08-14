@@ -1,0 +1,75 @@
+{
+  "buildCommand" : {
+    "command" : "build",
+    "skipDependencies" : false,
+    "style" : "buildOnly"
+  },
+  "configuredTargets" : [
+    {
+      "guid" : "e2996fc57bef7c7be1f777905c1d6af162c18dd50f0d0fc96f377db774da7a25"
+    },
+    {
+      "guid" : "e2996fc57bef7c7be1f777905c1d6af1809b35edcf7050fb0dd4897afdc29f21"
+    }
+  ],
+  "containerPath" : "/tmp/claude-501/-Users-colin-Documents-Personal-Projects-FCTC-Dashboard/ecc11dbb-2d38-47a6-926c-2493c20aed92/scratchpad/u4-ui/ios/FCTCAttendance.xcodeproj",
+  "continueBuildingAfterErrors" : false,
+  "dependencyScope" : "workspace",
+  "enableIndexBuildArena" : false,
+  "hideShellScriptEnvironment" : false,
+  "parameters" : {
+    "action" : "build",
+    "activeArchitecture" : "arm64",
+    "activeRunDestination" : {
+      "disableOnlyActiveArch" : false,
+      "hostTargetedPlatform" : null,
+      "platform" : "iphonesimulator",
+      "sdk" : "iphonesimulator26.5",
+      "sdkVariant" : "iphonesimulator",
+      "supportedArchitectures" : [
+        "arm64"
+      ],
+      "targetArchitecture" : "arm64"
+    },
+    "arenaInfo" : {
+      "buildIntermediatesPath" : "/tmp/claude-501/-Users-colin-Documents-Personal-Projects-FCTC-Dashboard/ecc11dbb-2d38-47a6-926c-2493c20aed92/scratchpad/u4-ui/ios/.ddata/Build/Intermediates.noindex",
+      "buildProductsPath" : "/tmp/claude-501/-Users-colin-Documents-Personal-Projects-FCTC-Dashboard/ecc11dbb-2d38-47a6-926c-2493c20aed92/scratchpad/u4-ui/ios/.ddata/Build/Products",
+      "derivedDataPath" : "/tmp/claude-501/-Users-colin-Documents-Personal-Projects-FCTC-Dashboard/ecc11dbb-2d38-47a6-926c-2493c20aed92/scratchpad/u4-ui/ios/.ddata",
+      "indexDataStoreFolderPath" : "/tmp/claude-501/-Users-colin-Documents-Personal-Projects-FCTC-Dashboard/ecc11dbb-2d38-47a6-926c-2493c20aed92/scratchpad/u4-ui/ios/.ddata/Index.noindex/DataStore",
+      "indexEnableDataStore" : true,
+      "indexPCHPath" : "/tmp/claude-501/-Users-colin-Documents-Personal-Projects-FCTC-Dashboard/ecc11dbb-2d38-47a6-926c-2493c20aed92/scratchpad/u4-ui/ios/.ddata/Index.noindex/PrecompiledHeaders",
+      "pchPath" : "/tmp/claude-501/-Users-colin-Documents-Personal-Projects-FCTC-Dashboard/ecc11dbb-2d38-47a6-926c-2493c20aed92/scratchpad/u4-ui/ios/.ddata/Build/Intermediates.noindex/PrecompiledHeaders"
+    },
+    "configurationName" : "Debug",
+    "overrides" : {
+      "commandLine" : {
+        "table" : {
+          "CODE_SIGNING_ALLOWED" : "NO"
+        }
+      },
+      "synthesized" : {
+        "table" : {
+          "ACTION" : "build",
+          "ASSETCATALOG_FILTER_FOR_DEVICE_MODEL" : "iPhone18,1",
+          "ASSETCATALOG_FILTER_FOR_DEVICE_OS_VERSION" : "26.5",
+          "ASSETCATALOG_FILTER_FOR_THINNING_DEVICE_CONFIGURATION" : "iPhone18,1",
+          "BUILD_ACTIVE_RESOURCES_ONLY" : "YES",
+          "CLANG_COVERAGE_MAPPING" : "YES",
+          "CLANG_PROFILE_DATA_DIRECTORY" : "/tmp/claude-501/-Users-colin-Documents-Personal-Projects-FCTC-Dashboard/ecc11dbb-2d38-47a6-926c-2493c20aed92/scratchpad/u4-ui/ios/.ddata/Build/ProfileData",
+          "ENABLE_PREVIEWS" : "NO",
+          "ENABLE_XOJIT_PREVIEWS" : "YES",
+          "TARGET_DEVICE_IDENTIFIER" : "819571DB-82BB-45B0-9776-58E7CC948958",
+          "TARGET_DEVICE_MODEL" : "iPhone18,1",
+          "TARGET_DEVICE_OS_VERSION" : "26.5",
+          "TARGET_DEVICE_PLATFORM_NAME" : "iphonesimulator"
+        }
+      }
+    }
+  },
+  "schemeCommand" : "launch",
+  "showNonLoggedProgress" : true,
+  "useDryRun" : false,
+  "useImplicitDependencies" : true,
+  "useLegacyBuildLocations" : false,
+  "useParallelTargets" : true
+}
