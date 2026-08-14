@@ -23,6 +23,7 @@ struct ChecklistView: View {
     @State private var viewModel: ChecklistViewModel
     @State private var searchText = ""
     @State private var showingRecordedChoice = false
+    @State private var showingVoiceEntry = false
 
     init(
         runtime: AppRuntime,
@@ -121,6 +122,16 @@ struct ChecklistView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Find a person")
         .toolbar {
+            // U7 VOICE TOOLBAR BLOCK — keep isolated for the U6 toolbar merge.
+            ToolbarItem(placement: .secondaryAction) {
+                Button("Dictate…", systemImage: "waveform") {
+                    showingVoiceEntry = true
+                }
+                .accessibilityHint("Dictate names, guests, and actual kilometres.")
+                .accessibilityIdentifier("dictate-attendance")
+            }
+            // END U7 VOICE TOOLBAR BLOCK.
+
             ToolbarItem(placement: .confirmationAction) {
                 Button("Confirm") {
                     if viewModel.requiresRecordedChoice {
@@ -137,6 +148,11 @@ struct ChecklistView: View {
                         : "Change attendance before confirming."
                 )
                 .accessibilityIdentifier("confirm-attendance")
+            }
+        }
+        .sheet(isPresented: $showingVoiceEntry) {
+            NavigationStack {
+                VoiceEntryView(checklistViewModel: viewModel)
             }
         }
         .confirmationDialog(
