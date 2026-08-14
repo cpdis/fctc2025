@@ -30,6 +30,11 @@ const SMOKE_TEXT = [
   '',
   'No attendance data is included.',
 ].join('\n')
+const SMOKE_DIGEST = Object.freeze({
+  candidates: [{ name: 'FCTC Test Runner', currentRuns: 49, milestone: 50 }],
+  weekStart: '2026-01-05',
+  cutoffDate: '2026-01-04',
+})
 
 export class MilestoneDigestError extends Error {
   constructor(category, message) {
@@ -119,12 +124,17 @@ export function parseRecipients(value) {
   return sorted
 }
 
-export function buildBatchItems({ recipients, from, subject, text }) {
+export function buildBatchItems({ recipients, from, subject, text, html }) {
+  if (typeof html !== 'string' || html.length === 0) {
+    throw new MilestoneDigestError('content', 'Email HTML is invalid')
+  }
+
   return recipients.map((recipient) => ({
     from,
     to: [recipient],
     subject,
     text,
+    html,
   }))
 }
 
@@ -219,6 +229,7 @@ export async function runMilestoneDigest({
     from,
     subject: digest.subject,
     text: digest.body,
+    html: digest.html,
   })
 
   let providerResult
@@ -266,11 +277,13 @@ async function runSmoke({ env, now, week, sendBatchImpl }) {
     throw new MilestoneDigestError('smoke_recipient', 'Smoke recipient configuration is invalid')
   }
   const from = validateSender(env.MILESTONE_FROM)
+  const smokeDigest = formatMilestoneDigest(SMOKE_DIGEST)
   const items = buildBatchItems({
     recipients,
     from,
     subject: SMOKE_SUBJECT,
     text: SMOKE_TEXT,
+    html: smokeDigest.html,
   })
   const providerResult = await sendBatchImpl({
     apiKey,

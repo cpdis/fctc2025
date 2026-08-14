@@ -166,6 +166,7 @@ describe('buildBatchItems', () => {
       from: 'FCTC Milestones <runs@notifications.fctc.cpd.dev>',
       subject: 'Subject',
       text: 'Body',
+      html: '<p>Body</p>',
     })
 
     expect(items).toEqual([
@@ -174,14 +175,25 @@ describe('buildBatchItems', () => {
         to: ['one@example.com'],
         subject: 'Subject',
         text: 'Body',
+        html: '<p>Body</p>',
       },
       {
         from: 'FCTC Milestones <runs@notifications.fctc.cpd.dev>',
         to: ['two@example.com'],
         subject: 'Subject',
         text: 'Body',
+        html: '<p>Body</p>',
       },
     ])
+  })
+
+  it('rejects a missing HTML part', () => {
+    expect(() => buildBatchItems({
+      recipients: ['one@example.com'],
+      from: 'FCTC Milestones <runs@notifications.fctc.cpd.dev>',
+      subject: 'Subject',
+      text: 'Body',
+    })).toThrow('Email HTML is invalid')
   })
 })
 
@@ -269,6 +281,9 @@ describe('runMilestoneDigest', () => {
     ])
     expect(request.items[0].text).toContain('Jane Doe')
     expect(request.items[0].text).toBe(request.items[1].text)
+    expect(request.items[0].html).toContain('Jane Doe')
+    expect(request.items[0].html).toContain('href="https://fctc.fun/dashboard"')
+    expect(request.items[0].html).toBe(request.items[1].html)
   })
 
   it('sends fixed smoke content without reading attendance data', async () => {
@@ -300,6 +315,9 @@ describe('runMilestoneDigest', () => {
     })
     expect(request.items[0].text).not.toContain('Jane Doe')
     expect(request.items[0].text).not.toContain('run from')
+    expect(request.items[0].html).toContain('FCTC Test Runner')
+    expect(request.items[0].html).toContain('Approaching their 50th run')
+    expect(request.items[0].html).not.toContain('Jane Doe')
   })
 
   it('writes a safe failed state when the smoke provider request fails', async () => {

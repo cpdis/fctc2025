@@ -1,6 +1,8 @@
 const PERTH_TIME_ZONE = 'Australia/Perth'
 const MAX_NAME_CODE_POINTS = 200
 const MAX_BODY_BYTES = 64 * 1024
+const MAX_HTML_BYTES = 256 * 1024
+const MILESTONE_COLORS = ['#d75b77', '#e8442c', '#ff7a30']
 
 // Keep the sort independent from the machine locale. The code-point tie-breakers
 // also make canonically equivalent or case-equivalent names deterministic.
@@ -22,6 +24,13 @@ const DISPLAY_DATE_FORMATTER = new Intl.DateTimeFormat('en-AU', {
   timeZone: 'UTC',
   day: 'numeric',
   month: 'short',
+  year: 'numeric',
+})
+
+const EMAIL_DATE_FORMATTER = new Intl.DateTimeFormat('en-AU', {
+  timeZone: 'UTC',
+  day: 'numeric',
+  month: 'long',
   year: 'numeric',
 })
 
@@ -107,16 +116,16 @@ export function getAttendanceCutoff(runs) {
 }
 
 /**
- * Format one deterministic plain-text digest, or return null when no content is
- * needed. Candidate validation is repeated here so direct callers cannot bypass
- * the untrusted-name boundary enforced by findUpcomingMilestones().
+ * Format one deterministic text and HTML digest, or return null when no content
+ * is needed. Candidate validation is repeated here so direct callers cannot
+ * bypass the untrusted-name boundary enforced by findUpcomingMilestones().
  *
  * @param {{
  *   candidates: Array<{ name: string, currentRuns: number, milestone: number }>,
  *   weekStart: string,
  *   cutoffDate: string | null,
  * }} input
- * @returns {{ subject: string, body: string } | null}
+ * @returns {{ subject: string, body: string, html: string } | null}
  */
 export function formatMilestoneDigest({ candidates, weekStart, cutoffDate }) {
   if (!Array.isArray(candidates)) throw new Error('Candidates must be an array')
@@ -149,10 +158,172 @@ export function formatMilestoneDigest({ candidates, weekStart, cutoffDate }) {
     throw new Error('Milestone digest exceeds 64 KiB')
   }
 
+  const html = formatMilestoneHtml({
+    candidates: sortedCandidates,
+    formattedWeekStart: formatIsoCalendarDate(
+      weekStart,
+      'Target week is invalid',
+      EMAIL_DATE_FORMATTER
+    ).toUpperCase(),
+    formattedCutoff,
+  })
+
+  if (new TextEncoder().encode(html).byteLength > MAX_HTML_BYTES) {
+    throw new Error('Milestone HTML exceeds 256 KiB')
+  }
+
   return {
     subject: `FCTC milestone runs — week of ${formattedWeekStart}`,
     body,
+    html,
   }
+}
+
+/** Build email-client-safe markup with inline styles and no remote assets. */
+function formatMilestoneHtml({ candidates, formattedWeekStart, formattedCutoff }) {
+  const count = candidates.length
+  const intro = count === 1
+    ? 'One scoundrel could reach a landmark run this week. Keep an eye out and make some noise.'
+    : `${count} scoundrels could reach a landmark run this week. Keep an eye out and make some noise.`
+  const preheader = count === 1
+    ? 'One FCTC runner is approaching a milestone run this week.'
+    : `${count} FCTC runners are approaching milestone runs this week.`
+  const rows = candidates.map(({ name, milestone }, index) => {
+    const color = MILESTONE_COLORS[index % MILESTONE_COLORS.length]
+    const topBorder = index === 0 ? '2px solid #1c1410' : '1px solid #d9d5d1'
+    const bottomBorder = index === candidates.length - 1 ? ' border-bottom: 2px solid #1c1410;' : ''
+
+    return `
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width: 100%; border-collapse: collapse; border-top: ${topBorder};${bottomBorder}">
+                  <tr>
+                    <td class="milestone-number" width="108" valign="middle" style="width: 108px; padding: 24px 0 22px; color: ${color}; font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif; font-size: 58px; line-height: 1; font-variant-numeric: tabular-nums;">
+                      ${milestone}
+                    </td>
+                    <td valign="middle" style="padding: 24px 0 22px 20px;">
+                      <p class="member-name" style="margin: 0; color: #1c1410; font-family: Arial, Helvetica, sans-serif; font-size: 24px; font-weight: 700; line-height: 30px;">
+                        ${escapeHtml(name)}
+                      </p>
+                      <p style="margin: 5px 0 0; color: #6f5f53; font-family: 'Courier New', Courier, monospace; font-size: 12px; line-height: 18px; letter-spacing: 0.8px; text-transform: uppercase;">
+                        Approaching their ${formatOrdinal(milestone)} run
+                      </p>
+                    </td>
+                  </tr>
+                </table>`
+  }).join('')
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FCTC milestones</title>
+    <style>
+      html, body { margin: 0; padding: 0; background: #ffffff; }
+      table { border-collapse: collapse; }
+      @media only screen and (max-width: 640px) {
+        .email-shell { width: 100% !important; border-right: 0 !important; border-left: 0 !important; }
+        .email-pad { padding-right: 24px !important; padding-left: 24px !important; }
+        .headline { font-size: 48px !important; }
+        .milestone-number { width: 82px !important; font-size: 48px !important; }
+        .member-name { font-size: 21px !important; }
+      }
+    </style>
+  </head>
+  <body style="margin: 0; padding: 0; background: #ffffff; color: #1c1410; font-family: Arial, Helvetica, sans-serif; -webkit-font-smoothing: antialiased;">
+    <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: transparent; mso-hide: all;">
+      ${preheader}
+    </div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width: 100%; background: #ffffff; border-collapse: collapse;">
+      <tr>
+        <td align="center" style="padding: 32px 16px;">
+          <table class="email-shell" role="presentation" width="620" cellspacing="0" cellpadding="0" border="0" style="width: 100%; max-width: 620px; background: #ffffff; border: 1px solid #e8e1d8; border-collapse: collapse;">
+            <tr>
+              <td>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" aria-hidden="true" style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td width="34%" height="9" style="width: 34%; height: 9px; background: #ffd23f; font-size: 0; line-height: 0;">&nbsp;</td>
+                    <td width="33%" height="9" style="width: 33%; height: 9px; background: #ff7a30; font-size: 0; line-height: 0;">&nbsp;</td>
+                    <td width="33%" height="9" style="width: 33%; height: 9px; background: #e8442c; font-size: 0; line-height: 0;">&nbsp;</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-pad" style="padding: 30px 42px 0;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif; font-size: 27px; letter-spacing: 0.4px; color: #1c1410; text-transform: uppercase;">
+                      FC<span style="color: #d75b77;">TC</span>
+                    </td>
+                    <td align="right" style="font-family: 'Courier New', Courier, monospace; font-size: 12px; line-height: 18px; letter-spacing: 1px; color: #6f5f53; text-transform: uppercase;">
+                      Perth, WA
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-pad" style="padding: 54px 42px 0;">
+                <p style="margin: 0 0 12px; font-family: 'Courier New', Courier, monospace; font-size: 13px; line-height: 20px; letter-spacing: 1.4px; color: #d75b77; text-transform: uppercase;">
+                  WEEK OF ${formattedWeekStart}
+                </p>
+                <h1 class="headline" style="max-width: 510px; margin: 0; color: #1c1410; font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif; font-size: 64px; font-weight: 400; line-height: 0.94; letter-spacing: 0.2px; text-transform: uppercase;">
+                  MILESTONES<br>AHEAD
+                </h1>
+                <p style="max-width: 475px; margin: 25px 0 0; color: #5c4f43; font-family: Arial, Helvetica, sans-serif; font-size: 17px; line-height: 27px;">
+                  ${intro}
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-pad" style="padding: 43px 42px 0;">
+                ${rows}
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-pad" style="padding: 20px 42px 0; color: #6f5f53; font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 18px; letter-spacing: 0.7px; text-transform: uppercase;">
+                Attendance recorded through ${formattedCutoff}.
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-pad" style="padding: 32px 42px 0;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse: collapse;">
+                  <tr>
+                    <td style="background: #1c1410;">
+                      <a href="https://fctc.fun/dashboard" style="display: inline-block; padding: 13px 18px; color: #ffffff; font-family: 'Courier New', Courier, monospace; font-size: 13px; font-weight: 700; line-height: 18px; letter-spacing: 0.8px; text-decoration: none; text-transform: uppercase;">
+                        View dashboard&nbsp;&nbsp;&rarr;
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-pad" style="padding: 54px 42px 34px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width: 100%; border-top: 1px solid #d9d5d1; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding-top: 21px; color: #6f5f53; font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 18px; letter-spacing: 0.8px; text-transform: uppercase;">
+                      FCTC &mdash; Perth, WA
+                    </td>
+                    <td align="right" style="padding-top: 21px; color: #d75b77; font-family: 'Courier New', Courier, monospace; font-size: 11px; font-weight: 700; line-height: 18px; letter-spacing: 0.8px; text-transform: uppercase;">
+                      Amen scoundrels
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`
 }
 
 function assertSafeCandidateName(name) {
@@ -187,7 +358,7 @@ function formatOrdinal(value) {
   return `${value}${{ 1: 'st', 2: 'nd', 3: 'rd' }[value % 10] ?? 'th'}`
 }
 
-function formatIsoCalendarDate(value, errorMessage) {
+function formatIsoCalendarDate(value, errorMessage, formatter = DISPLAY_DATE_FORMATTER) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? '')
   if (!match) throw new Error(errorMessage)
 
@@ -205,7 +376,17 @@ function formatIsoCalendarDate(value, errorMessage) {
     throw new Error(errorMessage)
   }
 
-  return DISPLAY_DATE_FORMATTER.format(date)
+  return formatter.format(date)
+}
+
+function escapeHtml(value) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character])
 }
 
 function addUtcDays(date, days) {
