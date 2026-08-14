@@ -70,12 +70,31 @@ private struct AppRootView: View {
     let runtime: AppRuntime
 
     var body: some View {
-        if runtime.config.isConfigured {
-            HomeView(runtime: runtime)
-        } else {
-            NavigationStack {
-                SettingsView(runtime: runtime, configurationRequired: true)
+        Group {
+            if runtime.config.isConfigured {
+                HomeView(runtime: runtime)
+            } else {
+                NavigationStack {
+                    SettingsView(runtime: runtime, configurationRequired: true)
+                }
             }
+        }
+        .tint(runtime.accent.color)
+    }
+}
+
+extension AccentChoice {
+    /// The SwiftUI color for each palette entry. Lives in the app target so the
+    /// kit stays UI-free.
+    var color: Color {
+        switch self {
+        case .green: .green
+        case .blue: .blue
+        case .orange: .orange
+        case .pink: .pink
+        case .purple: .purple
+        case .red: .red
+        case .teal: .teal
         }
     }
 }

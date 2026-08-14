@@ -19,21 +19,32 @@ final class AppRuntime {
     private(set) var config: AppConfig
     private(set) var engine: any SyncEngineClient
     private(set) var generation = 0
+    private(set) var accent: AccentChoice
+
+    @ObservationIgnored private let appearanceStore: any AppearanceStoring
 
     init(
         modelContainer: ModelContainer,
         configPersistence: any AppConfigPersisting = UserDefaultsAppConfigPersistence(),
+        appearanceStore: any AppearanceStoring = UserDefaultsAppearanceStore(),
         engineOverride: (any SyncEngineClient)? = nil,
         configOverride: AppConfig? = nil
     ) {
         self.modelContainer = modelContainer
         self.configPersistence = configPersistence
+        self.appearanceStore = appearanceStore
+        self.accent = appearanceStore.loadAccent()
         let loaded = configOverride ?? (try? configPersistence.load()) ?? AppConfig()
         self.config = loaded
         self.engine = engineOverride ?? SyncEngine(
             modelContainer: modelContainer,
             api: SheetAPI(config: loaded)
         )
+    }
+
+    func setAccent(_ choice: AccentChoice) {
+        accent = choice
+        appearanceStore.saveAccent(choice)
     }
 
     func apply(_ config: AppConfig, engineOverride: (any SyncEngineClient)? = nil) {

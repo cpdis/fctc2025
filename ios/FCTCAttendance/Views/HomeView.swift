@@ -15,6 +15,7 @@ import SwiftUI
 enum HomeRoute: Hashable {
     case checklist(RunSnapshot)
     case runPicker(RunPickerScope)
+    case outbox
 }
 
 struct HomeView: View {
@@ -164,6 +165,8 @@ struct HomeView: View {
                     ChecklistView(runtime: runtime, run: run) { path.removeAll() }
                 case .runPicker(let scope):
                     RunPickerView(runtime: runtime, scope: scope)
+                case .outbox:
+                    OutboxView(runtime: runtime)
                 }
             }
             .refreshable {
@@ -188,21 +191,27 @@ struct HomeView: View {
 
     private var summarySection: some View {
         Section {
+            // Buttons that drive the path, NOT NavigationLinks: two links inside
+            // one List row activate as a pair (tap pushed Outbox, back revealed
+            // This Week), and links also draw the disclosure chevron the
+            // Reminders tiles deliberately lack.
             HStack(spacing: 12) {
-                NavigationLink(value: HomeRoute.runPicker(.thisWeek)) {
+                Button {
+                    path.append(HomeRoute.runPicker(.thisWeek))
+                } label: {
                     SummaryTile(
                         title: "This Week",
                         value: viewModel.thisWeekCount,
                         systemImage: "figure.run",
-                        tint: .accentColor
+                        tint: .green
                     )
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("This Week, \(viewModel.thisWeekCount) runs")
                 .accessibilityIdentifier("home-this-week")
 
-                NavigationLink {
-                    OutboxView(runtime: runtime)
+                Button {
+                    path.append(HomeRoute.outbox)
                 } label: {
                     SummaryTile(
                         title: "Unsynced",
@@ -352,6 +361,8 @@ private struct HomeSyncBanner: View {
     }
 }
 
+/// Reminders-style summary tile: full-color rounded rect, glyph in a white
+/// circle, big white count top-right, white label bottom-left. No chevron.
 private struct SummaryTile: View {
     let title: String
     let value: Int
@@ -359,26 +370,27 @@ private struct SummaryTile: View {
     let tint: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: systemImage)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 26, height: 26)
-                    .background(tint, in: .circle)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 28, height: 28)
+                    .background(.white, in: .circle)
                     .accessibilityHidden(true)
                 Spacer(minLength: 0)
                 Text(value, format: .number)
-                    .font(.title.weight(.semibold))
+                    .font(.title.weight(.bold))
                     .monospacedDigit()
+                    .foregroundStyle(.white)
             }
             Text(title)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.85))
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 12))
+        .background(tint.gradient, in: .rect(cornerRadius: 14))
         .contentShape(.rect)
     }
 }

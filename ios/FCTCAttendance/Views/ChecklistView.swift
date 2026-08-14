@@ -49,6 +49,38 @@ struct ChecklistView: View {
         @Bindable var viewModel = viewModel
 
         List {
+            // The smart modalities lead the screen (Colin's review, 2026-08-14):
+            // hiding them in the collapsed toolbar buried the app's best features.
+            Section {
+                HStack(spacing: 12) {
+                    Button {
+                        showingScreenshotImport = true
+                    } label: {
+                        ModalityButtonLabel(
+                            title: "Import Poll",
+                            systemImage: "photo.badge.plus"
+                        )
+                    }
+                    .disabled(viewModel.roster.isEmpty)
+                    .accessibilityHint("Imports voter names as attendance suggestions.")
+                    .accessibilityIdentifier("import-poll")
+
+                    Button {
+                        showingVoiceEntry = true
+                    } label: {
+                        ModalityButtonLabel(
+                            title: "Dictate",
+                            systemImage: "waveform"
+                        )
+                    }
+                    .accessibilityHint("Dictate names, guests, and actual kilometres.")
+                    .accessibilityIdentifier("dictate-attendance")
+                }
+                .buttonStyle(.plain)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+
             Section {
                 HStack {
                     Label("Actual kms", systemImage: "figure.run")
@@ -123,23 +155,6 @@ struct ChecklistView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Find a person")
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    showingScreenshotImport = true
-                } label: {
-                    Label("Import poll…", systemImage: "photo.badge.plus")
-                }
-                .disabled(viewModel.roster.isEmpty)
-                .accessibilityHint("Imports voter names as attendance suggestions.")
-                .accessibilityIdentifier("import-poll")
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                Button("Dictate…", systemImage: "waveform") {
-                    showingVoiceEntry = true
-                }
-                .accessibilityHint("Dictate names, guests, and actual kilometres.")
-                .accessibilityIdentifier("dictate-attendance")
-            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Confirm") {
                     if viewModel.requiresRecordedChoice {
@@ -290,6 +305,27 @@ private struct MemberCheckRow: View {
         .accessibilityHint("Double-tap to \(isChecked ? "uncheck" : "check").")
         .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("member-\(name)")
+    }
+}
+
+/// The prominent capture-modality tile pair above the detail rows.
+private struct ModalityButtonLabel: View {
+    let title: String
+    let systemImage: String
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.tint)
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 14))
+        .contentShape(.rect)
     }
 }
 

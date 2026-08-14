@@ -75,6 +75,10 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings-device-name")
             }
 
+            Section("Theme") {
+                accentPicker
+            }
+
             Section {
                 Button {
                     Task { try? await viewModel.refreshRoster() }
@@ -124,6 +128,35 @@ struct SettingsView: View {
                 viewModel.replaceEngine(runtime.engine)
             }
         }
+    }
+
+    /// Reminders-style accent swatches: one tap sets and persists the tint.
+    private var accentPicker: some View {
+        HStack(spacing: 14) {
+            ForEach(AccentChoice.allCases, id: \.self) { choice in
+                Button {
+                    runtime.setAccent(choice)
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(choice.color)
+                            .frame(width: 32, height: 32)
+                        if runtime.accent == choice {
+                            Circle()
+                                .strokeBorder(.primary.opacity(0.35), lineWidth: 3)
+                                .frame(width: 40, height: 40)
+                        }
+                    }
+                    .frame(width: 40, height: 40)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(choice.label) accent")
+                .accessibilityAddTraits(runtime.accent == choice ? .isSelected : [])
+                .accessibilityIdentifier("accent-\(choice.rawValue)")
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
     }
 
     private func save() {
