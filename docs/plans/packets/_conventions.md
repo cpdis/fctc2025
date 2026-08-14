@@ -53,6 +53,20 @@ response `{ ok: true, ... } | { ok: false, error, message }`. Actions:
 
 `sheetRevision` = stable hash of header row + run-band cell values.
 
+**Contract addendum (post-U2, authoritative — the deployed API behaves this way):**
+- All three write actions ALSO return a fresh `sheetRevision` (additive key), so the
+  client can skip a `getState` after a successful write.
+- `row_mismatch` / `stale_revision` are never top-level `error`s: they arrive as
+  `{ ok: true, conflict: { reason, message, state } }` where `state` is a full
+  `getState` payload.
+- Additional error codes: `sheet_unreadable`, `busy` (lock contention — retryable),
+  `internal_error`, beyond `bad_secret`, `unknown_action`, `duplicate_member`,
+  `bad_payload`.
+- Cell semantics: a `-` cell is the sheet's "away" marker and is never cleared by
+  either mode (only `x` marks are cleared by overwrite); `plusOnes`/`actualKm` sent
+  as `null` mean "no opinion" (merge keeps/raises existing, overwrite with a value
+  sets absolutely).
+
 ## Fixtures
 
 `fixtures/attendance/` (created in U1): season CSV snapshots (2025 + 2026), OCR
