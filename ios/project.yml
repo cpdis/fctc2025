@@ -74,8 +74,9 @@ targets:
           FCTC Attendance reads WhatsApp poll screenshots you choose so it can
           pre-fill the attendance checklist. Screenshots stay on your device.
         NSSpeechRecognitionUsageDescription: >-
-          FCTC Attendance transcribes your spoken run summary on-device to
-          pre-fill the attendance checklist.
+          FCTC Attendance transcribes your spoken run summary to pre-fill the
+          attendance checklist. It uses on-device recognition when available
+          and can otherwise use Apple speech servers.
         NSMicrophoneUsageDescription: >-
           FCTC Attendance records your voice only while you are dictating a run
           summary, so it can pre-fill the attendance checklist.

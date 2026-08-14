@@ -24,6 +24,7 @@ struct ChecklistView: View {
     @State private var searchText = ""
     @State private var showingRecordedChoice = false
     @State private var showingScreenshotImport = false
+    @State private var showingVoiceEntry = false
 
     init(
         runtime: AppRuntime,
@@ -132,6 +133,13 @@ struct ChecklistView: View {
                 .accessibilityHint("Imports voter names as attendance suggestions.")
                 .accessibilityIdentifier("import-poll")
             }
+            ToolbarItem(placement: .secondaryAction) {
+                Button("Dictate…", systemImage: "waveform") {
+                    showingVoiceEntry = true
+                }
+                .accessibilityHint("Dictate names, guests, and actual kilometres.")
+                .accessibilityIdentifier("dictate-attendance")
+            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Confirm") {
                     if viewModel.requiresRecordedChoice {
@@ -148,6 +156,11 @@ struct ChecklistView: View {
                         : "Change attendance before confirming."
                 )
                 .accessibilityIdentifier("confirm-attendance")
+            }
+        }
+        .sheet(isPresented: $showingVoiceEntry) {
+            NavigationStack {
+                VoiceEntryView(checklistViewModel: viewModel)
             }
         }
         .confirmationDialog(
