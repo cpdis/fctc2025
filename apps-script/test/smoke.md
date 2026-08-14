@@ -156,14 +156,17 @@ any run row and copy its formula text) BEFORE this step.
 - [ ] `post "{\"secret\":\"$SECRET\",\"action\":\"addMember\",\"name\":\"Zzz Test\"}"`
       → `ok: true`, roster now 34 entries, `Zzz Test` last, `colIndex` 39.
 - [ ] In the sheet: a new column sits between `Wes` and `+1's`, header `Zzz Test`,
-      all its cells blank.
-- [ ] **FORMULA CHECK:** click that same derived cell. Did its range widen
-      to include the new column (e.g. `F12:AM12` became `F12:AN12`)? Google normally
-      expands a range when a column is inserted **inside** it; inserting at the right
-      edge is the ambiguous case, and this insert is at that edge.
-      **If the range did NOT widen, that is the finding of this whole exercise** —
-      report it; `addMember` will need to insert before the *last* member instead and
-      then move the column, or repair the formulas afterwards.
+      all its run cells blank, and `Wes` still carries his own marks and summary
+      cells one column to the left.
+- [ ] **FORMULA CHECK (answered 2026-08-14, verify it still holds):** click that
+      same derived cell. Its range must now cover the new member (e.g. `F12:AM12`
+      became `F12:AN12`). The first smoke run proved a right-edge insert does NOT
+      widen the range, so a sorts-last member now inserts BEFORE the last member
+      (inside every range) and the displaced member is relocated into the new
+      column. If the range is still narrow, or `Wes` lost marks or summary cells,
+      that is a regression in `relocateDisplacedMember_`.
+- [ ] Submit an attendance including `Zzz Test` on any run row and confirm the
+      row's derived total INCREMENTS (this is what the first run failed).
 - [ ] Existing attendance did not shift: spot-check three members' columns against
       your screenshot; `getState` shows the same attendees for run row 12 as before.
 - [ ] Alphabetical insert in the middle:

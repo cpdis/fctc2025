@@ -31,6 +31,13 @@ your packet doesn't cover.
 - **Sheet safety invariant (all units):** nothing ever writes outside a run row's
   member band + `Actual kms` + `+1's` cells, the member-band header row, or an
   inserted run row. Formula/summary rows and columns are sacrosanct.
+  **Carve-out (orchestrator ruling, 2026-08-14 smoke test):** `addMember`'s
+  sorts-last path inserts before the current last member (a right-edge insert
+  does not widen the run rows' COUNTIF ranges — proven on a real sheet copy) and
+  then relocates the displaced member's cells, including their above-header
+  summary cells, into the new column. Those writes restore exactly what the
+  insert displaced, confined to that one column pair; nothing else above the
+  header is ever written.
 - **Naming:** sheet short names (e.g. `Col`, `Alex Kr`) are canonical member keys
   everywhere. Never invent a parallel ID scheme.
 - Commit style: repo convention (`feat(...)`, `docs(...)`, `chore(...)`), imperative,

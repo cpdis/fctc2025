@@ -489,9 +489,12 @@ function submitAttendance_(ctx, request) {
  * `addMember` — insert a column at the alphabetical position inside the member
  * band and write the header cell.
  *
- * Inserting a column INSIDE the band (rather than appending past `+1's`) is what
- * makes the sheet's own COUNTA/SUM formulas widen themselves; the smoke test
- * (test/smoke.md) verifies that on a real copy.
+ * Inserting a column strictly INSIDE the band is what makes the sheet's own
+ * COUNTIF/SUM formulas widen themselves. The smoke test (2026-08-14, real sheet
+ * copy) proved the edge case: inserting before `+1's` (one past the last member)
+ * does NOT widen the run-row ranges, so a member who sorts last instead inserts
+ * before the current last member and the displaced member is relocated into the
+ * new column (see `relocateDisplacedMember_`).
  *
  * @param {!Object} ctx
  * @param {!Object} request
@@ -512,9 +515,14 @@ function addMember_(ctx, request) {
   }
 
   var position = SheetOps.alphabeticalInsertIndex(ctx.band, name);
-  var insertBefore = SheetOps.memberInsertColumn(ctx.band, ctx.bounds, position);
-  ctx.sheet.insertColumnBefore(insertBefore);
-  ctx.sheet.getRange(ctx.headerRow, insertBefore).setValue(name);
+  var plan = SheetOps.memberInsertPlan(ctx.band, ctx.bounds, position);
+  ctx.sheet.insertColumnBefore(plan.insertBefore);
+  if (plan.relocateDisplaced) {
+    relocateDisplacedMember_(ctx, plan);
+    ctx.sheet.getRange(ctx.headerRow, plan.displacedCol).setValue(name);
+  } else {
+    ctx.sheet.getRange(ctx.headerRow, plan.insertBefore).setValue(name);
+  }
   SpreadsheetApp.flush();
 
   var fresh = refreshContext_(ctx);
@@ -528,6 +536,58 @@ function addMember_(ctx, request) {
     roster: fresh.band,
     sheetRevision: SheetOps.revisionHash(fresh.grid, fresh.headerRow),
   });
+}
+
+/**
+ * Move the member displaced by a sorts-last insert back into the new in-band
+ * column, leaving the rightmost band column for the new member.
+ *
+ * The insert shifted the alphabetically-last member (header, data, and their
+ * per-member summary cells above the header) one column right. Their run-band
+ * cells and header are plain values and move verbatim; the above-header cells
+ * move via `copyTo`, because copy/paste re-points relative formula references at
+ * the destination column while a value move would leave them computing the wrong
+ * column.
+ *
+ * INVARIANT NOTE (ruled 2026-08-14, recorded in _conventions.md): these
+ * above-header writes are a sanctioned carve-out from the sheet-safety
+ * invariant. They restore exactly the cells the column insert itself displaced,
+ * confined to the displaced member's column pair; nothing else above the header
+ * is ever touched.
+ *
+ * @param {!Object} ctx The PRE-insert context (its grid still describes the
+ *     sheet before the new blank column existed; only column arithmetic that is
+ *     insert-independent may rely on it).
+ * @param {{insertBefore: number, displacedCol: number}} plan
+ */
+function relocateDisplacedMember_(ctx, plan) {
+  var sheet = ctx.sheet;
+  var from = plan.displacedCol;
+  var to = plan.insertBefore;
+  var lastRow = ctx.grid.length;
+
+  if (ctx.headerRow > 1) {
+    var above = sheet.getRange(1, from, ctx.headerRow - 1, 1);
+    above.copyTo(sheet.getRange(1, to, ctx.headerRow - 1, 1));
+    above.setValues(emptyColumn_(ctx.headerRow - 1));
+  }
+
+  var height = lastRow - ctx.headerRow + 1;
+  var data = sheet.getRange(ctx.headerRow, from, height, 1);
+  sheet.getRange(ctx.headerRow, to, height, 1).setValues(data.getValues());
+  data.setValues(emptyColumn_(height));
+}
+
+/**
+ * A blank single-column block for clearing a relocated member's old cells.
+ *
+ * @param {number} height
+ * @return {!Array<!Array<string>>}
+ */
+function emptyColumn_(height) {
+  var out = [];
+  for (var i = 0; i < height; i++) out.push(['']);
+  return out;
 }
 
 /**

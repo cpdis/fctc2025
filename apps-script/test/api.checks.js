@@ -145,6 +145,17 @@ function assertWritesStayInBand(env, year, grants) {
     ) {
       continue;
     }
+    // The sorts-last relocation (ruled 2026-08-14): single-column writes confined
+    // to the displaced member's column pair, above-header rows included, because
+    // the column insert itself displaced those cells.
+    if (
+      allowances.allowMemberRelocation &&
+      width === 1 &&
+      (col === allowances.allowMemberRelocation.fromCol ||
+        col === allowances.allowMemberRelocation.toCol)
+    ) {
+      continue;
+    }
 
     assert.ok(row > facts.headerRow, `write landed on row ${row}, at or above the header`);
     assert.ok(
@@ -609,12 +620,55 @@ test.describe('addMember', () => {
     assert.equal(names[names.indexOf('Dan B') + 1], 'Darren');
   });
 
-  test.it('appends a last-alphabetically member inside the band, before +1\'s', () => {
+  test.it('a sorts-last member inserts inside the band and displaces the old last', () => {
+    // Smoke-test ruling (2026-08-14): inserting before +1's does not widen the
+    // run rows' COUNTIF ranges, so the column goes in before the current last
+    // member and that member is relocated into it.
     const env = api(2026);
+    const facts = SEASON_FACTS[2026];
+    const lastMemberCol = facts.plusOnesCol - 1;
+
+    // Give the current last member (Wes) a mark that must survive relocation.
+    const before = assertOk(env.post({ action: 'getState' }));
+    const target = before.runs.find((r) => r.attendees.length === 0);
+    assertOk(env.post({
+      action: 'submitAttendance',
+      rowIndex: target.rowIndex,
+      expectedDate: target.date,
+      expectedRun: target.run,
+      attendees: ['Wes'],
+      plusOnes: null,
+      actualKm: null,
+      mode: 'merge',
+      baseRevision: before.sheetRevision,
+    }));
+
     const roster = assertOk(env.post({ action: 'addMember', name: 'Zoe' })).roster;
     assert.equal(roster[roster.length - 1].name, 'Zoe');
-    // The +1's column moved right by one; the new member sits just inside it.
-    assert.equal(roster[roster.length - 1].colIndex, SEASON_FACTS[2026].plusOnesCol);
+    assert.equal(roster[roster.length - 1].colIndex, facts.plusOnesCol);
+    assert.equal(roster[roster.length - 2].name, 'Wes');
+    assert.equal(roster[roster.length - 2].colIndex, lastMemberCol);
+
+    // The physical insert went in BEFORE the old last member, inside the band.
+    const insert = env.writes().find((w) => w.kind === 'insertColumnBefore');
+    assert.equal(insert.col, lastMemberCol);
+
+    // The above-header relocation used copyTo, so real-sheet formulas re-point.
+    const copy = env.writes().find((w) => w.kind === 'copyTo');
+    assert.ok(copy, 'expected the displaced member\'s above-header cells to copy');
+    assert.equal(copy.fromCol, lastMemberCol + 1);
+    assert.equal(copy.toCol, lastMemberCol);
+    assert.equal(copy.numRows, facts.headerRow - 1);
+
+    // Wes's mark moved with him; Zoe's new column is blank on that row.
+    const after = assertOk(env.post({ action: 'getState' }));
+    const row = after.runs.find((r) => r.rowIndex === target.rowIndex);
+    assert.deepEqual(row.attendees, ['Wes']);
+
+    assertWritesStayInBand(env, 2026, {
+      allowHeaderCell: true,
+      allowMemberRelocation: { fromCol: lastMemberCol + 1, toCol: lastMemberCol },
+    });
   });
 
   test.it('turns 2025 into the 2026 roster by adding the three joiners', () => {

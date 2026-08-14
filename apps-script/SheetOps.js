@@ -614,20 +614,46 @@ function alphabeticalInsertIndex(band, newName) {
 }
 
 /**
- * The 1-based sheet column a new member's inserted column should occupy, given the
- * band position from `alphabeticalInsertIndex`.
+ * Where and how a new member's column gets inserted, given the band position from
+ * `alphabeticalInsertIndex`.
  *
- * Appending (position == band.length) targets the `+1's` column, i.e. "insert a
- * column before `+1's`", which keeps the new column inside the band.
+ * The smoke test (2026-08-14, real sheet copy) settled the edge case the U2
+ * handoff flagged: Google Sheets widens a run row's COUNTIF range only when a
+ * column is inserted strictly INSIDE it. Inserting before `+1's` (the old
+ * append strategy) lands one past the range's final column, the range stays
+ * narrow, and the new member's `x`s become invisible to the sheet's own totals.
+ *
+ * So a member who sorts last inserts before the CURRENT last member (inside
+ * every range), and the caller then relocates the displaced member's cells into
+ * the new column so alphabetical order still holds:
+ *
+ *   - `insertBefore` — 1-based column to pass to `insertColumnBefore`.
+ *   - `relocateDisplaced` — true only for the sorts-last case.
+ *   - `displacedCol` — where the displaced member sits AFTER the insert (and
+ *     where the new member's header belongs once the relocation is done).
  *
  * @param {!Array<{name: string, colIndex: number}>} band
  * @param {!Object} bounds
  * @param {number} position 0-based band position.
- * @return {number} 1-based column to insert BEFORE.
+ * @return {{insertBefore: number, relocateDisplaced: boolean,
+ *     displacedCol: number}}
  */
-function memberInsertColumn(band, bounds, position) {
-  if (position < band.length) return band[position].colIndex;
-  return bounds.plusOnesCol;
+function memberInsertPlan(band, bounds, position) {
+  if (position < band.length) {
+    return {
+      insertBefore: band[position].colIndex,
+      relocateDisplaced: false,
+      displacedCol: 0,
+    };
+  }
+  var lastMemberCol = band.length
+    ? band[band.length - 1].colIndex
+    : bounds.plusOnesCol;
+  return {
+    insertBefore: lastMemberCol,
+    relocateDisplaced: band.length > 0,
+    displacedCol: lastMemberCol + 1,
+  };
 }
 
 /**
@@ -826,7 +852,7 @@ function sheetOpsHealth() {
       'revisionHash',
       'findMemberIndex',
       'alphabeticalInsertIndex',
-      'memberInsertColumn',
+      'memberInsertPlan',
       'buildRowWrite',
       'dateOrderedInsertIndex',
       'runInsertTarget',
@@ -875,7 +901,7 @@ var SheetOps = {
   revisionHash: revisionHash,
   findMemberIndex: findMemberIndex,
   alphabeticalInsertIndex: alphabeticalInsertIndex,
-  memberInsertColumn: memberInsertColumn,
+  memberInsertPlan: memberInsertPlan,
   buildRowWrite: buildRowWrite,
   dateOrderedInsertIndex: dateOrderedInsertIndex,
   runInsertTarget: runInsertTarget,

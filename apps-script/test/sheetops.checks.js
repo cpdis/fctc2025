@@ -529,16 +529,27 @@ test.describe('alphabeticalInsertIndex / findMemberIndex', () => {
     assert.equal(SheetOps.findMemberIndex(band, ''), -1);
   });
 
-  test.it('memberInsertColumn targets a column inside the band', () => {
+  test.it('memberInsertPlan stays strictly inside the band', () => {
     const { band, bounds } = season(2026);
     const middle = SheetOps.alphabeticalInsertIndex(band, 'Bruce');
-    const middleCol = SheetOps.memberInsertColumn(band, bounds, middle);
-    assert.ok(middleCol > bounds.actualKmCol && middleCol <= bounds.plusOnesCol);
-    // Appending targets the +1's column, i.e. "insert a column before +1's".
-    assert.equal(
-      SheetOps.memberInsertColumn(band, bounds, band.length),
-      bounds.plusOnesCol
-    );
+    const plan = SheetOps.memberInsertPlan(band, bounds, middle);
+    assert.ok(plan.insertBefore > bounds.actualKmCol);
+    assert.ok(plan.insertBefore <= band[band.length - 1].colIndex);
+    assert.equal(plan.relocateDisplaced, false);
+  });
+
+  test.it('memberInsertPlan relocates the displaced member for sorts-last', () => {
+    // Smoke-test ruling (2026-08-14): inserting before +1's lands one past the
+    // run-row COUNTIF ranges and they do NOT widen, so a sorts-last member
+    // inserts before the current last member and the displaced member moves
+    // into the new column.
+    const { band, bounds } = season(2026);
+    const lastCol = band[band.length - 1].colIndex;
+    const plan = SheetOps.memberInsertPlan(band, bounds, band.length);
+    assert.equal(plan.insertBefore, lastCol);
+    assert.equal(plan.relocateDisplaced, true);
+    assert.equal(plan.displacedCol, lastCol + 1);
+    assert.ok(plan.insertBefore < bounds.plusOnesCol);
   });
 });
 
