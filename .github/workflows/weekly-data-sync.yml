@@ -145,7 +145,7 @@ jobs:
           package-manager-cache: false
 
       - name: Install notification dependencies
-        run: npm ci --ignore-scripts
+        run: npm ci --omit=dev --ignore-scripts
 
       # Detection receives no provider credentials or recipient configuration.
       - name: Preview milestone notifications

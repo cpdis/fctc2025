@@ -94,6 +94,28 @@ describe('sendResendBatch', () => {
     expect(error.message).not.toContain(rawBody)
   })
 
+  it('cancels a provider response that exceeds the safe byte limit', async () => {
+    const cancel = vi.fn().mockResolvedValue(undefined)
+    const reader = {
+      read: vi.fn()
+        .mockResolvedValueOnce({ done: false, value: new Uint8Array(129 * 1024) })
+        .mockResolvedValueOnce({ done: true }),
+      cancel,
+    }
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      body: { getReader: () => reader },
+      text: vi.fn(() => { throw new Error('stream response must not use text()') }),
+    })
+
+    await expect(sendResendBatch(requestOptions({ fetchImpl }))).rejects.toMatchObject({
+      category: 'malformed_response',
+    })
+    expect(cancel).toHaveBeenCalledTimes(1)
+  })
+
   it.each([
     ['HTTP 408', 408, { name: 'request_timeout' }],
     ['HTTP 429', 429, { name: 'rate_limit_exceeded' }],

@@ -56,7 +56,7 @@ describe('weekly notification workflow contract', () => {
     expect(workflow).toMatch(/ref: main\n\s+persist-credentials: false/)
     expect(workflow).toContain("node-version: '24'")
     expect(workflow).toContain('package-manager-cache: false')
-    expect(workflow).toContain('npm ci --ignore-scripts')
+    expect(workflow).toContain('npm ci --omit=dev --ignore-scripts')
     expect(preview).toContain('id: milestones')
     expect(preview).toContain('node scripts/send-milestone-digest.js --preview')
     expect(preview).not.toMatch(/RESEND_|MILESTONE_RECIPIENTS|MILESTONE_SMOKE_RECIPIENT|MILESTONE_FROM/)

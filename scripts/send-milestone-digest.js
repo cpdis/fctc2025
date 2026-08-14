@@ -9,6 +9,7 @@ import {
   findUpcomingMilestones,
   formatMilestoneDigest,
   getAttendanceCutoff,
+  getPerthCalendarDate,
   getPerthTargetWeek,
 } from '../src/utils/milestones.js'
 import { ResendBatchError, sendResendBatch } from './lib/resendBatch.js'
@@ -66,8 +67,7 @@ export async function loadAllTimeData({
     return { year, filePath: join(rootDir, 'public', 'data', `${year}.csv`) }
   }).sort((left, right) => right.year - left.year)
 
-  const datasets = []
-  for (const { year, filePath } of registered) {
+  const datasets = await Promise.all(registered.map(async ({ year, filePath }) => {
     let csvText
     try {
       csvText = await readFileImpl(filePath, 'utf8')
@@ -76,11 +76,11 @@ export async function loadAllTimeData({
     }
 
     try {
-      datasets.push(parseRunData(csvText, year))
+      return parseRunData(csvText, year)
     } catch {
       throw new MilestoneDigestError('season_invalid', 'Registered season data is invalid')
     }
-  }
+  }))
 
   return combineYearData(datasets)
 }
@@ -295,16 +295,6 @@ function validateSender(value) {
     throw new MilestoneDigestError('sender', 'Sender configuration is invalid')
   }
   return value
-}
-
-function getPerthCalendarDate(now) {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-AU', {
-    timeZone: 'Australia/Perth',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(now).map(({ type, value }) => [type, value]))
-  return `${parts.year}-${parts.month}-${parts.day}`
 }
 
 async function writeGitHubOutput({ path, appendFileImpl, hasCandidates }) {

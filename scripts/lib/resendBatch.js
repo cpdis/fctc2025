@@ -3,6 +3,7 @@ const USER_AGENT = 'fctc-dashboard-milestone-notifier/1.0'
 const DEFAULT_TIMEOUT_MS = 10_000
 const DEFAULT_MAX_ATTEMPTS = 3
 const MAX_RETRY_DELAY_MS = 30_000
+const MAX_RESPONSE_BYTES = 128 * 1024
 
 /**
  * A provider failure that is safe to expose in public workflow logs.
@@ -121,8 +122,44 @@ function assertRequestInputs({ apiKey, items, idempotencyKey, fetchImpl, timeout
 }
 
 async function readResponseText(response) {
+  if (typeof response.body?.getReader === 'function') {
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let totalBytes = 0
+    let text = ''
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) {
+          reader.releaseLock?.()
+          return text + decoder.decode()
+        }
+
+        if (!(value instanceof Uint8Array)) {
+          await reader.cancel()
+          return ''
+        }
+        totalBytes += value.byteLength
+        if (totalBytes > MAX_RESPONSE_BYTES) {
+          await reader.cancel()
+          return ''
+        }
+        text += decoder.decode(value, { stream: true })
+      }
+    } catch {
+      try {
+        await reader.cancel()
+      } catch {
+        // The safe empty response below is enough when cancellation also fails.
+      }
+      return ''
+    }
+  }
+
   try {
-    return await response.text()
+    const text = await response.text()
+    return Buffer.byteLength(text, 'utf8') <= MAX_RESPONSE_BYTES ? text : ''
   } catch {
     return ''
   }

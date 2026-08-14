@@ -6,6 +6,7 @@ import {
   findUpcomingMilestones,
   formatMilestoneDigest,
   getAttendanceCutoff,
+  getPerthCalendarDate,
   getPerthTargetWeek,
 } from './milestones'
 
@@ -114,6 +115,10 @@ describe('findUpcomingMilestones', () => {
 })
 
 describe('getPerthTargetWeek', () => {
+  it('returns the Perth calendar date for a supplied instant', () => {
+    expect(getPerthCalendarDate(new Date('2026-08-16T16:05:00.000Z'))).toBe('2026-08-17')
+  })
+
   it('targets the next Monday when the Perth date is Sunday', () => {
     expect(getPerthTargetWeek(new Date('2026-08-16T08:00:00.000Z'))).toEqual({
       weekStart: '2026-08-17',

@@ -59,13 +59,7 @@ export function findUpcomingMilestones(memberTotals) {
  * @returns {{ weekStart: string, weekEnd: string }} ISO calendar dates
  */
 export function getPerthTargetWeek(now = new Date()) {
-  if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
-    throw new Error('Clock must be a valid Date')
-  }
-
-  const parts = Object.fromEntries(
-    PERTH_DATE_FORMATTER.formatToParts(now).map(({ type, value }) => [type, value])
-  )
+  const parts = getPerthDateParts(now)
   const weekday = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[parts.weekday]
   const perthDate = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)))
   const offsetToMonday = weekday === 0 ? 1 : 1 - weekday
@@ -75,6 +69,12 @@ export function getPerthTargetWeek(now = new Date()) {
     weekStart: toUtcIsoCalendarDate(weekStartDate),
     weekEnd: toUtcIsoCalendarDate(addUtcDays(weekStartDate, 6)),
   }
+}
+
+/** Return the Perth calendar date for a supplied instant. */
+export function getPerthCalendarDate(now = new Date()) {
+  const parts = getPerthDateParts(now)
+  return toIsoCalendarDate(Number(parts.year), Number(parts.month), Number(parts.day))
 }
 
 /**
@@ -212,6 +212,16 @@ function addUtcDays(date, days) {
   const result = new Date(date)
   result.setUTCDate(result.getUTCDate() + days)
   return result
+}
+
+function getPerthDateParts(now) {
+  if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
+    throw new Error('Clock must be a valid Date')
+  }
+
+  return Object.fromEntries(
+    PERTH_DATE_FORMATTER.formatToParts(now).map(({ type, value }) => [type, value])
+  )
 }
 
 function toUtcIsoCalendarDate(date) {
