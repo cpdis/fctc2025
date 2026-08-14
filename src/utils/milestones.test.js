@@ -6,6 +6,7 @@ import {
   findUpcomingMilestones,
   formatMilestoneDigest,
   getAttendanceCutoff,
+  getMilestoneForecastLabel,
   getPerthCalendarDate,
   getPerthTargetWeek,
 } from './milestones'
@@ -27,6 +28,15 @@ function catchError(callback) {
   throw new Error('Expected callback to throw')
 }
 
+function completedRun(date, dayOfWeek, attendance, totalAttendance = 1) {
+  return {
+    parsedDate: date instanceof Date ? date : new Date(`${date}T00:00:00`),
+    dayOfWeek,
+    attendance,
+    totalAttendance,
+  }
+}
+
 describe('findUpcomingMilestones', () => {
   it('selects every positive 50n - 1 boundary without a fixed maximum', () => {
     const candidates = findUpcomingMilestones(totals([
@@ -43,12 +53,12 @@ describe('findUpcomingMilestones', () => {
     ]))
 
     expect(candidates).toEqual([
-      { name: 'Forty Nine', currentRuns: 49, milestone: 50 },
-      { name: 'Ninety Nine', currentRuns: 99, milestone: 100 },
-      { name: 'One Forty Nine', currentRuns: 149, milestone: 150 },
-      { name: 'One Ninety Nine', currentRuns: 199, milestone: 200 },
-      { name: 'Two Forty Nine', currentRuns: 249, milestone: 250 },
-      { name: 'No Ceiling', currentRuns: 999, milestone: 1000 },
+      { name: 'Forty Nine', currentRuns: 49, milestone: 50, runsNeeded: 1, chance: 0, label: 'Possible' },
+      { name: 'Ninety Nine', currentRuns: 99, milestone: 100, runsNeeded: 1, chance: 0, label: 'Possible' },
+      { name: 'One Forty Nine', currentRuns: 149, milestone: 150, runsNeeded: 1, chance: 0, label: 'Possible' },
+      { name: 'One Ninety Nine', currentRuns: 199, milestone: 200, runsNeeded: 1, chance: 0, label: 'Possible' },
+      { name: 'Two Forty Nine', currentRuns: 249, milestone: 250, runsNeeded: 1, chance: 0, label: 'Possible' },
+      { name: 'No Ceiling', currentRuns: 999, milestone: 1000, runsNeeded: 1, chance: 0, label: 'Possible' },
     ])
   })
 
@@ -72,7 +82,7 @@ describe('findUpcomingMilestones', () => {
     const name = 'Alex 👑, Jr. (Coach)'
 
     expect(findUpcomingMilestones(totals([[name, 49]]))).toEqual([
-      { name, currentRuns: 49, milestone: 50 },
+      { name, currentRuns: 49, milestone: 50, runsNeeded: 1, chance: 0, label: 'Possible' },
     ])
   })
 
@@ -107,10 +117,84 @@ describe('findUpcomingMilestones', () => {
     const allTime = combineYearData([data2025, data2026])
 
     expect(allTime.memberTotals.Darren.totalRuns).toBe(49)
-    expect(findUpcomingMilestones(allTime.memberTotals)).toEqual([
-      { name: 'Darren', currentRuns: 49, milestone: 50 },
+    expect(findUpcomingMilestones(
+      allTime.memberTotals,
+      allTime.runs,
+      getAttendanceCutoff(allTime.runs)
+    )).toEqual([
+      expect.objectContaining({ name: 'Darren', currentRuns: 49, milestone: 50, runsNeeded: 1 }),
     ])
     expect(getAttendanceCutoff(allTime.runs)).toBe('2026-05-25')
+  })
+
+  it('forecasts up to three runs away and keeps missing weekdays at zero', () => {
+    const memberTotals = totals([
+      ['One Away', 49],
+      ['Two Away', 48],
+      ['Three Away', 47],
+      ['Four Away', 46],
+      ['Beyond Two Hundred', 249],
+      ['Fractional', 48.5],
+      ['Negative', -1],
+      ['Not Numeric', '49'],
+    ])
+    const attendance = Object.fromEntries(
+      Object.keys(memberTotals).map((name) => [name, true])
+    )
+    const runs = [
+      completedRun('2026-08-10', 'Mon', attendance),
+      completedRun('2026-08-12', 'Wed', attendance),
+      completedRun('2026-08-14', 'Fri', attendance),
+    ]
+
+    expect(findUpcomingMilestones(memberTotals, runs, '2026-08-14')).toEqual([
+      { name: 'One Away', currentRuns: 49, milestone: 50, runsNeeded: 1, chance: 1, label: 'Very likely' },
+      { name: 'Three Away', currentRuns: 47, milestone: 50, runsNeeded: 3, chance: 1, label: 'Very likely' },
+      { name: 'Two Away', currentRuns: 48, milestone: 50, runsNeeded: 2, chance: 1, label: 'Very likely' },
+      { name: 'Beyond Two Hundred', currentRuns: 249, milestone: 250, runsNeeded: 1, chance: 1, label: 'Very likely' },
+    ])
+
+    expect(findUpcomingMilestones(
+      totals([['Needs Three', 47]]),
+      runs.slice(0, 2).map((run) => ({ ...run, attendance: { 'Needs Three': true } })),
+      '2026-08-14'
+    )).toEqual([])
+  })
+
+  it('uses valid completed history from first attendance through the inclusive cutoff', () => {
+    const name = 'History Rules'
+    const runs = [
+      completedRun('2026-01-05', 'Mon', { [name]: false }),
+      completedRun('2026-01-07', 'Wed', { [name]: true }),
+      completedRun('2026-01-09', 'Fri', { [name]: true }),
+      completedRun('2026-01-12', 'Mon', { [name]: true }),
+      completedRun('2026-01-14', 'Wed', { [name]: false }, 0),
+      completedRun('2026-01-16', 'Fri', { [name]: false }),
+      completedRun(new Date('invalid'), 'Mon', { [name]: false }),
+    ]
+
+    expect(findUpcomingMilestones(totals([[name, 47]]), runs, '2026-01-12')).toEqual([
+      { name, currentRuns: 47, milestone: 50, runsNeeded: 3, chance: 1, label: 'Very likely' },
+    ])
+  })
+
+  it('uses raw chance boundaries for inclusion and plain confidence labels', () => {
+    expect(getMilestoneForecastLabel(0.4, 1)).toBe('Possible')
+    expect(getMilestoneForecastLabel(0.5, 2)).toBe('Likely')
+    expect(getMilestoneForecastLabel(0.5 - Number.EPSILON, 2)).toBeNull()
+    expect(getMilestoneForecastLabel(0.5, 3)).toBe('Likely')
+    expect(getMilestoneForecastLabel(0.5 - Number.EPSILON, 3)).toBeNull()
+    expect(getMilestoneForecastLabel(0.8, 1)).toBe('Very likely')
+    expect(getMilestoneForecastLabel(0.8 - Number.EPSILON, 1)).toBe('Likely')
+  })
+
+  it('produces deterministic candidates for the same inputs', () => {
+    const memberTotals = totals([['Zoë', 49], ['Ámy', 49]])
+    const first = findUpcomingMilestones(memberTotals, [], '2026-08-14')
+    const second = findUpcomingMilestones(memberTotals, [], '2026-08-14')
+
+    expect(first).toEqual(second)
+    expect(first.map(({ name }) => name)).toEqual(['Ámy', 'Zoë'])
   })
 })
 

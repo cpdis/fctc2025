@@ -1,8 +1,14 @@
+import {
+  calculateMilestoneChance,
+  calculateWeightedAttendanceRate,
+} from './milestoneForecast'
+
 const PERTH_TIME_ZONE = 'Australia/Perth'
 const MAX_NAME_CODE_POINTS = 200
 const MAX_BODY_BYTES = 64 * 1024
 const MAX_HTML_BYTES = 256 * 1024
 const MILESTONE_COLORS = ['#d75b77', '#e8442c', '#ff7a30']
+const FORECAST_WEEKDAYS = ['Mon', 'Wed', 'Fri']
 
 // Keep the sort independent from the machine locale. The code-point tie-breakers
 // also make canonically equivalent or case-equivalent names deterministic.
@@ -39,25 +45,57 @@ const EMAIL_DATE_FORMATTER = new Intl.DateTimeFormat('en-AU', {
 const UNSAFE_NAME_PATTERN = /[\p{Cc}\u2028\u2029\u202a-\u202e\u2066-\u2069]/u
 
 /**
- * Find members whose next recorded run is a positive multiple of 50.
+ * Find members likely to reach their next positive multiple of 50 this week.
  *
  * @param {Record<string, { name: string, totalRuns: number }>} memberTotals
- * @returns {Array<{ name: string, currentRuns: number, milestone: number }>}
+ * @param {Array<Object>} runs parsed run records from every registered season
+ * @param {string | null} cutoffDate inclusive ISO attendance cutoff
+ * @returns {Array<{
+ *   name: string,
+ *   currentRuns: number,
+ *   milestone: number,
+ *   runsNeeded: number,
+ *   chance: number,
+ *   label: string,
+ * }>}
  */
-export function findUpcomingMilestones(memberTotals) {
+export function findUpcomingMilestones(memberTotals, runs = [], cutoffDate = null) {
   const candidates = []
 
   for (const member of Object.values(memberTotals ?? {})) {
     const currentRuns = member?.totalRuns
-    const milestone = currentRuns + 1
+    if (!Number.isSafeInteger(currentRuns) || currentRuns < 0) continue
 
-    if (!Number.isInteger(currentRuns) || milestone <= 0 || milestone % 50 !== 0) continue
+    const milestone = (Math.floor(currentRuns / 50) + 1) * 50
+    if (!Number.isSafeInteger(milestone) || milestone <= 0) continue
+
+    const runsNeeded = milestone - currentRuns
+    if (runsNeeded > FORECAST_WEEKDAYS.length) continue
+
+    const weekdayRates = getMemberWeekdayRates(member.name, runs, cutoffDate)
+    const chance = calculateMilestoneChance(weekdayRates, runsNeeded)
+    const label = getMilestoneForecastLabel(chance, runsNeeded)
+    if (!label) continue
 
     assertSafeCandidateName(member.name)
-    candidates.push({ name: member.name, currentRuns, milestone })
+    candidates.push({ name: member.name, currentRuns, milestone, runsNeeded, chance, label })
   }
 
   return candidates.sort(compareCandidates)
+}
+
+/** Convert raw forecast chance to its plain confidence label and inclusion decision. */
+export function getMilestoneForecastLabel(chance, runsNeeded) {
+  if (!Number.isFinite(chance) || chance < 0 || chance > 1) {
+    throw new Error('Milestone chance must be a finite probability')
+  }
+  if (!Number.isInteger(runsNeeded) || runsNeeded < 1 || runsNeeded > 3) {
+    throw new Error('Runs needed must be an integer from 1 to 3')
+  }
+
+  if (chance >= 0.8) return 'Very likely'
+  if (chance >= 0.5) return 'Likely'
+  return runsNeeded === 1 ? 'Possible' : null
 }
 
 /**
@@ -333,6 +371,72 @@ function assertSafeCandidateName(name) {
   if ([...name].length > MAX_NAME_CODE_POINTS) {
     throw new Error('Candidate name is too long')
   }
+}
+
+/** Build fixed Monday, Wednesday, and Friday rates from eligible parsed rows. */
+function getMemberWeekdayRates(name, runs, cutoffDate) {
+  const cutoffKey = parseOptionalIsoCalendarDate(cutoffDate)
+  if (!Array.isArray(runs) || cutoffKey === null) return [0, 0, 0]
+
+  const completedRuns = runs
+    .map((run, inputIndex) => ({ run, inputIndex }))
+    .filter(({ run }) => isCompletedRunThroughCutoff(run, cutoffKey))
+
+  const firstAttendance = completedRuns
+    .filter(({ run }) => run.attendance?.[name] === true)
+    .reduce((earliest, entry) => {
+      if (!earliest || entry.run.parsedDate < earliest.run.parsedDate) return entry
+      return earliest
+    }, null)
+
+  if (!firstAttendance) return [0, 0, 0]
+
+  return FORECAST_WEEKDAYS.map((weekday) => {
+    const history = completedRuns
+      .filter(({ run }) => (
+        run.parsedDate >= firstAttendance.run.parsedDate && run.dayOfWeek === weekday
+      ))
+      .sort((left, right) => (
+        right.run.parsedDate - left.run.parsedDate || right.inputIndex - left.inputIndex
+      ))
+      .map(({ run }) => run.attendance?.[name] === true)
+
+    return calculateWeightedAttendanceRate(history) ?? 0
+  })
+}
+
+function isCompletedRunThroughCutoff(run, cutoffKey) {
+  return Number.isFinite(run?.totalAttendance) &&
+    run.totalAttendance > 0 &&
+    run.parsedDate instanceof Date &&
+    !Number.isNaN(run.parsedDate.getTime()) &&
+    getLocalCalendarDateKey(run.parsedDate) <= cutoffKey
+}
+
+function parseOptionalIsoCalendarDate(value) {
+  if (value === null || value === undefined) return null
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) throw new Error('Attendance cutoff is invalid')
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(Date.UTC(year, month - 1, day))
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() + 1 !== month ||
+    date.getUTCDate() !== day
+  ) {
+    throw new Error('Attendance cutoff is invalid')
+  }
+
+  return year * 10_000 + month * 100 + day
+}
+
+function getLocalCalendarDateKey(date) {
+  return date.getFullYear() * 10_000 + (date.getMonth() + 1) * 100 + date.getDate()
 }
 
 function compareCandidates(left, right) {
