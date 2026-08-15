@@ -103,9 +103,11 @@ ASC API, installed locally). The ASC API key `NJDJN4V5L3` (Downloads and
    python3 ios/Tools/testflight-notes.py "What changed in this build."
    ```
 
-   Write the notes from the user-facing commits since the last upload. Internal
-   testers get the build immediately; external testers get it when Apple's
-   (first-build-only) beta review clears.
+   Write the notes from the user-facing commits since the last upload, as a
+   short Dr. Seuss-style rhyme (Colin's standing preference; the beta app
+   description sets the tone). The club's full name is the Filament Coffee
+   Track Club. Internal testers get the build immediately; external testers
+   get it when Apple's (first-build-only) beta review clears.
 4. Install that same build on the phones.
 5. The distribution certificate expires 2027-08-14; renew via the ASC API
    (certificates endpoint) with a fresh CSR and recreate both profiles.
