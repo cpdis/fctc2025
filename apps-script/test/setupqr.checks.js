@@ -6,23 +6,41 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
-const { buildPayload, renderHtml, writePrivateFile } = require('../make-setup-qr.js');
+const { SETUP_SCHEME, buildPayload, renderHtml, writePrivateFile } = require('../make-setup-qr.js');
 const { encodeText } = require('../qr-encode.js');
 
 const TEST_SECRET = 'test-secret-not-real';
 
-test('setup payload uses the scanner contract without changing values', () => {
+test('setup payload is an app-claimed link, not raw JSON', () => {
+  // Regression (2026-08-16): a JSON payload made every generic scanner lift the
+  // endpoint out and open it in Safari, which answered `method_not_allowed` and
+  // configured nothing. The scheme is what sends the Camera app to the app.
   const payload = buildPayload({
     url: 'https://script.google.com/macros/s/example/exec',
     secret: TEST_SECRET,
     device: 'Aaron phone',
   });
 
-  assert.deepEqual(JSON.parse(payload), {
-    endpoint: 'https://script.google.com/macros/s/example/exec',
+  const url = new URL(payload);
+  assert.equal(url.protocol, `${SETUP_SCHEME}:`);
+  assert.equal(url.host, 'setup');
+  assert.equal(url.searchParams.get('endpoint'), 'https://script.google.com/macros/s/example/exec');
+  assert.equal(url.searchParams.get('secret'), TEST_SECRET);
+  assert.equal(url.searchParams.get('device'), 'Aaron phone');
+  assert.doesNotMatch(payload, /^\{/, 'the payload must not start with a JSON object');
+});
+
+test('setup payload escapes spaces as %20 so iOS decodes them', () => {
+  // `URLComponents.queryItems` hands back `+` verbatim, so the generator must not
+  // use the form-encoding that URLSearchParams would produce.
+  const payload = buildPayload({
+    url: 'https://example.test/exec',
     secret: TEST_SECRET,
-    deviceName: 'Aaron phone',
+    device: 'Aaron phone',
   });
+
+  assert.ok(payload.includes('device=Aaron%20phone'), payload);
+  assert.doesNotMatch(payload, /\+/);
 });
 
 test('payload construction rejects insecure and blank setup values', () => {

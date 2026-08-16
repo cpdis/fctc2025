@@ -91,6 +91,9 @@ private struct AppRootView: View {
     let runtime: AppRuntime
     let pendingRoutes: PendingRouteStore
 
+    @State private var pendingSetup: PendingSetupCode?
+    @State private var setupError: String?
+
     var body: some View {
         Group {
             if runtime.config.isConfigured {
@@ -102,7 +105,62 @@ private struct AppRootView: View {
             }
         }
         .tint(runtime.accent.color)
+        .onOpenURL(perform: receiveSetupCode)
+        .alert(
+            "Connect this phone?",
+            isPresented: binding(to: $pendingSetup),
+            presenting: pendingSetup
+        ) { pending in
+            Button("Connect") { connect(pending.config) }
+            Button("Cancel", role: .cancel) {}
+        } message: { pending in
+            Text("This setup code points at \(pending.host). Connect only if you recognise it.")
+        }
+        .alert(
+            "Setup code not valid",
+            isPresented: binding(to: $setupError),
+            presenting: setupError
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { message in
+            Text(message)
+        }
     }
+
+    /// A scanned setup code is never applied on arrival. Any web page can open a
+    /// custom scheme, so the person confirms the endpoint host first. The prompt
+    /// doubles as the "it worked" feedback the Safari detour never gave.
+    private func receiveSetupCode(_ url: URL) {
+        guard SetupCodeParser.isSetupLink(url.absoluteString) else { return }
+        do {
+            let config = try SetupCodeParser().parse(url.absoluteString)
+            pendingSetup = PendingSetupCode(config: config)
+        } catch {
+            setupError = error.localizedDescription
+        }
+    }
+
+    private func connect(_ config: AppConfig) {
+        do {
+            try runtime.configPersistence.save(config)
+            runtime.apply(config)
+        } catch {
+            setupError = "The shared secret could not be saved to Keychain. Try again."
+        }
+    }
+
+    /// SwiftUI's `presenting:` alerts need a Bool binding alongside the value.
+    private func binding<Value>(to state: Binding<Value?>) -> Binding<Bool> {
+        Binding(get: { state.wrappedValue != nil }, set: { if !$0 { state.wrappedValue = nil } })
+    }
+}
+
+/// A setup code that arrived by URL and is waiting for confirmation.
+private struct PendingSetupCode {
+    let config: AppConfig
+
+    /// The endpoint host, which is what the person is being asked to vouch for.
+    var host: String { config.endpoint?.host ?? "an unknown address" }
 }
 
 extension AccentChoice {

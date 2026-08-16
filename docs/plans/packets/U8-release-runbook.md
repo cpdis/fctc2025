@@ -44,7 +44,7 @@ worktree. Keep the setup QR and shared secret private.
 2. Run its full test suite. Confirm that the original 164 kit tests stay green.
 3. Confirm that every new U8 setup, loading, and sync-error test also passes.
 4. Select the `FCTCAttendance` scheme.
-5. Run its full test suite. Confirm that all kit tests and the 8 UI tests pass.
+5. Run its full test suite. Confirm that all kit tests and the 9 UI tests pass.
 6. Stop if an original test disappears or any test fails.
 
 The matching command-line build gate is:
@@ -212,8 +212,8 @@ FCTC_SETUP_SECRET='<shared secret>' node apps-script/make-setup-qr-png.js \
 swift ios/Tools/badge-qr.swift /tmp/qr-aaron.png ~/Desktop/setup-qr-aaron.png A Aaron
 ```
 
-1. Read the JSON printed to the terminal (HTML flavour) or trust the VERIFY
-   line (PNG flavour).
+1. Read the `fctc-attendance://setup?…` link printed to the terminal (HTML
+   flavour) or trust the VERIFY line (PNG flavour).
 2. Confirm the HTTPS endpoint and device name.
 3. AirDrop the PNGs to a phone for screen-to-screen scanning.
 4. Do not upload or commit any of these files.
@@ -221,18 +221,23 @@ swift ios/Tools/badge-qr.swift /tmp/qr-aaron.png ~/Desktop/setup-qr-aaron.png A 
 
 ## 11. Configure both phones
 
-Repeat these steps on Colin's and Aaron's phones:
+The code is a link the app claims, so the **Camera app is the supported path**.
+Install the app from TestFlight first, or iOS has nothing to open the link with.
 
-1. Open **Settings** in FCTC Attendance.
-2. Tap **Scan setup code**.
-3. Allow camera access.
-4. Scan that phone's setup code.
-5. Confirm that the scanner closes. A valid scan saves the secret to Keychain.
-6. Confirm the endpoint and device name in Settings.
-7. Tap **Save** only if you edit an imported field.
-8. Refresh the roster.
-9. Confirm that the current 2026 roster and runs load.
-10. Confirm that manual entry remains available when camera access is denied.
+1. Open the iPhone **Camera** and point it at the code.
+2. Tap the **Open in "FCTC"** banner.
+3. Confirm the endpoint host in the **Connect this phone?** prompt, then tap
+   **Connect**. A confirmed link saves the secret to Keychain.
+4. Confirm the endpoint and device name in Settings.
+5. Refresh the roster.
+6. Confirm that the current 2026 roster and runs load.
+
+Two fallbacks stay open, both reached through Settings:
+
+- **Scan setup code** reads the same code from inside the app. Use it when the
+  code is on another screen and the Camera banner is inconvenient.
+- Manual **Endpoint URL** and **Shared secret** entry, then **Save**. Use it when
+  camera access is denied, or when the two people are not together.
 
 ## 12. Run the real-device checks
 

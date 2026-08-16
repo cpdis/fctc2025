@@ -161,9 +161,21 @@ FCTC_SETUP_SECRET='<secret>' node apps-script/make-setup-qr.js \
   --output /tmp/setup-qr-colin.html
 ```
 
-The command prints the exact JSON payload for review. The HTML needs no network
-connection. Do not commit or share it. The app stores its imported secret in
-Keychain, not UserDefaults. Use manual Settings entry if camera access is unavailable.
+The command prints the exact payload for review. It is a link, not JSON:
+
+```
+fctc-attendance://setup?endpoint=<encoded>&secret=<encoded>&device=<encoded>
+```
+
+The scheme is what makes the code work. Generic scanners (the iOS Camera app, Live
+Text in Photos) lift a URL out of anything they scan, so an earlier JSON payload sent
+people to the endpoint in Safari, which answered `method_not_allowed` and configured
+nothing. The app claims this scheme, so the Camera app now offers **Open in "FCTC"**
+and the app asks the person to confirm the endpoint host before it connects. The app
+still reads the old JSON codes, and Settings still accepts the values by hand.
+
+The HTML needs no network connection. Do not commit or share it. The app stores its
+imported secret in Keychain, not UserDefaults.
 
 Authorize once by opening the deployed URL as the deploying user; anonymous access is
 what lets the app POST without OAuth, and the shared secret is what stops anyone else.

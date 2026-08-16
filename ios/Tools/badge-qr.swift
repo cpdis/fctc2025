@@ -65,6 +65,13 @@ try! handler.perform([request])
 guard let payload = request.results?.first?.payloadStringValue else {
     print("VERIFY FAILED \(name): no QR decoded"); exit(1)
 }
-let device = payload.contains("\"deviceName\":\"\(name) iPhone\"")
-print("VERIFY \(name): decoded=\(payload.count) chars, deviceName match=\(device)")
+// The generator writes `fctc-attendance://setup?…&device=Name%20iPhone`, so read the
+// query rather than matching raw text. A code that decodes but names the wrong phone
+// is worse than one that fails outright, so this stays a hard gate.
+let expected = "\(name) iPhone"
+let device = URLComponents(string: payload)?
+    .queryItems?
+    .first { $0.name == "device" }?
+    .value == expected
+print("VERIFY \(name): decoded=\(payload.count) chars, device match=\(device)")
 exit(device ? 0 : 1)

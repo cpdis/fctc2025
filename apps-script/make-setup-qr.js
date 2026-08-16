@@ -5,15 +5,33 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { encodeText } = require('./qr-encode.js');
 
+/** Custom URL scheme the iOS app claims. Keep in sync with `ios/project.yml`
+ *  (CFBundleURLSchemes) and `SetupCodeParser.scheme`. */
+const SETUP_SCHEME = 'fctc-attendance';
+
+/**
+ * Build the setup code as a custom-scheme link rather than raw JSON.
+ *
+ * Every generic scanner (the iOS Camera app, Live Text in Photos) lifts a URL out
+ * of whatever it scans. A JSON payload therefore sent people to the Apps Script
+ * endpoint in Safari, which answered `method_not_allowed` and configured nothing.
+ * A link the app claims makes the obvious action the correct one: the Camera app
+ * offers "Open in FCTC Attendance" and the fields reach the parser directly.
+ */
 function buildPayload({ url, secret, device }) {
   const endpoint = requiredText(url, 'URL');
   const parsed = new URL(endpoint);
   if (parsed.protocol !== 'https:') throw new Error('URL must use HTTPS.');
-  return JSON.stringify({
-    endpoint,
-    secret: requiredText(secret, 'secret'),
-    deviceName: requiredText(device, 'device name'),
-  });
+  const query = [
+    ['endpoint', endpoint],
+    ['secret', requiredText(secret, 'secret')],
+    ['device', requiredText(device, 'device name')],
+  ]
+    // encodeURIComponent, not URLSearchParams: the latter writes a space as `+`,
+    // which `URLComponents.queryItems` on iOS returns verbatim instead of decoding.
+    .map(([name, value]) => `${name}=${encodeURIComponent(value)}`)
+    .join('&');
+  return `${SETUP_SCHEME}://setup?${query}`;
 }
 
 function renderHtml(payload, qr) {
@@ -40,7 +58,8 @@ function renderHtml(payload, qr) {
 <body>
   <main>
     <h1>FCTC Attendance</h1>
-    <p>On the phone, open Settings and tap <strong>Scan setup code</strong>. Keep this file private because the code contains the shared secret.</p>
+    <p>Install <strong>FCTC Attendance</strong> from TestFlight first. Then point the iPhone <strong>Camera</strong> at this code and tap the banner that appears. The app asks you to confirm before it connects.</p>
+    <p>Keep this file private because the code contains the shared secret.</p>
     <canvas id="qr" aria-label="FCTC Attendance setup QR code"></canvas>
     <details><summary>Show payload</summary><pre id="payload"></pre></details>
   </main>
@@ -131,6 +150,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  SETUP_SCHEME,
   buildPayload,
   main,
   parseArguments,

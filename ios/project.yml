@@ -51,7 +51,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance
         PRODUCT_NAME: FCTC Attendance
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "2"
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1" # iPhone only
         SUPPORTS_MACCATALYST: NO
@@ -95,6 +95,15 @@ targets:
         NSCameraUsageDescription: >-
           FCTC Attendance uses the camera to scan a setup code containing the
           sheet endpoint, shared secret, and this phone's name.
+        # The setup QR encodes `fctc-attendance://setup?…`, so scanning it with the
+        # iOS Camera app offers "Open in FCTC Attendance" instead of dropping the
+        # person on the Apps Script endpoint in Safari. Keep the scheme in sync with
+        # SetupCodeParser.scheme and apps-script/make-setup-qr.js.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.cpdis.fctc-attendance.setup
+            CFBundleTypeRole: Editor
+            CFBundleURLSchemes:
+              - fctc-attendance
         BGTaskSchedulerPermittedIdentifiers:
           - com.cpdis.fctc-attendance.drain
         UIBackgroundModes:
@@ -113,7 +122,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance.share
         PRODUCT_NAME: FCTC Attendance Share
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "2"
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
@@ -154,7 +163,7 @@ targets:
         # requires version keys in it (upload rejection 90057).
         GENERATE_INFOPLIST_FILE: YES
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "2"
 
   FCTCAttendanceKitTests:
     type: bundle.unit-test
