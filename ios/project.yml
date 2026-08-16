@@ -51,7 +51,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance
         PRODUCT_NAME: FCTC Attendance
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "2"
+        CURRENT_PROJECT_VERSION: "3"
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1" # iPhone only
         SUPPORTS_MACCATALYST: NO
@@ -122,7 +122,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance.share
         PRODUCT_NAME: FCTC Attendance Share
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "2"
+        CURRENT_PROJECT_VERSION: "3"
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
@@ -163,7 +163,7 @@ targets:
         # requires version keys in it (upload rejection 90057).
         GENERATE_INFOPLIST_FILE: YES
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "2"
+        CURRENT_PROJECT_VERSION: "3"
 
   FCTCAttendanceKitTests:
     type: bundle.unit-test
