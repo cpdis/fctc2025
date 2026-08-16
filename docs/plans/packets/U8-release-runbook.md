@@ -70,6 +70,22 @@ xcodebuild build-for-testing \
 
 ## 4. Upload the TestFlight build
 
+**Write the "What to Test" notes BEFORE archiving.** Drafting them first forces
+you to name what actually changed while the diff is still in front of you, and it
+means the notes are ready the moment processing clears rather than being written
+in a hurry against a build already in Apple's hands. Draft to a file and pass it
+with `--file` in step 3.
+
+Two different fields are easy to confuse:
+
+| Field | Scope | Where |
+| --- | --- | --- |
+| **What to Test** | per build, what changed | `testflight-notes.py`, step 3 below |
+| **Beta app description** | the app overall, rarely changes | App Store Connect, TestFlight tab |
+
+A new feature changes the first. Only a change in what the app *is* touches the
+second.
+
 The 2026-08-14 release established the working pipeline. Xcode has no account
 session on this Mac, so cloud signing fails; Release signs MANUALLY with the
 Apple Distribution certificate and the two App Store profiles (created via the
