@@ -153,7 +153,9 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         let inserted = try optimisticInsertMember(name: name)
         do {
             let result = try await api.addMember(name: name)
-            try reconcileRoster(result.roster, seenAt: await clock.now())
+            // addMember answers with the roster only. No totals means "leave the
+            // cached numbers alone", and the new member starts at zero.
+            try reconcileRoster(result.roster, totals: [], seenAt: await clock.now())
             try updateCachedRevision(result.sheetRevision)
             try modelContext.save()
             return result
@@ -492,7 +494,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
     // MARK: Cache reconciliation
 
     private func reconcile(_ state: SheetState, seenAt: Date) throws {
-        try reconcileRoster(state.roster, seenAt: seenAt)
+        try reconcileRoster(state.roster, totals: state.lifetimeTotals, seenAt: seenAt)
         try reconcileRuns(
             state.runs,
             revision: state.sheetRevision,
@@ -500,7 +502,11 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         )
     }
 
-    private func reconcileRoster(_ roster: [RosterEntry], seenAt: Date) throws {
+    private func reconcileRoster(
+        _ roster: [RosterEntry],
+        totals: [MemberTotal],
+        seenAt: Date
+    ) throws {
         let local = try modelContext.fetch(FetchDescriptor<Member>())
         let remoteKeys = Set(roster.map { canonicalName($0.name) })
         var localByKey: [String: Member] = [:]
@@ -509,6 +515,11 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
             if localByKey[key] == nil { localByKey[key] = member }
         }
 
+        // Totals are keyed the same way names are matched everywhere else, so a
+        // rename between seasons still lands on the right member.
+        var runsByKey: [String: Int] = [:]
+        for total in totals { runsByKey[canonicalName(total.name)] = total.runs }
+
         for entry in roster {
             let key = canonicalName(entry.name)
             if let member = localByKey[key] {
@@ -516,9 +527,17 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                 member.colIndex = entry.colIndex
                 member.isNew = false
                 member.lastSeenAt = seenAt
+                // A script without the field reports no totals at all. Keep the
+                // cached number rather than blanking it.
+                if let runs = runsByKey[key] { member.lifetimeRuns = runs }
             } else {
                 modelContext.insert(
-                    Member(name: entry.name, colIndex: entry.colIndex, lastSeenAt: seenAt)
+                    Member(
+                        name: entry.name,
+                        colIndex: entry.colIndex,
+                        lastSeenAt: seenAt,
+                        lifetimeRuns: runsByKey[key] ?? 0
+                    )
                 )
             }
         }

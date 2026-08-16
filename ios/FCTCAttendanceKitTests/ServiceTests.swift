@@ -82,6 +82,42 @@ let stateResponse = json(
     """
 )
 
+/// The same state from a script that serves lifetime totals. `stateResponse` above
+/// deliberately omits them, so the rest of the suite keeps proving the app works
+/// against a deployment that predates the field.
+///
+/// Kept as text as well as data so a test can vary one number without restating
+/// the whole payload.
+let stateResponseWithTotalsText =
+    """
+    {
+      "ok": true,
+      "roster": [
+        {"name": "Aaron", "colIndex": 6},
+        {"name": "Col", "colIndex": 7}
+      ],
+      "runs": [{
+        "rowIndex": 42,
+        "date": "Fri, 2-Jan",
+        "meet": "Il Lido",
+        "run": "Soft Sand",
+        "approxKm": 7.1,
+        "actualKm": null,
+        "attendees": ["Aaron"],
+        "plusOnes": 1
+      }],
+      "seasonYear": 2026,
+      "sheetRevision": "rev-1",
+      "lifetimeTotals": [
+        {"name": "Aaron", "runs": 129},
+        {"name": "Col", "runs": 47},
+        {"name": "Ghost", "runs": 5}
+      ]
+    }
+    """
+
+let stateResponseWithTotals = json(stateResponseWithTotalsText)
+
 @Suite("Sheet API")
 struct ServiceTests {
 
@@ -115,6 +151,31 @@ struct ServiceTests {
         #expect(object["secret"] as? String == "shhh")
         #expect(object["action"] as? String == "getState")
         #expect(Set(object.keys) == ["secret", "action"])
+    }
+
+    @Test("getState decodes lifetime totals when the script serves them")
+    func getStateLifetimeTotals() async throws {
+        let transport = StubTransport([.response(stateResponseWithTotals)])
+        let api = SheetAPI(config: configuredAPI, transport: transport)
+
+        let state = try await api.getState()
+
+        #expect(state.lifetimeTotals.count == 3)
+        #expect(state.lifetimeTotals.first == MemberTotal(name: "Aaron", runs: 129))
+        #expect(state.lifetimeTotals.contains(MemberTotal(name: "Col", runs: 47)))
+    }
+
+    @Test("getState against a script without the field decodes to no totals")
+    func getStateWithoutLifetimeTotals() async throws {
+        // The deployed build must keep working against an older script, and a
+        // missing key must not be a decode failure that breaks the whole refresh.
+        let transport = StubTransport([.response(stateResponse)])
+        let api = SheetAPI(config: configuredAPI, transport: transport)
+
+        let state = try await api.getState()
+
+        #expect(state.lifetimeTotals.isEmpty)
+        #expect(state.roster.count == 2, "the rest of the payload still decodes")
     }
 
     @Test("submitAttendance decodes write metadata")

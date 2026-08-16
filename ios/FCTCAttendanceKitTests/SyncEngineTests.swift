@@ -521,6 +521,84 @@ struct SyncEngineTests {
         #expect(runs.first?.cachedRevision == "rev-1")
     }
 
+    @Test("refresh caches lifetime totals onto the roster")
+    func refreshCachesLifetimeTotals() async throws {
+        let container = try makeContainer()
+        let engine = makeEngine(
+            container: container,
+            transport: StubTransport([.response(stateResponseWithTotals)])
+        )
+
+        _ = try await engine.refreshState()
+
+        let members = try fetchMembers(container)
+        #expect(members.first { $0.name == "Aaron" }?.lifetimeRuns == 129)
+        #expect(members.first { $0.name == "Col" }?.lifetimeRuns == 47)
+        // "Ghost" has a total but is not on the roster, so it must not become a member.
+        #expect(!members.contains { $0.name == "Ghost" })
+        #expect(members.count == 2)
+    }
+
+    @Test("A second refresh updates totals in place rather than duplicating members")
+    func refreshUpdatesTotalsInPlace() async throws {
+        let container = try makeContainer()
+        let bumped = json(
+            stateResponseWithTotalsText.replacingOccurrences(
+                of: "\"runs\": 129",
+                with: "\"runs\": 130"
+            )
+        )
+        let engine = makeEngine(
+            container: container,
+            transport: StubTransport([
+                .response(stateResponseWithTotals),
+                .response(bumped),
+            ])
+        )
+
+        _ = try await engine.refreshState()
+        _ = try await engine.refreshState()
+
+        let members = try fetchMembers(container)
+        #expect(members.count == 2)
+        #expect(members.first { $0.name == "Aaron" }?.lifetimeRuns == 130)
+    }
+
+    @Test("A script without totals leaves the cached numbers alone")
+    func refreshWithoutTotalsKeepsCache() async throws {
+        // Back-compat guard: a redeploy rollback, or a conflict payload from an
+        // older script, must not blank what the app already knows.
+        let container = try makeContainer()
+        let engine = makeEngine(
+            container: container,
+            transport: StubTransport([
+                .response(stateResponseWithTotals),
+                .response(stateResponse),
+            ])
+        )
+
+        _ = try await engine.refreshState()
+        _ = try await engine.refreshState()
+
+        let members = try fetchMembers(container)
+        #expect(members.first { $0.name == "Aaron" }?.lifetimeRuns == 129)
+        #expect(members.first { $0.name == "Col" }?.lifetimeRuns == 47)
+    }
+
+    @Test("A member the server reports no total for stays at zero")
+    func memberWithoutTotalIsZero() async throws {
+        let container = try makeContainer()
+        let engine = makeEngine(
+            container: container,
+            transport: StubTransport([.response(stateResponse)])
+        )
+
+        _ = try await engine.refreshState()
+
+        let members = try fetchMembers(container)
+        #expect(members.allSatisfy { $0.lifetimeRuns == 0 })
+    }
+
     @Test("Conflict merge and overwrite choices close history and re-enqueue fresh rows")
     func conflictReenqueue() async throws {
         for (action, expectedMode) in [

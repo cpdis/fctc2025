@@ -54,22 +54,51 @@ public struct RunRecord: Codable, Hashable, Sendable {
     }
 }
 
+/// One member's lifetime run count, summed by the script across every season tab.
+public struct MemberTotal: Codable, Hashable, Sendable {
+    public var name: String
+    public var runs: Int
+
+    public init(name: String, runs: Int) {
+        self.name = name
+        self.runs = runs
+    }
+}
+
 public struct SheetState: Codable, Hashable, Sendable {
     public var roster: [RosterEntry]
     public var runs: [RunRecord]
     public var seasonYear: Int
     public var sheetRevision: String
+    /// Lifetime runs per member. Decodes to empty when the deployed script predates
+    /// the field, so a phone on an older build keeps working against a new script
+    /// and a new build keeps working against an old one.
+    public var lifetimeTotals: [MemberTotal]
 
     public init(
         roster: [RosterEntry] = [],
         runs: [RunRecord] = [],
         seasonYear: Int = 0,
-        sheetRevision: String = ""
+        sheetRevision: String = "",
+        lifetimeTotals: [MemberTotal] = []
     ) {
         self.roster = roster
         self.runs = runs
         self.seasonYear = seasonYear
         self.sheetRevision = sheetRevision
+        self.lifetimeTotals = lifetimeTotals
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        roster = try container.decodeIfPresent([RosterEntry].self, forKey: .roster) ?? []
+        runs = try container.decodeIfPresent([RunRecord].self, forKey: .runs) ?? []
+        seasonYear = try container.decodeIfPresent(Int.self, forKey: .seasonYear) ?? 0
+        sheetRevision = try container.decodeIfPresent(String.self, forKey: .sheetRevision) ?? ""
+        lifetimeTotals = try container.decodeIfPresent(
+            [MemberTotal].self,
+            forKey: .lifetimeTotals
+        ) ?? []
     }
 }
 

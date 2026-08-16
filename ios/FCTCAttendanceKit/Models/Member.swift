@@ -31,16 +31,22 @@ public final class Member {
     /// from the header (rare) are kept until a refresh proves them gone.
     public var lastSeenAt: Date
 
+    /// Runs across every season, as counted by the script. Zero for a member the
+    /// server has not reported a total for, including an optimistic local add.
+    public var lifetimeRuns: Int = 0
+
     public init(
         name: String,
         colIndex: Int,
         isNew: Bool = false,
-        lastSeenAt: Date = .now
+        lastSeenAt: Date = .now,
+        lifetimeRuns: Int = 0
     ) {
         self.name = name
         self.colIndex = colIndex
         self.isNew = isNew
         self.lastSeenAt = lastSeenAt
+        self.lifetimeRuns = lifetimeRuns
     }
 }
 
