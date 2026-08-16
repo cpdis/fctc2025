@@ -30,6 +30,7 @@ struct HomeView: View {
     let pendingRoutes: PendingRouteStore
 
     @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
+    @Query(sort: \Member.name) private var cachedMembers: [Member]
     @Query(
         filter: #Predicate<PendingSubmission> { $0.stateRaw != "done" },
         sort: \PendingSubmission.createdAt
@@ -163,6 +164,13 @@ struct HomeView: View {
                         }
                     }
                 }
+
+                // Always present, including before the first sync, where it falls
+                // through to its own empty state rather than vanishing.
+                MilestonesSection(
+                    members: cachedMembers,
+                    emptyPhrase: runtime.milestoneEmptyPhrase
+                )
 
                 if let banner = viewModel.syncBanner {
                     HomeSyncBanner(banner: banner, runtime: runtime) {

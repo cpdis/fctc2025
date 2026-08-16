@@ -83,4 +83,21 @@ public enum MilestonePhrases {
     public static func phrase(at index: Int) -> String {
         all.indices.contains(index) ? all[index] : all[0]
     }
+
+    /// UserDefaults key holding the index shown last launch.
+    static let lastIndexKey = "fctc.milestonePhraseIndex"
+
+    /// Draw this launch's line and remember it for the next one.
+    ///
+    /// Call once, at startup, and hold the result. Calling it from a view body
+    /// would re-roll on every state change and flicker the line as the app is used.
+    public static func drawForLaunch(
+        defaults: UserDefaults = .standard,
+        generator: inout some RandomNumberGenerator
+    ) -> String {
+        let previous = defaults.object(forKey: lastIndexKey) as? Int
+        let index = nextIndex(avoiding: previous, using: &generator)
+        defaults.set(index, forKey: lastIndexKey)
+        return phrase(at: index)
+    }
 }

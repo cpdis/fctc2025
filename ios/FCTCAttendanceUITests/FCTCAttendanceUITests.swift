@@ -238,11 +238,56 @@ final class FCTCAttendanceUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
     }
 
+    func testMilestonesSectionListsTheClosestRunners() {
+        configureApp()
+        launch()
+
+        // Aaron needs 3 for 150; Col and Dan are tied needing 5 for 50.
+        let aaron = app.descendants(matching: .any)["milestone-row-Aaron"]
+        XCTAssertTrue(aaron.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["milestone-row-Col"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["milestone-row-Dan"].exists)
+        // Dan B is 30 runs out, past the ceiling.
+        XCTAssertFalse(app.descendants(matching: .any)["milestone-row-Dan B"].exists)
+
+        XCTAssertTrue(aaron.label.contains("3 runs to 150"), aaron.label)
+        // Passive: the section carries no likelihood wording from the email.
+        XCTAssertFalse(app.staticTexts["Very likely"].exists)
+        XCTAssertFalse(app.staticTexts["Likely"].exists)
+    }
+
+    func testMilestonesSectionShowsAVerseWhenNobodyIsClose() {
+        configureApp(noMilestones: true)
+        launch()
+
+        let empty = app.descendants(matching: .any)["milestone-empty"]
+        XCTAssertTrue(empty.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["milestone-row-Aaron"].exists)
+    }
+
+    func testMilestonesPhraseIsHeldAcrossNavigation() {
+        configureApp(noMilestones: true)
+        launch()
+
+        let empty = app.descendants(matching: .any)["milestone-empty"]
+        XCTAssertTrue(empty.waitForExistence(timeout: 5))
+        let firstReading = empty.label
+
+        // Navigate away and back. A phrase drawn in the view body would re-roll.
+        app.buttons["home-all-runs"].tap()
+        XCTAssertTrue(app.buttons["run-row-43"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+
+        XCTAssertEqual(app.descendants(matching: .any)["milestone-empty"].label, firstReading)
+    }
+
     private func configureApp(
         offline: Bool = false,
         screenshotFixture: ScreenshotFixture? = nil,
         resetScreenshotCoach: Bool = false,
-        todayHero: Bool = false
+        todayHero: Bool = false,
+        noMilestones: Bool = false
     ) {
         continueAfterFailure = false
         app = XCUIApplication()
@@ -259,6 +304,7 @@ final class FCTCAttendanceUITests: XCTestCase {
             app.launchArguments.append("-ui-reset-screenshot-coach")
         }
         if todayHero { app.launchArguments.append("-ui-today-run") }
+        if noMilestones { app.launchArguments.append("-ui-no-milestones") }
     }
 
     private func openRun(row: Int) {

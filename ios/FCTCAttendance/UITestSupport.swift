@@ -178,7 +178,23 @@ private actor UITestSheetAPI: SheetAPIClient {
                 ),
             ],
             seasonYear: calendar.component(.year, from: recordedDay),
-            sheetRevision: "ui-rev-1"
+            sheetRevision: "ui-rev-1",
+            // Aaron needs 3 for 150; Col and Dan are tied needing 5 for 50; Dan B
+            // is 30 out and therefore past the ceiling. `-ui-no-milestones` pushes
+            // everyone out of range so the empty state can be exercised.
+            lifetimeTotals: ProcessInfo.processInfo.arguments.contains("-ui-no-milestones")
+                ? [
+                    MemberTotal(name: "Aaron", runs: 20),
+                    MemberTotal(name: "Col", runs: 21),
+                    MemberTotal(name: "Dan", runs: 22),
+                    MemberTotal(name: "Dan B", runs: 23),
+                ]
+                : [
+                    MemberTotal(name: "Aaron", runs: 147),
+                    MemberTotal(name: "Col", runs: 45),
+                    MemberTotal(name: "Dan", runs: 45),
+                    MemberTotal(name: "Dan B", runs: 20),
+                ]
         )
     }
 

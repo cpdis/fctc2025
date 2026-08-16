@@ -25,6 +25,9 @@ final class AppRuntime {
     let reminderService: any RunReminderManaging
     let sharedScreenshotInbox: SharedScreenshotInbox
 
+    /// This launch's Milestones empty-state line, chosen once at startup.
+    let milestoneEmptyPhrase: String
+
     @ObservationIgnored private let appearanceStore: any AppearanceStoring
 
     init(
@@ -45,6 +48,10 @@ final class AppRuntime {
         self.runRemindersEnabled = reminders.isEnabled
         self.reminderMessage = nil
         self.sharedScreenshotInbox = sharedScreenshotInbox
+        // Drawn once per launch and held. Rolling this inside a view body would
+        // change the line on every state change while the app is in use.
+        var generator = SystemRandomNumberGenerator()
+        self.milestoneEmptyPhrase = MilestonePhrases.drawForLaunch(generator: &generator)
         let loaded = configOverride ?? (try? configPersistence.load()) ?? AppConfig()
         self.config = loaded
         self.engine = engineOverride ?? SyncEngine(
