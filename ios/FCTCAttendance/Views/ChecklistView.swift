@@ -266,8 +266,11 @@ struct ChecklistView: View {
         }
         .alert("Attendance recorded", isPresented: $showingCatchUp) {
             Button("Next unrecorded run") { finishConfirmation(with: nextCatchUpRun) }
+                .accessibilityIdentifier("catchup-next")
             Button("Skip") { skipNextCatchUpRun() }
+                .accessibilityIdentifier("catchup-skip")
             Button("Done", role: .cancel) { finishConfirmation(with: nil) }
+                .accessibilityIdentifier("catchup-done")
         } message: {
             Text("An older run still needs attendance.")
         }

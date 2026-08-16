@@ -57,7 +57,36 @@ final class FCTCAttendanceUITests: XCTestCase {
         XCTAssertTrue(merge.waitForExistence(timeout: 3))
         XCTAssertTrue(overwrite.exists)
         merge.tap()
+
+        // Confirming a past run offers the next older unrecorded run, so dismissing
+        // that prompt is what returns home. Row 43 is the older unrecorded fixture run.
+        // firstMatch: alert presentation exposes each button as two identical elements.
+        let done = app.buttons["catchup-done"].firstMatch
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["catchup-next"].firstMatch.exists)
+        done.tap()
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+    }
+
+    func testCatchUpPromptOpensTheOlderUnrecordedRun() {
+        configureApp()
+        launch()
+        openRun(row: 42)
+
+        app.buttons["member-Aaron"].tap()
+        app.buttons["confirm-attendance"].tap()
+        app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH 'Merge —'")
+        ).firstMatch.tap()
+
+        let next = app.buttons["catchup-next"].firstMatch
+        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        next.tap()
+
+        // Taking the offer opens that run's checklist rather than returning home.
+        XCTAssertTrue(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["member-Aaron"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.buttons["member-Aaron"].value as? String, "Not checked")
     }
 
     func testOfflineQueueAppearsThenManualRetryDrainsIt() {

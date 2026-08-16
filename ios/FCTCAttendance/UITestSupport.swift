@@ -131,14 +131,26 @@ private actor UITestSheetAPI: SheetAPIClient {
     private var writeAttempts = 0
 
     init() {
-        let todayDate: String
-        if ProcessInfo.processInfo.arguments.contains("-ui-today-run") {
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.dateFormat = "EEE, d-MMM"
-            todayDate = formatter.string(from: .now)
-        } else {
-            todayDate = "Fri, 14-Aug"
+        // Every fixture date is relative to today, never a literal. A hardcoded
+        // "Fri, 14-Aug" silently changes meaning as the calendar moves: it was today
+        // on the day these tests were written, which suppressed the catch-up prompt,
+        // and it became a past run the next morning, which surfaced the prompt and
+        // broke the merge test with no code change behind it.
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let usesTodayRun = ProcessInfo.processInfo.arguments.contains("-ui-today-run")
+        var recordedDay = usesTodayRun
+            ? today
+            : calendar.date(byAdding: .day, value: -2, to: today) ?? today
+        var unrecordedDay = calendar.date(byAdding: .day, value: -1, to: recordedDay) ?? recordedDay
+        // Both runs must sit in one calendar year. `seasonYear` is a single field, and
+        // a date string parsed against the wrong year lands its run a year from today.
+        // Only the first days of January straddle; step the pair back into December.
+        if !usesTodayRun,
+           calendar.component(.year, from: recordedDay)
+            != calendar.component(.year, from: unrecordedDay) {
+            recordedDay = calendar.date(byAdding: .day, value: -3, to: recordedDay) ?? recordedDay
+            unrecordedDay = calendar.date(byAdding: .day, value: -3, to: unrecordedDay) ?? unrecordedDay
         }
         state = SheetState(
             roster: [
@@ -150,7 +162,7 @@ private actor UITestSheetAPI: SheetAPIClient {
             runs: [
                 RunRecord(
                     rowIndex: 42,
-                    date: todayDate,
+                    date: Self.sheetDate(recordedDay),
                     meet: "Il Lido",
                     run: "Soft Sand",
                     approxKm: 7.1,
@@ -159,15 +171,23 @@ private actor UITestSheetAPI: SheetAPIClient {
                 ),
                 RunRecord(
                     rowIndex: 43,
-                    date: "Thu, 13-Aug",
+                    date: Self.sheetDate(unrecordedDay),
                     meet: "Tompkins Park",
                     run: "River Loop",
                     approxKm: 8.2
                 ),
             ],
-            seasonYear: 2026,
+            seasonYear: calendar.component(.year, from: recordedDay),
             sheetRevision: "ui-rev-1"
         )
+    }
+
+    /// The sheet's own date format, for example "Fri, 14-Aug".
+    private static func sheetDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE, d-MMM"
+        return formatter.string(from: date)
     }
 
     func getState() async throws -> SheetState { state }
