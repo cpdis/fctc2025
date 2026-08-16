@@ -1,0 +1,10 @@
+{
+  "name": "fctc-attendance-apps-script",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Node test harness for the FCTC Attendance Apps Script. Not published, not installed, no dependencies — it exists so the repo root's \"type\": \"module\" does not make these CommonJS files (which must also run inside Apps Script) unloadable.",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test test"
+  }
+}

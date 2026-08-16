@@ -1,0 +1,177 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const test = require('node:test');
+
+const { SETUP_SCHEME, buildPayload, renderHtml, writePrivateFile } = require('../make-setup-qr.js');
+const { encodeText } = require('../qr-encode.js');
+
+const TEST_SECRET = 'test-secret-not-real';
+
+test('setup payload is an app-claimed link, not raw JSON', () => {
+  // Regression (2026-08-16): a JSON payload made every generic scanner lift the
+  // endpoint out and open it in Safari, which answered `method_not_allowed` and
+  // configured nothing. The scheme is what sends the Camera app to the app.
+  const payload = buildPayload({
+    url: 'https://script.google.com/macros/s/example/exec',
+    secret: TEST_SECRET,
+    device: 'Aaron phone',
+  });
+
+  const url = new URL(payload);
+  assert.equal(url.protocol, `${SETUP_SCHEME}:`);
+  assert.equal(url.host, 'setup');
+  assert.equal(url.searchParams.get('endpoint'), 'https://script.google.com/macros/s/example/exec');
+  assert.equal(url.searchParams.get('secret'), TEST_SECRET);
+  assert.equal(url.searchParams.get('device'), 'Aaron phone');
+  assert.doesNotMatch(payload, /^\{/, 'the payload must not start with a JSON object');
+});
+
+test('setup payload escapes spaces as %20 so iOS decodes them', () => {
+  // `URLComponents.queryItems` hands back `+` verbatim, so the generator must not
+  // use the form-encoding that URLSearchParams would produce.
+  const payload = buildPayload({
+    url: 'https://example.test/exec',
+    secret: TEST_SECRET,
+    device: 'Aaron phone',
+  });
+
+  assert.ok(payload.includes('device=Aaron%20phone'), payload);
+  assert.doesNotMatch(payload, /\+/);
+});
+
+test('payload construction rejects insecure and blank setup values', () => {
+  assert.throws(
+    () => buildPayload({ url: 'http://example.test/exec', secret: TEST_SECRET, device: 'Phone' }),
+    /URL must use HTTPS/,
+  );
+  assert.throws(
+    () => buildPayload({ url: ' ', secret: TEST_SECRET, device: 'Phone' }),
+    /Missing URL/,
+  );
+  assert.throws(
+    () => buildPayload({ url: 'https://example.test/exec', secret: ' ', device: 'Phone' }),
+    /Missing secret/,
+  );
+  assert.throws(
+    () => buildPayload({ url: 'https://example.test/exec', secret: TEST_SECRET, device: ' ' }),
+    /Missing device name/,
+  );
+});
+
+test('encoder chooses the smallest version and returns a square module matrix', () => {
+  const qr = encodeText('A'.repeat(80));
+
+  // Version 4-M holds 62 byte-mode characters. Version 5-M holds 84.
+  assert.equal(qr.version, 5);
+  assert.equal(qr.size, 37);
+  assert.equal(qr.matrix.length, qr.size);
+  assert.ok(qr.matrix.every((row) => row.length === qr.size));
+});
+
+test('encoder draws all three finder patterns', () => {
+  const qr = encodeText('finder pattern check');
+
+  assertFinder(qr.matrix, 0, 0);
+  assertFinder(qr.matrix, qr.size - 7, 0);
+  assertFinder(qr.matrix, 0, qr.size - 7);
+});
+
+test('different masks change data modules but not finder modules', () => {
+  const zero = encodeText('mask application check', { mask: 0 });
+  const one = encodeText('mask application check', { mask: 1 });
+
+  assert.equal(zero.version, one.version);
+  assert.notDeepEqual(zero.matrix, one.matrix);
+  assertFinder(zero.matrix, 0, 0);
+  assertFinder(one.matrix, 0, 0);
+  assert.ok(zero.functionModules.some((row, y) => row.some((isFunction, x) => {
+    return !isFunction && zero.matrix[y][x] !== one.matrix[y][x];
+  })));
+});
+
+test('self-contained HTML embeds the exact payload and QR modules', () => {
+  const payload = buildPayload({
+    url: 'https://example.test/exec',
+    secret: TEST_SECRET,
+    device: 'Run phone',
+  });
+  const qr = encodeText(payload);
+  const html = renderHtml(payload, qr);
+
+  assert.match(html, /<!doctype html>/i);
+  assert.ok(html.includes(JSON.stringify(payload)));
+  assert.ok(html.includes(JSON.stringify(qr.matrix)));
+  assert.doesNotMatch(html, /https:\/\/cdn|<script\s+src=/i);
+});
+
+test('private HTML writes repair permissions on an existing file', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fctc-setup-qr-'));
+  const output = path.join(directory, 'setup.html');
+  try {
+    fs.writeFileSync(output, 'old', { mode: 0o644 });
+    fs.chmodSync(output, 0o644);
+
+    writePrivateFile(output, 'new setup payload');
+
+    assert.equal(fs.readFileSync(output, 'utf8'), 'new setup payload');
+    assert.equal(fs.statSync(output).mode & 0o777, 0o600);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+function assertFinder(matrix, originX, originY) {
+  for (let y = 0; y < 7; y += 1) {
+    for (let x = 0; x < 7; x += 1) {
+      const expected = x === 0 || x === 6 || y === 0 || y === 6
+        || (x >= 2 && x <= 4 && y >= 2 && y <= 4);
+      assert.equal(
+        matrix[originY + y][originX + x],
+        expected,
+        `finder module ${originX + x},${originY + y}`,
+      );
+    }
+  }
+}
+
+test('a production-length payload encodes above the old version-10 ceiling', () => {
+  // Regression (2026-08-14 first real deploy): a real /exec URL plus a strong
+  // secret is ~250 bytes, which overflowed the encoder's original 213-byte
+  // version-10-M ceiling. The tables now extend to version 14.
+  const payload = buildPayload({
+    url: `https://script.google.com/macros/s/${'A'.repeat(71)}/exec`,
+    secret: `fctc-${'a'.repeat(48)}`,
+    device: 'Colin iPhone',
+  });
+  assert.ok(payload.length > 213, `expected an over-ceiling payload, got ${payload.length}`);
+
+  const qr = encodeText(payload);
+  assert.ok(qr.version >= 11, `expected version 11+, got ${qr.version}`);
+  assert.ok(qr.version <= 14);
+  assert.equal(qr.size, qr.version * 4 + 17);
+  assert.equal(qr.matrix.length, qr.size);
+  assertFinder(qr.matrix, 0, 0);
+  assertFinder(qr.matrix, qr.size - 7, 0);
+  assertFinder(qr.matrix, 0, qr.size - 7);
+});
+
+test('the PNG renderer emits a valid grayscale image with dark finder corners', () => {
+  const zlib = require('node:zlib');
+  const { renderPng } = require('../make-setup-qr-png.js');
+  const qr = encodeText('png renderer check');
+  const png = renderPng(qr.matrix, 4, 2);
+  assert.deepEqual([...png.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const size = png.readUInt32BE(16); // IHDR width
+  assert.equal(size, (qr.size + 4) * 4);
+  // Decompress the image data and check the first finder module is dark.
+  const idatLen = png.readUInt32BE(33);
+  const raw = zlib.inflateSync(png.subarray(41, 41 + idatLen));
+  const quiet = 2 * 4;
+  assert.equal(raw[quiet * (size + 1) + 1 + quiet], 0);
+  // And the quiet zone is white.
+  assert.equal(raw[1], 0xff);
+});

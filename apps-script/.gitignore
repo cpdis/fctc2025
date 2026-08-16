@@ -1,0 +1,2 @@
+# Generated setup pages contain the shared secret. Never commit them.
+setup-qr*.html

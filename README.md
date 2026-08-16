@@ -268,6 +268,45 @@ To rotate the provider key, set the gate to `false`. Create a new sending-access
 verified domain. Replace `RESEND_API_KEY`, run the fixed smoke test, and confirm receipt.
 Revoke the old key, then re-enable the gate.
 
+## Attendance app
+
+A native iOS app (SwiftUI, iOS 26) for recording attendance and actual kms right after
+a run — manually, from a WhatsApp poll screenshot (on-device OCR), or by voice — writing
+straight back into the **same Google Sheet this dashboard reads**. The sheet stays the
+canonical record; the app is a new *writer*, and this dashboard's weekly sync, parser and
+build are untouched by it.
+
+- `ios/` — the app. The Xcode project is generated, not committed:
+  `cd ios && xcodegen generate` (XcodeGen reads `ios/project.yml`). All non-UI logic
+  lives in the `FCTCAttendanceKit` framework so it is unit-testable.
+- `apps-script/` — the Google Apps Script Web App the phone posts to (JSON + shared
+  secret, no OAuth in the app). Runbook: `apps-script/README.md`.
+  Tests: `node --test apps-script/test`.
+- `fixtures/attendance/` — shared fixtures (season CSV snapshots, OCR line dumps, voice
+  transcripts + expected parse results). Schema: `fixtures/attendance/README.md`.
+
+Plan (architecture, API contract, design language, work units):
+`docs/plans/2026-08-14-001-feat-fctc-attendance-ios-app-plan.md`.
+
+The app's home screen also carries a **Milestones** section, which is the passive
+counterpart to the weekly emails above. Both use the same definition of a landmark
+(the next positive multiple of 50) and the same attendance rule (any mark except
+blank and `-`), so they never disagree about a total. They differ in what they show:
+the email forecasts who is *likely* to get there this week and only considers people
+within three runs, while the app just lists the closest few with the runs they need,
+no forecast. The app reads live from the sheet through `getState`, so it reflects
+attendance recorded seconds ago; the email reads the weekly CSV export.
+See `docs/plans/2026-08-16-001-feat-milestones-ahead-section-plan.md`.
+
+Release operations live in `docs/plans/packets/U8-release-runbook.md`. Keep one
+production Apps Script deployment ID and update it with `clasp deploy -i`; a plain
+deploy changes the phone endpoint. Generate private setup pages with
+`apps-script/make-setup-qr.js`. The code is a `fctc-attendance://setup?…` link the app
+claims, so scanning it with the iPhone Camera opens the app and asks the person to
+confirm the endpoint before connecting. The app validates HTTPS setup payloads and
+stores the shared secret in Keychain. For a new season, add the sheet tab and change the
+`SEASON_SHEET_NAME` script property; each phone refreshes itself through `getState`.
+
 ## Deployment
 
 Vercel (hobby), SPA rewrites in `vercel.json`. Pushes to the default branch auto-deploy. After

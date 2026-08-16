@@ -1,0 +1,225 @@
+# XcodeGen spec for the FCTC Attendance iOS app.
+#
+# The .xcodeproj is GENERATED, never hand-edited or committed:
+#
+#   brew install xcodegen        # once
+#   cd ios && xcodegen generate  # after any change to this file or to the file tree
+#   open FCTCAttendance.xcodeproj
+#
+# Targets:
+#   FCTCAttendance        — SwiftUI app shell (views + app entry only)
+#   FCTCAttendanceKit     — framework holding ALL non-UI logic so it is unit-testable
+#   FCTCAttendanceKitTests — unit tests for the kit (Swift Testing)
+#
+# Zero third-party dependencies by design (see plan: Key Technical Decisions #2).
+
+name: FCTCAttendance
+
+options:
+  bundleIdPrefix: com.cpdis
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "26.0"
+  groupSortPosition: top
+  minimumXcodeGenVersion: "2.38.0"
+  xcodeVersion: "26.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    CLANG_ENABLE_MODULES: YES
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: Y62XUYATCS
+
+targets:
+  FCTCAttendance:
+    type: application
+    platform: iOS
+    sources:
+      - path: FCTCAttendance
+    dependencies:
+      - target: FCTCAttendanceKit
+        embed: true
+      - target: FCTCAttendanceShare
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance
+        PRODUCT_NAME: FCTC Attendance
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "3"
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1" # iPhone only
+        SUPPORTS_MACCATALYST: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        # The user-selectable alternate icon (Settings > App Icon).
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: AppIconAlt
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
+        CODE_SIGN_ENTITLEMENTS: FCTCAttendance/FCTCAttendance.entitlements
+      configs:
+        # Release archives sign manually: Xcode's cloud signing has no account
+        # session on this Mac, so the profiles are created via the ASC API.
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: FCTC Attendance App Store
+    info:
+      path: FCTCAttendance/Info.plist
+      properties:
+        CFBundleDisplayName: FCTC
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: ""
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        ITSAppUsesNonExemptEncryption: false
+        # Usage descriptions — all three smart-modality permissions (R4, R5).
+        NSPhotoLibraryUsageDescription: >-
+          FCTC Attendance reads WhatsApp poll screenshots you choose so it can
+          pre-fill the attendance checklist. Screenshots stay on your device.
+        NSSpeechRecognitionUsageDescription: >-
+          FCTC Attendance transcribes your spoken run summary to pre-fill the
+          attendance checklist. It uses on-device recognition when available
+          and can otherwise use Apple speech servers.
+        NSMicrophoneUsageDescription: >-
+          FCTC Attendance records your voice only while you are dictating a run
+          summary, so it can pre-fill the attendance checklist.
+        NSCameraUsageDescription: >-
+          FCTC Attendance uses the camera to scan a setup code containing the
+          sheet endpoint, shared secret, and this phone's name.
+        # The setup QR encodes `fctc-attendance://setup?…`, so scanning it with the
+        # iOS Camera app offers "Open in FCTC Attendance" instead of dropping the
+        # person on the Apps Script endpoint in Safari. Keep the scheme in sync with
+        # SetupCodeParser.scheme and apps-script/make-setup-qr.js.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.cpdis.fctc-attendance.setup
+            CFBundleTypeRole: Editor
+            CFBundleURLSchemes:
+              - fctc-attendance
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.cpdis.fctc-attendance.drain
+        UIBackgroundModes:
+          - fetch
+
+  FCTCAttendanceShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: FCTCAttendanceShare
+      # Compile the Foundation-only App Group inbox seam into both modules. This
+      # keeps the extension small and gives both sides one path definition.
+      - path: FCTCAttendanceKit/Services/SharedScreenshotInbox.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance.share
+        PRODUCT_NAME: FCTC Attendance Share
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "3"
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+        CODE_SIGN_ENTITLEMENTS: FCTCAttendanceShare/FCTCAttendanceShare.entitlements
+      configs:
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: FCTC Attendance Share App Store
+    info:
+      path: FCTCAttendanceShare/Info.plist
+      properties:
+        CFBundleDisplayName: FCTC Attendance
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsImageWithMaxCount: 12
+
+  FCTCAttendanceKit:
+    type: framework
+    platform: iOS
+    sources:
+      - path: FCTCAttendanceKit
+    dependencies:
+      - sdk: Security.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance.kit
+        PRODUCT_NAME: FCTCAttendanceKit
+        DEFINES_MODULE: YES
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: NO
+        # A framework needs an Info.plist; App Store Connect additionally
+        # requires version keys in it (upload rejection 90057).
+        GENERATE_INFOPLIST_FILE: YES
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "3"
+
+  FCTCAttendanceKitTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: FCTCAttendanceKitTests
+      # U5 (orchestrator grant): the shared fixtures ship inside the test bundle, so
+      # Swift tests read them via `Bundle(for:)` instead of `#filePath` — which breaks
+      # the moment tests run from a build product rather than the source tree. A folder
+      # reference (not a group) means a new fixture file needs no `xcodegen generate`.
+      - path: ../fixtures/attendance
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - target: FCTCAttendanceKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance.kit-tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  FCTCAttendanceUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: FCTCAttendanceUITests
+    dependencies:
+      - target: FCTCAttendance
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance.ui-tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  FCTCAttendance:
+    build:
+      targets:
+        FCTCAttendance: all
+        FCTCAttendanceKit: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - FCTCAttendanceKitTests
+        - FCTCAttendanceUITests
+    archive:
+      config: Release
+
+  FCTCAttendanceKit:
+    build:
+      targets:
+        FCTCAttendanceKit: all
+        FCTCAttendanceKitTests: [test]
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - FCTCAttendanceKitTests

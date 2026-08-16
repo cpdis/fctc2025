@@ -1,0 +1,6 @@
+# Files in apps-script/ that must NOT be pushed to the Apps Script project.
+# (clasp treats this like .gitignore, relative to rootDir.)
+**/**
+!appsscript.json
+!Code.gs
+!SheetOps.js
