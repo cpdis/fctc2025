@@ -66,3 +66,6 @@ ios/FCTCAttendanceShare/Info.plist
 
 # Local xcodebuild DerivedData (orchestrator verification runs)
 ios/.ddata/
+
+# Bytecode from the Python release tools (asc-api.py, testflight-notes.py).
+ios/Tools/__pycache__/
