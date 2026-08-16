@@ -81,11 +81,19 @@ function assertError(response, code) {
 function assertStateShape(state, year) {
   assert.deepEqual(
     Object.keys(state).filter((key) => key !== 'ok').sort(),
-    ['roster', 'runs', 'seasonYear', 'sheetRevision'],
+    ['lifetimeTotals', 'roster', 'runs', 'seasonYear', 'sheetRevision'],
     'getState body must carry exactly the documented keys'
   );
   assert.equal(state.seasonYear, year);
   assert.match(state.sheetRevision, /^[0-9a-f]{16}$/);
+
+  // Additive 2026-08-16: lifetime runs per member across every season tab.
+  assert.ok(Array.isArray(state.lifetimeTotals));
+  for (const total of state.lifetimeTotals) {
+    assert.deepEqual(Object.keys(total).sort(), ['name', 'runs']);
+    assert.equal(typeof total.name, 'string');
+    assert.ok(Number.isInteger(total.runs) && total.runs >= 0);
+  }
 
   assert.ok(Array.isArray(state.roster));
   for (const entry of state.roster) {
@@ -954,5 +962,115 @@ test.describe('contract shapes (frozen API)', () => {
     assert.ok(['row_mismatch', 'stale_revision'].includes(response.conflict.reason));
     assert.equal(typeof response.conflict.message, 'string');
     assertStateShape(response.conflict.state, 2026);
+  });
+});
+
+/**
+ * Lifetime totals on `getState` — the app's milestone list.
+ *
+ * These run against a spreadsheet holding BOTH real season fixtures, because the
+ * whole point of the field is that it spans tabs.
+ */
+test.describe('getState lifetimeTotals', () => {
+  /** A spreadsheet whose writable season is 2026 and which also holds 2025. */
+  function bothSeasons(options) {
+    return api(2026, Object.assign(
+      { extraSheets: [{ name: '2025', grid: seasonGrid(2025) }] },
+      options || {}
+    ));
+  }
+
+  function totalsOf(env) {
+    const response = env.post({ secret: env.secret, action: 'getState' });
+    assert.equal(response.ok, true);
+    return response.lifetimeTotals;
+  }
+
+  test.it('sums a member across both season tabs', () => {
+    // Tallied from the fixtures independently of this code: Aaron ran 80 in 2025
+    // and 49 in 2026; Adam 74 and 34.
+    const totals = totalsOf(bothSeasons());
+
+    assert.equal(totals.find((t) => t.name === 'Aaron').runs, 80 + 49);
+    assert.equal(totals.find((t) => t.name === 'Adam').runs, 74 + 34);
+    assert.equal(totals.find((t) => t.name === 'Alex 👑').runs, 75 + 40);
+  });
+
+  test.it('lists a member who appears in only one season', () => {
+    // Dan B joined for 2026, so 2025 has no column for him at all.
+    const totals = totalsOf(bothSeasons());
+    const danB = totals.find((t) => t.name === 'Dan B');
+
+    assert.ok(danB, 'a 2026-only member must still be listed');
+    assert.ok(danB.runs > 0);
+    assert.equal(totals.filter((t) => t.name === 'Dan B').length, 1);
+  });
+
+  test.it('counts each member exactly once when both tabs carry them', () => {
+    const totals = totalsOf(bothSeasons());
+    const names = totals.map((t) => t.name);
+
+    assert.equal(new Set(names).size, names.length, 'no duplicate members');
+  });
+
+  test.it('falls back to the single season when no other tab exists', () => {
+    const only2026 = totalsOf(api(2026));
+
+    assert.equal(only2026.find((t) => t.name === 'Aaron').runs, 49);
+    assert.equal(only2026.length, SEASON_FACTS[2026].memberCount);
+  });
+
+  test.it('ignores tabs that are not four-digit seasons', () => {
+    const withNotes = totalsOf(bothSeasons({
+      extraSheets: [
+        { name: '2025', grid: seasonGrid(2025) },
+        { name: 'Notes', grid: seasonGrid(2025) },
+      ],
+    }));
+    const both = totalsOf(bothSeasons());
+
+    assert.deepEqual(withNotes, both, 'a Notes tab must contribute nothing');
+  });
+
+  test.it('returns members alphabetically, like the roster', () => {
+    const names = totalsOf(bothSeasons()).map((t) => t.name);
+    const sorted = names.slice().sort(SheetOps.compareNames);
+
+    assert.deepEqual(names, sorted);
+  });
+
+  test.it('leaves the rest of the getState payload untouched', () => {
+    const env = bothSeasons();
+    const response = env.post({ secret: env.secret, action: 'getState' });
+    const single = api(2026);
+    const before = single.post({ secret: single.secret, action: 'getState' });
+
+    assert.deepEqual(response.roster, before.roster);
+    assert.deepEqual(response.runs, before.runs);
+    assert.equal(response.seasonYear, before.seasonYear);
+    assert.equal(response.sheetRevision, before.sheetRevision,
+      'the revision covers the season tab only, so an extra tab cannot move it');
+  });
+
+  test.it('rides along on conflict payloads too, so a diff cannot blank the cache', () => {
+    // `conflict.state` is what the app applies after a conflict. If it omitted
+    // totals, every conflict would zero the cached lifetime runs.
+    const env = bothSeasons();
+    const state = env.post({ secret: env.secret, action: 'getState' });
+    const run = state.runs[0];
+    const conflict = env.post({
+      secret: env.secret,
+      action: 'submitAttendance',
+      rowIndex: run.rowIndex,
+      expectedDate: run.date,
+      expectedRun: 'definitely not this run',
+      attendees: ['Aaron'],
+      mode: 'overwrite',
+      baseRevision: state.sheetRevision,
+    });
+
+    assert.equal(conflict.ok, true);
+    assert.equal(conflict.conflict.reason, 'row_mismatch');
+    assert.deepEqual(conflict.conflict.state.lifetimeTotals, state.lifetimeTotals);
   });
 });

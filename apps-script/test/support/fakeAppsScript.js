@@ -225,6 +225,12 @@ function createEnvironment(options) {
   const sheetName = options.sheetName || '2026';
   const secret = options.secret === undefined ? 'test-secret' : options.secret;
   const sheet = new FakeSheet(sheetName, options.grid);
+  // Lifetime totals read every season tab, so the fake spreadsheet has to be able
+  // to hold more than the one writable season.
+  const extraSheets = (options.extraSheets || []).map(
+    (extra) => new FakeSheet(extra.name, extra.grid)
+  );
+  const allSheets = [sheet].concat(extraSheets);
   const properties = Object.assign(
     { SHARED_SECRET: secret, SEASON_SHEET_NAME: sheetName },
     options.properties || {}
@@ -237,7 +243,8 @@ function createEnvironment(options) {
     console,
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ({
-        getSheetByName: (name) => (name === sheet.name ? sheet : null),
+        getSheetByName: (name) => allSheets.find((s) => s.name === name) || null,
+        getSheets: () => allSheets.slice(),
       }),
       flush: () => {},
     },

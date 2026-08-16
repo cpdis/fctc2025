@@ -18,7 +18,7 @@ Response: `{ ok: true, ... }` or `{ ok: false, error: "code", message: "..." }`.
 
 | Action | Payload → Response |
 |---|---|
-| `getState` | `{}` → `{ roster: [{name, colIndex}], runs: [{rowIndex, date, meet, run, approxKm, actualKm, attendees, plusOnes}], seasonYear, sheetRevision }` |
+| `getState` | `{}` → `{ roster: [{name, colIndex}], runs: [{rowIndex, date, meet, run, approxKm, actualKm, attendees, plusOnes}], seasonYear, sheetRevision, lifetimeTotals: [{name, runs}] }` |
 | `submitAttendance` | `{ rowIndex, expectedDate, expectedRun, attendees, plusOnes, actualKm, mode: "merge"\|"overwrite", baseRevision }` → `{ ok, written }` or `{ ok, conflict: { reason, state } }` |
 | `addMember` | `{ name }` → `{ roster }` |
 | `addRun` | `{ date, meet, run, approxKm }` → `{ runs }` |
@@ -179,6 +179,15 @@ imported secret in Keychain, not UserDefaults.
 
 Authorize once by opening the deployed URL as the deploying user; anonymous access is
 what lets the app POST without OAuth, and the shared secret is what stops anyone else.
+
+### Lifetime totals
+
+`lifetimeTotals` sums each member's runs across **every tab whose name is four
+digits**, which is how the app shows who is near a milestone. Season tabs are
+discovered by name, so a new January needs no script-property change; just name
+the tab `2027`. A tab named anything else, `Notes` or `2027 draft`, contributes
+nothing. Attendance counts any mark except blank and `-`, matching
+`src/utils/dataParser.js`, so the app and the weekly milestone email agree.
 
 ### Testing safely
 

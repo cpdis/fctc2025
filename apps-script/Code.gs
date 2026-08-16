@@ -11,7 +11,12 @@
  *   POST  { secret, action, ...payload }
  *   200   { ok: true, ... } | { ok: false, error: "code", message: "..." }
  *   Actions:
- *     getState          {} -> { roster, runs, seasonYear, sheetRevision }
+ *     getState          {} -> { roster, runs, seasonYear, sheetRevision,
+ *                                lifetimeTotals }
+ *                       `lifetimeTotals` (additive, 2026-08-16) is
+ *                       [{ name, runs }] summed over EVERY four-digit tab, for
+ *                       the app's milestone list. It rides on every state
+ *                       payload, conflicts included.
  *     submitAttendance  { rowIndex, expectedDate, expectedRun, attendees, plusOnes,
  *                         actualKm, mode, baseRevision }
  *                       -> { ok, written } | { ok, conflict: { reason, state } }
@@ -325,7 +330,58 @@ function stateOf_(ctx) {
     runs: SheetOps.listRuns(ctx.grid, ctx.headerRow),
     seasonYear: ctx.seasonYear,
     sheetRevision: SheetOps.revisionHash(ctx.grid, ctx.headerRow),
+    // Every state payload carries these, conflicts included. A conflict's state
+    // is what the app's diff screen applies to its cache, so omitting them there
+    // would blank the cached totals on the next conflict.
+    lifetimeTotals: lifetimeTotals_(),
   };
+}
+
+/**
+ * Runs per member across EVERY season tab, for the app's milestone list.
+ *
+ * Season tabs are discovered by name (`SheetOps.isSeasonTabName`) rather than
+ * configured, so a new January needs no second script property. Tabs are read
+ * newest first, which is what makes the newest spelling of a name the one the
+ * app displays when a member was renamed between seasons.
+ *
+ * Read-only: this never touches the write path, so the sheet-safety invariant is
+ * unaffected.
+ *
+ * @return {!Array<{name: string, runs: number}>} Alphabetical, matching the
+ *     roster's own ordering.
+ */
+function lifetimeTotals_() {
+  var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  var seasons = [];
+  for (var i = 0; i < sheets.length; i++) {
+    if (SheetOps.isSeasonTabName(sheets[i].getName())) seasons.push(sheets[i]);
+  }
+  seasons.sort(function (a, b) {
+    return b.getName().localeCompare(a.getName());
+  });
+
+  var byKey = {};
+  var keys = [];
+  for (var s = 0; s < seasons.length; s++) {
+    var totals = SheetOps.attendanceTotals(seasons[s].getDataRange().getValues());
+    for (var t = 0; t < totals.length; t++) {
+      var key = SheetOps.normalizeKey(totals[t].name);
+      if (!key) continue;
+      if (!byKey[key]) {
+        byKey[key] = { name: totals[t].name, runs: 0 };
+        keys.push(key);
+      }
+      byKey[key].runs += totals[t].runs;
+    }
+  }
+
+  var result = [];
+  for (var k = 0; k < keys.length; k++) result.push(byKey[keys[k]]);
+  result.sort(function (a, b) {
+    return SheetOps.compareNames(a.name, b.name);
+  });
+  return result;
 }
 
 /**
