@@ -422,6 +422,50 @@ function listRuns(grid, headerRow) {
 }
 
 /**
+ * Lifetime attendance count per member for ONE season tab.
+ *
+ * Attendance is `isAttendedMark`, not a literal "x". The real sheet also records
+ * a per-person distance ("12.30"), the odd emoji, and free text; only blank and
+ * "-" mean absent. This matches `src/utils/dataParser.js` on main, which is what
+ * the weekly milestone email counts, so both surfaces agree on a person's total.
+ *
+ * @param {!Array<!Array<*>>} grid One tab's values.
+ * @return {!Array<{name: string, runs: number}>} In sheet order. Members with no
+ *     attendance are present with `runs: 0`, so a caller can tell "nobody yet"
+ *     apart from "not on this tab".
+ */
+function attendanceTotals(grid) {
+  var geometry = sheetGeometry(grid);
+  if (!geometry) return [];
+  var totals = [];
+  for (var i = 0; i < geometry.band.length; i++) {
+    var member = geometry.band[i];
+    var runs = 0;
+    for (var r = geometry.headerRow + 1; r <= grid.length; r++) {
+      var row = grid[r - 1] || [];
+      // isRunRow keeps summary and notes rows under the band out of the count.
+      if (!isRunRow(row, geometry.bounds)) continue;
+      if (isAttendedMark(row[member.colIndex - 1])) runs++;
+    }
+    totals.push({ name: member.name, runs: runs });
+  }
+  return totals;
+}
+
+/**
+ * Is this tab name a season, i.e. exactly four digits ("2025", "2026")?
+ *
+ * Lifetime totals span every season, so `Code.gs` discovers tabs by name rather
+ * than carrying a second script property that must be updated each January.
+ *
+ * @param {*} name
+ * @return {boolean}
+ */
+function isSeasonTabName(name) {
+  return /^\d{4}$/.test(cellText(name));
+}
+
+/**
  * The raw member-band cell values of a run row, aligned to `band` order.
  *
  * `buildRowWrite` needs the RAW values, not the derived attendee list: a `-`
@@ -894,6 +938,8 @@ var SheetOps = {
   isRunRow: isRunRow,
   readRun: readRun,
   listRuns: listRuns,
+  attendanceTotals: attendanceTotals,
+  isSeasonTabName: isSeasonTabName,
   memberValuesAt: memberValuesAt,
   sameRunIdentity: sameRunIdentity,
   findRunRows: findRunRows,

@@ -798,3 +798,114 @@ test.describe('isWriteWithinBand (sheet-safety invariant)', () => {
     );
   });
 });
+
+/**
+ * Lifetime totals (milestones). The counts below were tallied from the fixture
+ * CSVs independently of SheetOps, so a regression in the counter cannot redefine
+ * what "correct" means.
+ */
+test.describe('attendanceTotals', () => {
+  const EXPECTED = {
+    2025: { 'Aaron': 80, 'Adam': 74, 'Alex 👑': 75, 'Scott': 95, 'Wes': 24 },
+    2026: { 'Aaron': 49, 'Adam': 34, 'Alex 👑': 40, 'Tim': 0, 'Wes': 16 },
+  };
+
+  SEASON_YEARS.forEach((year) => {
+    test.it(`counts every member of the ${year} tab`, () => {
+      const totals = SheetOps.attendanceTotals(seasonGrid(year));
+
+      assert.equal(totals.length, SEASON_FACTS[year].memberCount);
+      Object.entries(EXPECTED[year]).forEach(([name, runs]) => {
+        const entry = totals.find((t) => t.name === name);
+        assert.ok(entry, `${name} missing from ${year} totals`);
+        assert.equal(entry.runs, runs, `${name} in ${year}`);
+      });
+    });
+
+    test.it(`returns totals in ${year} sheet order, matching the member band`, () => {
+      const grid = seasonGrid(year);
+      const band = SheetOps.memberBand(grid, SheetOps.findHeaderRow(grid));
+
+      assert.deepEqual(
+        SheetOps.attendanceTotals(grid).map((t) => t.name),
+        band.map((m) => m.name)
+      );
+    });
+  });
+
+  test.it('keeps a member who has never attended, with runs: 0', () => {
+    // 2026 has five members yet to run. They must be present and zero, so a
+    // caller can tell "nobody yet" from "not on this tab".
+    const totals = SheetOps.attendanceTotals(seasonGrid(2026));
+    const zeroes = totals.filter((t) => t.runs === 0).map((t) => t.name);
+
+    assert.deepEqual(zeroes, ['Fraser', 'Laura E', 'Laura K', 'Sam', 'Tim']);
+  });
+
+  test.it('counts any mark except blank and "-"', () => {
+    // The real sheet records attendance as an x, as a per-person distance, and
+    // occasionally as an emoji or a note. Only "-" and blank mean absent, which
+    // is the same rule src/utils/dataParser.js applies for the milestone email.
+    const grid = seasonGrid(2026);
+    const headerRow = SheetOps.findHeaderRow(grid);
+    const band = SheetOps.memberBand(grid, headerRow);
+    const member = band[0];
+    const firstRun = headerRow + 1;
+
+    // Blank the column first so the assertion is an exact count, not a delta.
+    for (let r = firstRun; r <= grid.length; r += 1) {
+      grid[r - 1][member.colIndex - 1] = '';
+    }
+    const counted = ['x', 'X', '12.30', '🛕', 'no run'];
+    const ignored = ['-', '', '   '];
+    [].concat(counted, ignored).forEach((mark, offset) => {
+      grid[firstRun - 1 + offset][member.colIndex - 1] = mark;
+    });
+
+    const totals = SheetOps.attendanceTotals(grid);
+    assert.equal(
+      totals.find((t) => t.name === member.name).runs,
+      counted.length,
+      'exactly the non-blank, non-dash marks count'
+    );
+
+    // Only the edited column moved.
+    const untouched = SheetOps.attendanceTotals(seasonGrid(2026))
+      .filter((t) => t.name !== member.name);
+    assert.deepEqual(totals.filter((t) => t.name !== member.name), untouched);
+  });
+
+  test.it('ignores rows under the band that are not runs', () => {
+    const grid = seasonGrid(2025);
+    const before = SheetOps.attendanceTotals(grid);
+    const withJunk = seasonGrid(2025);
+    const band = SheetOps.memberBand(withJunk, SheetOps.findHeaderRow(withJunk));
+    const junk = new Array(withJunk[0].length).fill('');
+    junk[0] = 'Totals';
+    band.forEach((member) => { junk[member.colIndex - 1] = 'x'; });
+    withJunk.push(junk);
+
+    assert.deepEqual(SheetOps.attendanceTotals(withJunk), before);
+  });
+
+  test.it('returns nothing for a grid with no recognisable header row', () => {
+    assert.deepEqual(SheetOps.attendanceTotals([['not', 'a', 'sheet']]), []);
+    assert.deepEqual(SheetOps.attendanceTotals([]), []);
+    assert.deepEqual(SheetOps.attendanceTotals(null), []);
+  });
+});
+
+test.describe('isSeasonTabName', () => {
+  test.it('accepts a four-digit season tab', () => {
+    assert.ok(SheetOps.isSeasonTabName('2025'));
+    assert.ok(SheetOps.isSeasonTabName('2026'));
+    assert.ok(SheetOps.isSeasonTabName(' 2026 '), 'cellText trims');
+  });
+
+  test.it('rejects anything that is not exactly four digits', () => {
+    ['Sheet1', '2026 copy', '202', '20265', '', '  ', 'Notes', null, undefined]
+      .forEach((name) => {
+        assert.ok(!SheetOps.isSeasonTabName(name), `${JSON.stringify(name)} is not a season`);
+      });
+  });
+});
