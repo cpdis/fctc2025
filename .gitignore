@@ -69,3 +69,9 @@ ios/.ddata/
 
 # Bytecode from the Python release tools (asc-api.py, testflight-notes.py).
 ios/Tools/__pycache__/
+
+# Third-party design reference dropped into planning/. Not ours to republish,
+# and this repo is public.
+planning/reference/*.jpeg
+planning/reference/*.jpg
+planning/reference/*.png
