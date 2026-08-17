@@ -102,7 +102,7 @@ function latestAttendanceCsv(name, year = 2026) {
     'Summary row',
     `Date,Meet,Run,Approx kms,Actual kms,${name},+1's`,
     ...fillerRuns,
-    '"Mon, 17-Aug",Meet,Social,5,5,x,0',
+    '"Fri, 14-Aug",Meet,Social,5,5,x,0',
     `,,${year}`,
   ].join('\n')
 }
@@ -438,7 +438,7 @@ describe('runMilestoneDigest', () => {
   it('uses the newest recorded attendance date in generated email content', async () => {
     const options = runOptions({
       args: ['--send'],
-      now: new Date('2026-08-17T00:35:10.000Z'),
+      now: new Date('2026-08-16T09:17:00.000Z'),
       env: {
         RESEND_API_KEY: 're_private',
         MILESTONE_RECIPIENTS: 'one@example.com',
@@ -456,8 +456,8 @@ describe('runMilestoneDigest', () => {
     })
 
     const item = options.sendBatchImpl.mock.calls[0][0].items[0]
-    expect(item.text).toContain('attendance recorded through 17 Aug 2026')
-    expect(item.html).toContain('Attendance recorded through 17 Aug 2026.')
+    expect(item.text).toContain('attendance recorded through 14 Aug 2026')
+    expect(item.html).toContain('Attendance recorded through 14 Aug 2026.')
   })
 
   it('sends fixed smoke content without reading attendance data', async () => {
