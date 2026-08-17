@@ -345,7 +345,7 @@ describe('runMilestoneDigest', () => {
     expect(options.sendBatchImpl).not.toHaveBeenCalled()
   })
 
-  it('connects parsed weekday history to the raw 50 percent gate', async () => {
+  it('connects parsed weekday history to the raw 15 percent gate', async () => {
     const data = await loadAllTimeData({
       years: { 2026: '/data/2026.csv' },
       rootDir: '/repo',
@@ -361,7 +361,7 @@ describe('runMilestoneDigest', () => {
       targetWeek
     )
 
-    expect(candidates).toHaveLength(1)
+    expect(candidates).toHaveLength(2)
     expect(candidates[0]).toMatchObject({
       name: 'Above Gate',
       currentRuns: 48,
@@ -370,7 +370,14 @@ describe('runMilestoneDigest', () => {
     })
     expect(candidates[0].chance).toBeCloseTo(0.5324506750080484, 12)
     expect(candidates[0].chance).toBeGreaterThan(0.5)
-    expect(candidates.map(({ name }) => name)).not.toContain('Below Gate')
+    expect(candidates[1]).toMatchObject({
+      name: 'Below Gate',
+      currentRuns: 48,
+      runsNeeded: 2,
+      label: 'Possible',
+    })
+    expect(candidates[1].chance).toBeGreaterThanOrEqual(0.15)
+    expect(candidates[1].chance).toBeLessThan(0.5)
   })
 
   it('sends one private item per validated recipient with the weekly key', async () => {

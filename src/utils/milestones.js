@@ -10,6 +10,9 @@ const MAX_HTML_BYTES = 256 * 1024
 const MILESTONE_COLORS = ['#d75b77', '#e8442c', '#ff7a30']
 const FORECAST_WEEKDAYS = ['Mon', 'Wed', 'Fri']
 const FORECAST_LABELS = new Set(['Very likely', 'Likely', 'Possible'])
+// Broader coverage keeps low-probability candidates visible without including
+// every member who could mathematically reach a milestone in three runs.
+const MIN_FORECAST_CHANCE = 0.15
 
 // Keep the sort independent from the machine locale. The code-point tie-breakers
 // also make canonically equivalent or case-equivalent names deterministic.
@@ -140,7 +143,7 @@ export function getMilestoneForecastLabel(chance, runsNeeded) {
 
   if (chance >= 0.8) return 'Very likely'
   if (chance >= 0.5) return 'Likely'
-  return runsNeeded === 1 ? 'Possible' : null
+  return runsNeeded === 1 || chance >= MIN_FORECAST_CHANCE ? 'Possible' : null
 }
 
 /**

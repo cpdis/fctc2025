@@ -217,10 +217,14 @@ describe('findUpcomingMilestones', () => {
 
   it('uses raw chance boundaries for inclusion and plain confidence labels', () => {
     expect(getMilestoneForecastLabel(0.4, 1)).toBe('Possible')
+    expect(getMilestoneForecastLabel(0.15, 2)).toBe('Possible')
+    expect(getMilestoneForecastLabel(0.15 - Number.EPSILON, 2)).toBeNull()
+    expect(getMilestoneForecastLabel(0.15, 3)).toBe('Possible')
+    expect(getMilestoneForecastLabel(0.15 - Number.EPSILON, 3)).toBeNull()
     expect(getMilestoneForecastLabel(0.5, 2)).toBe('Likely')
-    expect(getMilestoneForecastLabel(0.5 - Number.EPSILON, 2)).toBeNull()
+    expect(getMilestoneForecastLabel(0.5 - Number.EPSILON, 2)).toBe('Possible')
     expect(getMilestoneForecastLabel(0.5, 3)).toBe('Likely')
-    expect(getMilestoneForecastLabel(0.5 - Number.EPSILON, 3)).toBeNull()
+    expect(getMilestoneForecastLabel(0.5 - Number.EPSILON, 3)).toBe('Possible')
     expect(getMilestoneForecastLabel(0.8, 1)).toBe('Very likely')
     expect(getMilestoneForecastLabel(0.8 - Number.EPSILON, 1)).toBe('Likely')
   })
