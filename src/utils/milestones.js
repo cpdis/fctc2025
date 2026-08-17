@@ -209,7 +209,7 @@ export function getAttendanceCutoff(runs) {
  * @param {{
  *   candidates: Array<{
  *     name: string,
- *     currentRuns?: number,
+ *     currentRuns: number,
  *     milestone: number,
  *     runsNeeded: number,
  *     chance?: number,
@@ -227,6 +227,9 @@ export function formatMilestoneDigest({ candidates, weekStart, cutoffDate }) {
 
   const sortedCandidates = candidates.map((candidate) => {
     assertSafeCandidateName(candidate?.name)
+    if (!Number.isSafeInteger(candidate?.currentRuns) || candidate.currentRuns < 0) {
+      throw new Error('Candidate current runs is invalid')
+    }
     if (!Number.isInteger(candidate?.milestone) || candidate.milestone <= 0) {
       throw new Error('Candidate milestone is invalid')
     }
@@ -239,6 +242,7 @@ export function formatMilestoneDigest({ candidates, weekStart, cutoffDate }) {
     }
     return {
       name: candidate.name,
+      currentRuns: candidate.currentRuns,
       milestone: candidate.milestone,
       runsNeeded: candidate.runsNeeded,
       label: candidate.label,
@@ -295,7 +299,7 @@ function formatMilestoneHtml({ candidates, formattedWeekStart, formattedCutoff }
   const preheader = count === 1
     ? 'One FCTC runner is approaching a milestone run this week.'
     : `${count} FCTC runners are approaching milestone runs this week.`
-  const rows = candidates.map(({ name, milestone, runsNeeded, label }, index) => {
+  const rows = candidates.map(({ name, currentRuns, milestone, runsNeeded, label }, index) => {
     const color = MILESTONE_COLORS[index % MILESTONE_COLORS.length]
     const topBorder = index === 0 ? '2px solid #1c1410' : '1px solid #d9d5d1'
     const bottomBorder = index === candidates.length - 1 ? ' border-bottom: 2px solid #1c1410;' : ''
@@ -304,13 +308,13 @@ function formatMilestoneHtml({ candidates, formattedWeekStart, formattedCutoff }
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width: 100%; border-collapse: collapse; border-top: ${topBorder};${bottomBorder}">
                   <tr>
                     <td class="milestone-number" width="108" valign="middle" style="width: 108px; padding: 24px 0 22px; color: ${color}; font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif; font-size: 58px; line-height: 1; font-variant-numeric: tabular-nums;">
-                      ${milestone}
+                      ${currentRuns}
                     </td>
                     <td valign="middle" style="padding: 24px 0 22px 20px;">
                       <p class="member-name" style="margin: 0; color: #1c1410; font-family: Arial, Helvetica, sans-serif; font-size: 24px; font-weight: 700; line-height: 30px;">
                         ${escapeHtml(name)}
                       </p>
-                      <p style="margin: 5px 0 0; color: #6f5f53; font-family: 'Courier New', Courier, monospace; font-size: 12px; line-height: 18px; letter-spacing: 0.8px; text-transform: uppercase;">
+                      <p style="margin: 5px 0 0; color: #6f5f53; font-family: 'Courier New', Courier, monospace; font-size: 14px; line-height: 20px; letter-spacing: 0.8px; text-transform: uppercase;">
                         ${label} &middot; needs ${formatRunNeed(runsNeeded)} for their ${formatOrdinal(milestone)} run
                       </p>
                     </td>
@@ -330,7 +334,7 @@ function formatMilestoneHtml({ candidates, formattedWeekStart, formattedCutoff }
       @media only screen and (max-width: 640px) {
         .email-shell { width: 100% !important; border-right: 0 !important; border-left: 0 !important; }
         .email-pad { padding-right: 24px !important; padding-left: 24px !important; }
-        .headline { font-size: 48px !important; }
+        .headline { font-size: 46px !important; }
         .milestone-number { width: 82px !important; font-size: 48px !important; }
         .member-name { font-size: 21px !important; }
       }
@@ -376,7 +380,7 @@ function formatMilestoneHtml({ candidates, formattedWeekStart, formattedCutoff }
                 <p style="margin: 0 0 12px; font-family: 'Courier New', Courier, monospace; font-size: 13px; line-height: 20px; letter-spacing: 1.4px; color: #d75b77; text-transform: uppercase;">
                   WEEK OF ${formattedWeekStart}
                 </p>
-                <h1 class="headline" style="max-width: 510px; margin: 0; color: #1c1410; font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif; font-size: 64px; font-weight: 400; line-height: 0.94; letter-spacing: 0.2px; text-transform: uppercase;">
+                <h1 class="headline" style="max-width: 510px; margin: 0; color: #1c1410; font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif; font-size: 62px; font-weight: 400; line-height: 0.94; letter-spacing: 0.2px; text-transform: uppercase;">
                   MILESTONES<br>AHEAD
                 </h1>
                 <p style="max-width: 475px; margin: 25px 0 0; color: #5c4f43; font-family: Arial, Helvetica, sans-serif; font-size: 17px; line-height: 27px;">
@@ -392,7 +396,7 @@ function formatMilestoneHtml({ candidates, formattedWeekStart, formattedCutoff }
             </tr>
 
             <tr>
-              <td class="email-pad" style="padding: 20px 42px 0; color: #6f5f53; font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 18px; letter-spacing: 0.7px; text-transform: uppercase;">
+              <td class="email-pad" style="padding: 20px 42px 0; color: #6f5f53; font-family: 'Courier New', Courier, monospace; font-size: 13px; line-height: 20px; letter-spacing: 0.7px; text-transform: uppercase;">
                 Attendance recorded through ${formattedCutoff}.
               </td>
             </tr>

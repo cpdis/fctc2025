@@ -92,6 +92,21 @@ function manualRetryCsv(name, year = 2026) {
   ].join('\n')
 }
 
+function latestAttendanceCsv(name, year = 2026) {
+  const fillerRuns = Array.from(
+    { length: 48 },
+    () => '"Sat, 3-Jan",Meet,Social,5,5,x,0'
+  )
+
+  return [
+    'Summary row',
+    `Date,Meet,Run,Approx kms,Actual kms,${name},+1's`,
+    ...fillerRuns,
+    '"Mon, 17-Aug",Meet,Social,5,5,x,0',
+    `,,${year}`,
+  ].join('\n')
+}
+
 function thresholdForecastCsv(year = 2026) {
   const fillerRuns = Array.from(
     { length: 45 },
@@ -418,6 +433,31 @@ describe('runMilestoneDigest', () => {
     expect(request.items[0].html).toContain('Very likely &middot; needs 1 run')
     expect(request.items[0].html).toContain('href="https://fctc.fun/dashboard"')
     expect(request.items[0].html).toBe(request.items[1].html)
+  })
+
+  it('uses the newest recorded attendance date in generated email content', async () => {
+    const options = runOptions({
+      args: ['--send'],
+      now: new Date('2026-08-17T00:35:10.000Z'),
+      env: {
+        RESEND_API_KEY: 're_private',
+        MILESTONE_RECIPIENTS: 'one@example.com',
+        MILESTONE_FROM: 'FCTC Milestones <runs@notifications.fctc.cpd.dev>',
+      },
+      readFileImpl: fixtureReader({
+        '/repo/public/data/2026.csv': latestAttendanceCsv('Jane Doe'),
+      }),
+    })
+
+    await expect(runMilestoneDigest(options)).resolves.toMatchObject({
+      weekStart: '2026-08-17',
+      candidateCount: 1,
+      acceptedCount: 1,
+    })
+
+    const item = options.sendBatchImpl.mock.calls[0][0].items[0]
+    expect(item.text).toContain('attendance recorded through 17 Aug 2026')
+    expect(item.html).toContain('Attendance recorded through 17 Aug 2026.')
   })
 
   it('sends fixed smoke content without reading attendance data', async () => {

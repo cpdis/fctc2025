@@ -40,6 +40,7 @@ function completedRun(date, dayOfWeek, attendance, totalAttendance = 1) {
 function digestCandidate(overrides = {}) {
   return {
     name: 'Jane Doe',
+    currentRuns: 49,
     milestone: 50,
     runsNeeded: 1,
     label: 'Possible',
@@ -307,9 +308,15 @@ describe('formatMilestoneDigest', () => {
 
   it('formats several forecast candidates with labels and singular or plural run needs', () => {
     const candidates = [
-      digestCandidate({ milestone: 100, chance: 0.73123456789, label: 'Very likely' }),
+      digestCandidate({
+        currentRuns: 99,
+        milestone: 100,
+        chance: 0.73123456789,
+        label: 'Very likely',
+      }),
       digestCandidate({
         name: 'Sam Lee',
+        currentRuns: 148,
         milestone: 150,
         runsNeeded: 2,
         chance: 0.65,
@@ -339,9 +346,15 @@ describe('formatMilestoneDigest', () => {
     expect(digest.html).toContain('WEEK OF 17 AUGUST 2026')
     expect(digest.html).toContain('MILESTONES<br>AHEAD')
     expect(digest.html).toContain('Jane Doe')
+    expect(digest.html).toMatch(/class="milestone-number"[^>]*>[\s\n]*99[\s\n]*<\/td>/)
     expect(digest.html).toContain('Very likely &middot; needs 1 run for their 100th run')
     expect(digest.html).toContain('Sam Lee')
+    expect(digest.html).toMatch(/class="milestone-number"[^>]*>[\s\n]*148[\s\n]*<\/td>/)
     expect(digest.html).toContain('Likely &middot; needs 2 runs for their 150th run')
+    expect(digest.html).toContain("font-size: 14px; line-height: 20px; letter-spacing: 0.8px")
+    expect(digest.html).toContain("font-size: 13px; line-height: 20px; letter-spacing: 0.7px")
+    expect(digest.html).toContain('font-size: 62px; font-weight: 400')
+    expect(digest.html).toContain('.headline { font-size: 46px !important; }')
     expect(digest.html).toContain('Attendance recorded through 16 Aug 2026.')
     expect(digest.html).toContain('href="https://fctc.fun/dashboard"')
     expect(digest.html).not.toContain('<img')
@@ -406,6 +419,11 @@ describe('formatMilestoneDigest', () => {
 
   it.each([
     [
+      'current runs',
+      digestCandidate({ currentRuns: -1 }),
+      'Candidate current runs is invalid',
+    ],
+    [
       'label',
       digestCandidate({ label: '73.123456789% likely' }),
       'Candidate label is invalid',
@@ -445,6 +463,7 @@ describe('formatMilestoneDigest', () => {
   it('rejects HTML over 256 KiB while the text body remains within its limit', () => {
     const candidates = Array.from({ length: 300 }, (_, index) => ({
       name: `Runner ${String(index).padStart(4, '0')}`,
+      currentRuns: 49,
       milestone: 50,
       runsNeeded: 1,
       label: 'Likely',

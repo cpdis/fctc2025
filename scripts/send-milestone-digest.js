@@ -33,6 +33,7 @@ const SMOKE_TEXT = [
 const SMOKE_DIGEST = Object.freeze({
   candidates: [{
     name: 'FCTC Test Runner',
+    currentRuns: 49,
     milestone: 50,
     runsNeeded: 1,
     label: 'Very likely',
