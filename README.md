@@ -139,10 +139,10 @@ The forecast calculates a separate recency-weighted attendance rate for each wee
 history loses half its weight after eight opportunities on the same weekday. It combines the
 three rates as an independent three-event approximation. A member who is exactly one run away
 is always included. Members who are two or three runs away are included when their raw chance
-is at least 50%. Members more than three runs away are excluded.
+is at least 15%. Members more than three runs away are excluded.
 
 The email shows `Very likely` for a raw chance of at least 80%, `Likely` for at least 50%, and
-`Possible` for a one-away member below 50%. It never shows the exact chance. These labels are
+`Possible` for any included member below 50%. It never shows the exact chance. These labels are
 heuristic. Cancellations, special schedules, and correlated absences can make the fixed
 forecast wrong. The same member can qualify again next week if their recorded total does not
 change.
