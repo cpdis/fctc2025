@@ -109,6 +109,12 @@ describe('weekly notification workflow contract', () => {
     expect(workflow).toContain('milestone_notification delivery=skipped reason=scheduled-rerun')
   })
 
+  it('uses the FCTC Delivery Service sender for live and smoke emails', () => {
+    expect(workflow.match(
+      /MILESTONE_FROM: FCTC Delivery Service <runs@notifications\.fctc\.cpd\.dev>/g
+    )).toHaveLength(2)
+  })
+
   it('allows smoke only on main for both actors, without the normal gate', () => {
     const smoke = workflow.slice(workflow.indexOf('      - name: Send milestone smoke test'))
 

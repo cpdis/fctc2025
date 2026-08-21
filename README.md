@@ -175,7 +175,7 @@ output files, GitHub credentials, Resend credentials, or recipient secrets.
 2. Add these environment secrets: `RESEND_API_KEY`, `MILESTONE_RECIPIENTS`, and
    `MILESTONE_SMOKE_RECIPIENT`. The smoke recipient must be Colin's address.
 3. Add the repository variable `MILESTONE_EMAIL_ENABLED`. Set it to `false` first.
-4. Use the fixed sender `FCTC Milestones <runs@notifications.fctc.cpd.dev>`.
+4. Use the fixed sender `FCTC Delivery Service <runs@notifications.fctc.cpd.dev>`.
 5. Add `notifications.fctc.cpd.dev` in Resend. Add the supplied DNS records to Cloudflare,
    then wait for Resend to mark the domain as verified. See the
    [Resend domain guide](https://resend.com/docs/dashboard/domains/introduction).
