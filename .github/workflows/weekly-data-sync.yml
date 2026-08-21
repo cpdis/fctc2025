@@ -196,7 +196,7 @@ jobs:
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MILESTONE_RECIPIENTS: ${{ secrets.MILESTONE_RECIPIENTS }}
-          MILESTONE_FROM: FCTC Milestones <runs@notifications.fctc.cpd.dev>
+          MILESTONE_FROM: FCTC Delivery Service <runs@notifications.fctc.cpd.dev>
 
       - name: Send milestone smoke test
         if: >-
@@ -209,4 +209,4 @@ jobs:
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MILESTONE_SMOKE_RECIPIENT: ${{ secrets.MILESTONE_SMOKE_RECIPIENT }}
-          MILESTONE_FROM: FCTC Milestones <runs@notifications.fctc.cpd.dev>
+          MILESTONE_FROM: FCTC Delivery Service <runs@notifications.fctc.cpd.dev>
