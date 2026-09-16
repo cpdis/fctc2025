@@ -25,9 +25,7 @@ public enum CheckProvenance: String, Codable, Sendable, CaseIterable {
     case voice
 }
 
-/// A non-member who ran with the club. The sheet's `+1's` column only ever receives
-/// the COUNT (no sheet-structure change); the names live on-device so a regular guest
-/// can later be promoted via `addMember` (resolved Q2).
+/// A selected shared guest, or a provisional identity awaiting creation.
 public struct Guest: Codable, Hashable, Sendable, Identifiable {
     public var id: UUID
     public var name: String
@@ -78,6 +76,9 @@ public struct AttendanceDraft: Codable, Hashable, Sendable {
 
     /// Sheet revision this draft was built against (optimistic concurrency).
     public var baseRevision: String?
+    public var runIdentity: RunIdentity?
+    public var endpointIdentity: String?
+    public var unnamedGuests: Int?
 
     public init(
         rowIndex: Int,
@@ -88,7 +89,8 @@ public struct AttendanceDraft: Codable, Hashable, Sendable {
         actualKm: Double? = nil,
         plusOnesOverride: Int? = nil,
         unmatched: [UnmatchedName] = [],
-        baseRevision: String? = nil
+        baseRevision: String? = nil,
+        runIdentity: RunIdentity? = nil, endpointIdentity: String? = nil, unnamedGuests: Int? = nil
     ) {
         self.rowIndex = rowIndex
         self.expectedDate = expectedDate
@@ -99,19 +101,25 @@ public struct AttendanceDraft: Codable, Hashable, Sendable {
         self.plusOnesOverride = plusOnesOverride
         self.unmatched = unmatched
         self.baseRevision = baseRevision
+        self.runIdentity = runIdentity; self.endpointIdentity = endpointIdentity; self.unnamedGuests = unnamedGuests
     }
 }
 
 extension AttendanceDraft {
 
-    /// Local-only guest names, without the UI identity wrapper.
+    /// Labels for local evidence; identity is carried by the guest UUID.
     public var guestNames: [String] {
         get { guests.map(\.name) }
         set { guests = newValue.map { Guest(name: $0) } }
     }
 
     /// What the sheet's `+1's` cell receives.
-    public var plusOnes: Int { plusOnesOverride ?? guests.count }
+    public var plusOnes: Int {
+        if runIdentity != nil { return Set(guests.map(\.id)).count + max(0, unnamedGuests ?? 0) }
+        return plusOnesOverride ?? guests.count
+    }
+
+    public var namedGuestIds: [String] { Array(Set(guests.map { $0.id.uuidString.lowercased() })).sorted() }
 
     /// Checked members in sheet order — exactly the set that becomes `x` cells.
     public var attendees: [String] {

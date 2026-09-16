@@ -12,7 +12,7 @@ import SwiftData
 @Model
 public final class ScheduledRun {
     /// A 1-based sheet row coordinate.
-    @Attribute(.unique) public var rowIndex: Int
+    public var rowIndex: Int
     public var date: String
     public var scheduledAt: Date?
     public var meet: String
@@ -22,6 +22,13 @@ public final class ScheduledRun {
     public var attendees: [String]
     public var plusOnes: Int
     public var cachedRevision: String?
+    public var spreadsheetId: String?
+    public var seasonSheetId: Int?
+    public var runId: String?
+    public var endpointIdentity: String?
+    public var namedGuestIds: [String]?
+    public var unnamedGuests: Int?
+    public var seasonYear: Int?
 
     public init(
         rowIndex: Int,
@@ -49,6 +56,12 @@ public final class ScheduledRun {
 }
 
 extension ScheduledRun {
+    public var identity: RunIdentity? {
+        guard let spreadsheetId, let seasonSheetId, let runId else { return nil }
+        return RunIdentity(spreadsheetId: spreadsheetId, seasonSheetId: seasonSheetId, runId: runId)
+    }
+    public var cacheKey: String { identity?.cacheKey ?? "legacy:\(rowIndex)" }
+
     public var hasRecordedAttendance: Bool {
         !attendees.isEmpty || plusOnes > 0
     }

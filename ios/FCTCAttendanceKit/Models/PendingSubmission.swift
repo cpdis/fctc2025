@@ -2,8 +2,8 @@
 //  PendingSubmission.swift
 //  FCTCAttendanceKit
 //
-//  Persistent outbox snapshot. Replays are safe because every sheet value is
-//  absolute, not a delta.
+//  Persistent outbox evidence. Shared writes retain exact operation bytes and
+//  query their receipt after uncertain delivery; they are never guessed from totals.
 //
 
 
@@ -43,6 +43,17 @@ public final class PendingSubmission {
     public var guestNames: [String]
     public var plusOnesValue: Int?
     public var modeRaw: String
+
+    /// Added as optional fields so installed queues retain their original evidence.
+    public var endpointIdentity: String?
+    public var spreadsheetId: String?
+    public var seasonSheetId: Int?
+    public var runId: String?
+    public var namedGuestIds: [String]?
+    public var unnamedGuests: Int?
+    public var sharedOperationData: Data?
+    public var outcomeRaw: String?
+    public var verificationPending: Bool?
 
     // MARK: Outbox state
 
@@ -139,7 +150,7 @@ extension PendingSubmission {
         deviceName: String? = nil,
         createdAt: Date = .now
     ) -> PendingSubmission {
-        PendingSubmission(
+        let pending = PendingSubmission(
             rowIndex: draft.rowIndex,
             expectedDate: draft.expectedDate,
             expectedRun: draft.expectedRun,
@@ -152,5 +163,22 @@ extension PendingSubmission {
             createdAt: createdAt,
             deviceName: deviceName
         )
+        pending.endpointIdentity = draft.endpointIdentity
+        pending.spreadsheetId = draft.runIdentity?.spreadsheetId
+        pending.seasonSheetId = draft.runIdentity?.seasonSheetId
+        pending.runId = draft.runIdentity?.runId
+        pending.namedGuestIds = draft.runIdentity == nil ? nil : draft.namedGuestIds
+        pending.unnamedGuests = draft.unnamedGuests
+        return pending
     }
+    public var runIdentity: RunIdentity? {
+        guard let spreadsheetId, let seasonSheetId, let runId else { return nil }
+        return RunIdentity(spreadsheetId: spreadsheetId, seasonSheetId: seasonSheetId, runId: runId)
+    }
+    public var outcome: SubmissionDisposition? { outcomeRaw.flatMap(SubmissionDisposition.init(rawValue:)) }
+}
+
+/// Legacy `done` remains ambiguous. Only new records carry a proved disposition.
+public enum SubmissionDisposition: String, Codable, Hashable, Sendable {
+    case committed, discarded, superseded
 }

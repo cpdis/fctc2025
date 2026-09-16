@@ -1,225 +1,4 @@
-//
-//  SheetAPI.swift
-//  FCTCAttendanceKit
-//
-//  Typed client for the frozen Apps Script JSON contract. The transport is a seam,
-//  so service and outbox tests never touch the network.
-//
-
-
 import Foundation
-
-// MARK: - Wire DTOs
-
-public struct RosterEntry: Codable, Hashable, Sendable {
-    public var name: String
-    /// A 1-based sheet column coordinate.
-    public var colIndex: Int
-
-    public init(name: String, colIndex: Int) {
-        self.name = name
-        self.colIndex = colIndex
-    }
-}
-
-public struct RunRecord: Codable, Hashable, Sendable {
-    /// A 1-based sheet row coordinate.
-    public var rowIndex: Int
-    public var date: String
-    public var meet: String
-    public var run: String
-    public var approxKm: Double?
-    public var actualKm: Double?
-    public var attendees: [String]
-    public var plusOnes: Int
-
-    public init(
-        rowIndex: Int,
-        date: String,
-        meet: String,
-        run: String,
-        approxKm: Double? = nil,
-        actualKm: Double? = nil,
-        attendees: [String] = [],
-        plusOnes: Int = 0
-    ) {
-        self.rowIndex = rowIndex
-        self.date = date
-        self.meet = meet
-        self.run = run
-        self.approxKm = approxKm
-        self.actualKm = actualKm
-        self.attendees = attendees
-        self.plusOnes = plusOnes
-    }
-}
-
-/// One member's lifetime run count, summed by the script across every season tab.
-public struct MemberTotal: Codable, Hashable, Sendable {
-    public var name: String
-    public var runs: Int
-
-    public init(name: String, runs: Int) {
-        self.name = name
-        self.runs = runs
-    }
-}
-
-public struct SheetState: Codable, Hashable, Sendable {
-    public var roster: [RosterEntry]
-    public var runs: [RunRecord]
-    public var seasonYear: Int
-    public var sheetRevision: String
-    /// Lifetime runs per member. Decodes to empty when the deployed script predates
-    /// the field, so a phone on an older build keeps working against a new script
-    /// and a new build keeps working against an old one.
-    public var lifetimeTotals: [MemberTotal]
-
-    public init(
-        roster: [RosterEntry] = [],
-        runs: [RunRecord] = [],
-        seasonYear: Int = 0,
-        sheetRevision: String = "",
-        lifetimeTotals: [MemberTotal] = []
-    ) {
-        self.roster = roster
-        self.runs = runs
-        self.seasonYear = seasonYear
-        self.sheetRevision = sheetRevision
-        self.lifetimeTotals = lifetimeTotals
-    }
-
-    public init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        roster = try container.decodeIfPresent([RosterEntry].self, forKey: .roster) ?? []
-        runs = try container.decodeIfPresent([RunRecord].self, forKey: .runs) ?? []
-        seasonYear = try container.decodeIfPresent(Int.self, forKey: .seasonYear) ?? 0
-        sheetRevision = try container.decodeIfPresent(String.self, forKey: .sheetRevision) ?? ""
-        lifetimeTotals = try container.decodeIfPresent(
-            [MemberTotal].self,
-            forKey: .lifetimeTotals
-        ) ?? []
-    }
-}
-
-/// The `submitAttendance` payload, without the common `secret` and `action` keys.
-/// Nil numeric opinions encode as explicit JSON null values.
-public struct AttendanceSubmission: Codable, Hashable, Sendable {
-    public var rowIndex: Int
-    public var expectedDate: String
-    public var expectedRun: String
-    public var attendees: [String]
-    public var plusOnes: Int?
-    public var actualKm: Double?
-    public var mode: SubmissionMode
-    public var baseRevision: String?
-
-    public init(
-        rowIndex: Int,
-        expectedDate: String,
-        expectedRun: String,
-        attendees: [String],
-        plusOnes: Int?,
-        actualKm: Double? = nil,
-        mode: SubmissionMode = .merge,
-        baseRevision: String? = nil
-    ) {
-        self.rowIndex = rowIndex
-        self.expectedDate = expectedDate
-        self.expectedRun = expectedRun
-        self.attendees = attendees
-        self.plusOnes = plusOnes
-        self.actualKm = actualKm
-        self.mode = mode
-        self.baseRevision = baseRevision
-    }
-
-    /// Snapshot a SwiftData row before it crosses an actor boundary.
-    public init(_ pending: PendingSubmission) {
-        self.init(
-            rowIndex: pending.rowIndex,
-            expectedDate: pending.expectedDate,
-            expectedRun: pending.expectedRun,
-            attendees: pending.attendees,
-            plusOnes: pending.plusOnes,
-            actualKm: pending.actualKm,
-            mode: pending.mode,
-            baseRevision: pending.baseRevision
-        )
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case rowIndex, expectedDate, expectedRun, attendees
-        case plusOnes, actualKm, mode, baseRevision
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(rowIndex, forKey: .rowIndex)
-        try container.encode(expectedDate, forKey: .expectedDate)
-        try container.encode(expectedRun, forKey: .expectedRun)
-        try container.encode(attendees, forKey: .attendees)
-        try container.encode(plusOnes, forKey: .plusOnes)
-        try container.encode(actualKm, forKey: .actualKm)
-        try container.encode(mode, forKey: .mode)
-        try container.encode(baseRevision, forKey: .baseRevision)
-    }
-}
-
-public struct AddRunRequest: Codable, Hashable, Sendable {
-    public var date: String
-    public var meet: String
-    public var run: String
-    public var approxKm: Double?
-
-    public init(date: String, meet: String, run: String, approxKm: Double? = nil) {
-        self.date = date
-        self.meet = meet
-        self.run = run
-        self.approxKm = approxKm
-    }
-
-    private enum CodingKeys: String, CodingKey { case date, meet, run, approxKm }
-
-    public func encode(to encoder: any Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(date, forKey: .date)
-        try container.encode(meet, forKey: .meet)
-        try container.encode(run, forKey: .run)
-        try container.encode(approxKm, forKey: .approxKm)
-    }
-}
-
-public struct AddMemberResult: Codable, Hashable, Sendable {
-    public var roster: [RosterEntry]
-    public var sheetRevision: String
-
-    public init(roster: [RosterEntry], sheetRevision: String) {
-        self.roster = roster
-        self.sheetRevision = sheetRevision
-    }
-}
-
-public struct AddRunResult: Codable, Hashable, Sendable {
-    public var runs: [RunRecord]
-    public var sheetRevision: String
-
-    public init(runs: [RunRecord], sheetRevision: String) {
-        self.runs = runs
-        self.sheetRevision = sheetRevision
-    }
-}
-
-public struct SheetConflict: Codable, Hashable, Sendable {
-    public var reason: String
-    public var message: String
-    public var state: SheetState
-}
-
-public enum SubmissionOutcome: Hashable, Sendable {
-    case written(cells: Int, sheetRevision: String)
-    case conflict(reason: String, message: String, state: SheetState)
-}
 
 // MARK: - Errors and configuration
 
@@ -335,6 +114,11 @@ public actor URLSessionTransport: HTTPTransport {
 // MARK: - Client
 
 public protocol SheetAPIClient: Sendable {
+    var endpointIdentity: String? { get }
+    func getState(seasonSheetId: Int?) async throws -> SheetState
+    func sharedRead(action: String, fields: [String: GuestJSON]) async throws -> GuestJSON
+    func perform(_ operation: SharedGuestOperation) async throws -> GuestJSON
+    func operationStatus(id: UUID) async throws -> GuestOperationReceipt?
     func getState() async throws -> SheetState
     func submitAttendance(_ submission: AttendanceSubmission) async throws -> SubmissionOutcome
     func addMember(name: String) async throws -> AddMemberResult
@@ -342,7 +126,7 @@ public protocol SheetAPIClient: Sendable {
 }
 
 public actor SheetAPI: SheetAPIClient {
-    private let config: AppConfig
+    let config: AppConfig
     private let transport: (any HTTPTransport)?
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -418,7 +202,7 @@ public actor SheetAPI: SheetAPIClient {
         try await addRun(AddRunRequest(date: date, meet: meet, run: run, approxKm: approxKm))
     }
 
-    private func send<Request: Encodable, Response: Decodable>(
+    func send<Request: Encodable, Response: Decodable>(
         _ request: Request,
         as responseType: Response.Type
     ) async throws -> Response {

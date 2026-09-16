@@ -28,6 +28,7 @@ public struct SyncBanner: Hashable, Sendable {
 }
 
 public enum UserFacingError {
+    public static let checkingSavedChanges = "Checking saved changes"
     public static let offline = "The sheet is offline. Your submission is safe in the outbox."
     public static let busy = "The sheet is busy with another update. Wait a moment and try again."
     public static let authentication = "The shared secret was rejected. Open Settings and scan a new setup code."
@@ -36,6 +37,7 @@ public enum UserFacingError {
     public static let voiceStopped = "Speech recognition stopped before it finished. Try again."
 
     public static func sync(_ error: any Error) -> String {
+        if let conflict = error as? SharedGuestConflict { return conflict.message }
         guard let sheetError = error as? SheetAPIError else { return genericSync }
         switch sheetError {
         case .notConfigured:
@@ -52,7 +54,13 @@ public enum UserFacingError {
             return "The season sheet could not be read. Check the season setting in Apps Script."
         case .busy:
             return busy
-        case .unknownAction, .internalError, .server, .decoding, .notImplemented:
+        case .server(let code, _):
+            switch code {
+            case "pending_verification": return checkingSavedChanges
+            case "update_required", "shared_guests_disabled": return "Shared guests need an updated sheet connection. Refresh after setup is complete."
+            default: return genericSync
+            }
+        case .unknownAction, .internalError, .decoding, .notImplemented:
             return genericSync
         }
     }

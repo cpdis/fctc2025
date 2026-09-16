@@ -4,7 +4,7 @@
 //
 //  The single list of persistent models, so the app target never has to enumerate
 //  them. Everything persisted here is a CACHE + OUTBOX; the Google Sheet remains the
-//  canonical record (plan R1), and the whole store is reconstructible from `getState`.
+//  canonical record. Queued work and local recovery evidence must never be discarded.
 //
 
 import Foundation
@@ -17,6 +17,8 @@ public enum AttendanceSchema {
         Member.self,
         ScheduledRun.self,
         PendingSubmission.self,
+        SharedSheetCache.self, CachedGuest.self, PendingGuestOperation.self,
+        ProvisionalGuest.self, GuestRecoveryCandidate.self,
     ]
 
     /// Convenience for `ModelContainer(for:)`.
@@ -24,7 +26,7 @@ public enum AttendanceSchema {
         Schema(models)
     }
 
-    /// Bumped whenever a stored property changes shape. U3 owns any real migration
-    /// plan; until then the cache is disposable and can simply be rebuilt.
-    public static let version = "0.2.0"
+    /// Optional additive fields permit lightweight migration from installed stores.
+    /// The on-disk upgrade test verifies old submissions and names survive.
+    public static let version = "0.3.0"
 }
