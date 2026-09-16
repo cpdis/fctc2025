@@ -17,7 +17,7 @@ var guestOperationFields = {
     'expectedRun', 'attendees', 'namedGuestIds', 'unnamedGuests', 'actualKm', 'mode', 'baseRevision'],
   importGuestHistory: ['guestId', 'baseGuestRevision', 'entries', 'baseRevision'],
   commitPromotion: ['guestId', 'memberName', 'targetMode', 'previewToken'],
-  addMember: ['name', 'baseRevision'],
+  addMember: ['name', 'baseRevision', 'seasonSheetId'],
   addRun: ['date', 'meet', 'run', 'approxKm', 'spreadsheetId', 'seasonSheetId', 'baseRevision'],
   setupSharedGuests: ['spreadsheetId', 'seasonSheetIds']
 };

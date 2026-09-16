@@ -25,3 +25,5 @@ require('./guestops.checks.js');
 require('./guest-api.checks.js');
 require('./fake-sheets.checks.js');
 require('./guest-promotion.checks.js');
+require('./guest-import.checks.js');
+require('./export-snapshot.checks.js');

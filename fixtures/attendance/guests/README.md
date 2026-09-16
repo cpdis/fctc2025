@@ -84,12 +84,20 @@ The payload fields are visible in `requests` and documented below.
 | `submitAttendance` | Run identity, `rowIndex`, `expectedDate`, `expectedRun`, `attendees: [String]`, allocation, `actualKm: Double?`, `mode: "merge" | "overwrite"`, `baseRevision: String` |
 | `importGuestHistory` | `guestId`, `baseGuestRevision`, `baseRevision`, `entries: [HistoryAssignment]` |
 | `commitPromotion` | `guestId`, `memberName`, `targetMode: "create" | "link"`, `previewToken` |
-| `addMember` | `name`, `baseRevision` |
+| `addMember` | `name`, `baseRevision`, `seasonSheetId` (omit only for the active season) |
 | `addRun` | `date`, `meet`, `run`, `approxKm`, `spreadsheetId`, `seasonSheetId`, `baseRevision` |
 | `setupSharedGuests` | `spreadsheetId`, `seasonSheetIds: [Int]` |
 
 `HistoryAssignment` has run identity, `expectedDate`, `expectedRun`, and
 `assignment: "existing_unnamed_slot"`. Import consumes verified existing unnamed slots.
+`previewGuestImport {guestId, entries}` returns `{ok, guestId, baseGuestRevision,
+baseRevision, entries, changes, confirmedRuns}`. It resolves and deduplicates the
+explicit run identities. Each change has the entry fields plus `alreadyAssigned`,
+`unnamedBefore`, and `unnamedAfter`. The count is the currently confirmed count.
+The preview rejects missing allocations and changed dates before any write.
+The client passes the returned revisions and entries to `importGuestHistory`.
+Import success adds `guestId`, `importedRuns`, `confirmedRuns`, and `guestRevision`
+to the completed-operation envelope. It never changes the season attendance cells.
 An already-present guest/run pair returns its existing record and consumes no second slot.
 It must not create headcount or infer a historical identity from an aggregate count.
 The create operation is persisted and confirmed before dependent attendance sends its provisional UUID.

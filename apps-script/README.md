@@ -251,3 +251,28 @@ near-canonical twin doesn't linger.
 
 Change `SHARED_SECRET` in Script Properties, then update the secret in the app's
 Settings screen on both phones. No redeploy needed.
+
+### Reviewed guest recovery
+
+`previewGuestImport` accepts a shared `guestId` and explicit `entries`. Each entry
+contains the workbook, season sheet ID, stable run ID, displayed date and run label,
+and `assignment: "existing_unnamed_slot"`. The response includes the reviewed entries,
+allocation changes, `baseGuestRevision` and an opaque `baseRevision`.
+`importGuestHistory` submits those fields through the v2 operation protocol. It
+names an existing guest slot; it does not change a run's total or distance.
+Duplicate guest/run imports return a completed no-op. Missing slots need review.
+
+### Consistent attendance export
+
+`exportAttendanceSnapshot` requires the shared secret and holds the script lock
+while reading all supported seasons (currently 2025 and 2026). It returns displayed
+cell strings, workbook and sheet IDs, `capturedAt`, and a SHA-256 `snapshotRevision`.
+It excludes the auxiliary guest and operation tabs. A pending operation returns
+`busy`; a missing season returns `snapshot_invalid`. A pause in guest writes does
+not disable this read-only export.
+
+Run `node scripts/sync-attendance-snapshot.js` from the repository root with
+`FCTC_ATTENDANCE_ENDPOINT` and `FCTC_ATTENDANCE_SECRET` in the environment. The client
+validates the entire snapshot before replacing any supported-year CSV. Unchanged
+CSV files leave `last-updated.json` unchanged. Configure the endpoint and secret in
+private deployment settings; never put them in a URL or a public artifact.

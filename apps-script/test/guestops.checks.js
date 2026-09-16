@@ -172,6 +172,18 @@ test.describe('GuestOps pure shared identity contract', () => {
     assert.equal(fixture.requests.previewPromotion.targetMode, 'create');
   });
 
+  test.it('binds a new member operation to its explicitly selected season', () => {
+    const request = { ...fixture.requests.createGuest, action: 'addMember', name: 'Rene',
+      baseRevision: 'historical-revision', seasonSheetId: 25 };
+    delete request.guestId;
+    delete request.displayName;
+    delete request.confirmDistinct;
+    const result = GuestOps.validateOperationRequest(request);
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.equal(JSON.parse(result.canonicalRequest).seasonSheetId, 25);
+    assert.notEqual(result.canonicalRequest, GuestOps.canonicalRequest({ ...request, seasonSheetId: 26 }));
+  });
+
   test.it('fixtures retain legacy state fields and define parsable new action responses', () => {
     const state = fixture.responses.getState;
     for (const key of ['ok', 'roster', 'runs', 'seasonYear', 'sheetRevision', 'lifetimeTotals', 'apiVersion', 'capabilities', 'spreadsheetId', 'seasonSheetId', 'guests', 'guestRevision']) {

@@ -41,6 +41,7 @@ function guestRoute_(request) {
         });
       }
       if (!shared && !writes) return errorResult(ERR_UNKNOWN_ACTION, 'Unknown action.');
+      if (action === 'exportAttendanceSnapshot' && typeof guestExportSnapshot_ === 'function') return guestExportSnapshot_(book);
       if (action !== 'setupSharedGuests' && !enabled) return errorResult('shared_guests_disabled', 'Shared guests are not enabled for this workbook.');
       if (action === 'getGuestHistory') { store = guestReadStore_(); return guestHistory_(store, request.guestId); }
       if (action === 'previewPromotion' && typeof guestPreviewPromotion_ === 'function') {
@@ -51,7 +52,6 @@ function guestRoute_(request) {
         if (fence) return guestPending_(fence);
         return guestPreviewImport_(guestReadStore_(), request);
       }
-      if (action === 'exportAttendanceSnapshot' && typeof guestExportSnapshot_ === 'function') return guestExportSnapshot_(book);
       var valid = guestRequire_(GuestOps.validateOperationRequest(request));
       if (guestDigest_(valid.canonicalRequest) !== request.requestDigest) return errorResult('invalid_operation', 'The request digest does not match its canonical payload.');
       var saved = guestReadOperation_(book, request.operationId);
