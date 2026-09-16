@@ -314,9 +314,101 @@ does not need `clasp push` or a new deployment.
 3. Set `SEASON_SHEET_NAME` to the exact new tab name.
 4. Open each phone and refresh once.
 5. Confirm that `getState` returns the new year, roster, and runs.
-6. Let the app replace its old cache. No app update or new QR is required.
-7. Update the dashboard weekly-sync `CURRENT_YEAR` and `SHEET_GID` separately.
-8. Register the new dashboard year as described in the root README.
+6. Preserve older cached seasons and local recovery evidence.
+7. Register the new sheet ID using the v2 setup operation under an edit-free window.
+8. Add the year to the dashboard and authenticated export allowlists.
+9. Verify all supported seasons in one snapshot before resuming normal use.
 
 Do not create a new Apps Script deployment for a new season. The stable endpoint
 reads `SEASON_SHEET_NAME` on each request.
+
+
+## Shared guest upgrade and recovery (September 2026)
+
+These steps need separate production approval. Local branch completion does not
+change the live sheet, GitHub settings, or TestFlight distribution.
+
+1. Finish the copy-sheet checks in `apps-script/test/smoke.md` and the snapshot
+   checks in `apps-script/test/verify-sync-fidelity.md`.
+2. Preserve backups of the workbook, bound script, and both phones' installed data.
+   Do not delete or reinstall the app to clear its queue.
+3. Arrange an edit-free window. Script locks cannot exclude manual sheet edits.
+4. Verify `.clasp.json` names the real bound script. Confirm its parent workbook ID
+   in Apps Script matches the workbook being upgraded. Record the existing production
+   deployment ID and `/exec` endpoint. Stop on any mismatch.
+5. Enable Advanced Sheets v4. The deploying owner must approve the broader Sheets
+   scope. Keep permission prompts with the owner; never collect credentials.
+6. Set `SHARED_GUESTS_ENABLED=false` and `SHARED_GUESTS_SETUP_ALLOWED=false`.
+   During the separately authorised release, deploy the reviewed v2 server to the
+   **existing deployment**, using section 9:
+
+   ```bash
+   cd apps-script
+   clasp push
+   clasp deploy -i '<EXISTING_DEPLOYMENT_ID>' --description 'FCTC shared guests v2'
+   ```
+
+   Confirm that the deployment ID and `/exec` endpoint are unchanged. Confirm that
+   the deployed version contains the reviewed v2 sources and the correct bound parent.
+7. Follow [the setup operator procedure](../../operators/shared-guest-setup.md).
+   Prepare a private request for the exact workbook and every supported season ID.
+   Run its authenticated `read` gate against the unchanged endpoint. Require v2
+   `getState`, disabled shared writes, no pending operation, and a valid all-season
+   snapshot with the expected workbook and sheet IDs. Stop if either read fails.
+8. Configure the authenticated snapshot endpoint and secret in GitHub settings.
+   Confirm one successful workflow snapshot includes every supported year.
+   Complete this gate before changing source sharing or publication.
+9. Restrict the source workbook and stop its publication. Check anonymous access
+   to auxiliary tabs is denied. Confirm the public dashboard still serves its CSVs.
+10. Install the compatible app on both phones. Retain old names and pending records.
+11. Set `SHARED_GUESTS_SETUP_ALLOWED=true`. Keep shared writes disabled.
+    Use the helper's `submit` command once with the saved private request.
+    Preserve both the request and its `.dispatch` file. After uncertainty or restart,
+    use `status`; an absent receipt never permits structural replay.
+12. Require `completed` from the helper's verified status receipt. Require the same
+    operation UUID, canonical digest, exact workbook, all expected season IDs, and
+    `sharedGuestsEnabled: false`. Confirm setup preserved season values, formulas,
+    notes, and metadata uniqueness. Disable setup. Enable shared writes only after
+    these checks pass and the separately authorised release permits enablement.
+13. Refresh both phones. Review the Settings recovery candidates on each phone.
+    Select the shared guest, original season, and exact run. Old `done` is ambiguous;
+    it does not prove that a local record was saved.
+14. Review import allocation changes. An import names an existing unnamed slot.
+    Missing slots require correction; never add headcount to make an import succeed.
+15. Finish a candidate reconciliation gate on **both phones** before any promotion.
+    Compare each phone's preserved candidates against confirmed shared history.
+    Record duplicates, excluded candidates, unresolved runs, and each import receipt
+    in private operator notes. Require both phones to show the same confirmed run
+    identities and guest total after refresh. Resolve every candidate for the guest
+    being promoted, or stop promotion and preserve its evidence.
+16. Preview promotion. Record affected sheet IDs, run IDs, guest counts, member marks,
+    headcounts, distances, formulas, and the member's expected total before submitting.
+17. After the receipt completes, refresh both phones and capture an authenticated
+    snapshot. Confirm eleven original runs become eleven member runs.
+
+### Uncertain operations
+
+“Checking saved changes” is not a failed save. Record the operation ID and read
+`getOperationStatus`. A verified completed receipt resolves the operation. If its
+receipt is absent after dispatch, keep the workbook fence. Do not clear script
+properties, repeat the structural batch, or create a replacement operation blindly.
+Preserve the journal and workbook for operator comparison of planned and actual cells.
+A definitive pre-dispatch non-application permits a fresh reviewed operation; a
+bootstrap interruption can retain its fence for operator recovery.
+
+### Pause and rollback
+
+Set `SHARED_GUESTS_ENABLED=false` to pause shared writes while preserving tables,
+receipts, and the legacy-writer guard. Exports remain readable unless an uncertain
+operation has fenced them. Do not redeploy the pre-v2 writer against converted data.
+Do not delete auxiliary tables or run metadata to bypass the guard. Restore a
+backup only through a separately approved, coordinated recovery of sheet and phones.
+
+### Operational validation
+
+Colin owns the release check. During the edit-free window and the first successful
+weekly sync, compare the reviewed run totals, both phones, CSV diff, dashboard, and
+milestone preview. Stop shared writes if headcounts change unexpectedly, a member
+loses credit, formulas show errors, or a receipt cannot be verified. A promotion's
+intentional transfer of guest credit to member totals is expected behavior.
+Keep secrets and private guest history out of logs and public review artifacts.
