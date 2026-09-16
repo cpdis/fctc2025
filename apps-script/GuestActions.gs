@@ -2,7 +2,7 @@
 function guestRoute_(request) {
   var action = SheetOps.cellText(request.action);
   var shared = ['setupSharedGuests', 'createGuest', 'renameGuest', 'getGuestHistory', 'getOperationStatus',
-    'importGuestHistory', 'previewPromotion', 'commitPromotion', 'exportAttendanceSnapshot'].indexOf(action) >= 0;
+    'importGuestHistory', 'previewGuestImport', 'previewPromotion', 'commitPromotion', 'exportAttendanceSnapshot'].indexOf(action) >= 0;
   var writes = ['submitAttendance', 'addMember', 'addRun'].indexOf(action) >= 0;
   if (!shared && !writes && action !== 'getState') return null;
   return withLock_(function () {
@@ -46,6 +46,10 @@ function guestRoute_(request) {
       if (action === 'previewPromotion' && typeof guestPreviewPromotion_ === 'function') {
         if (fence) return guestPending_(fence);
         return guestPreviewPromotion_(guestReadStore_(), request);
+      }
+      if (action === 'previewGuestImport' && typeof guestPreviewImport_ === 'function') {
+        if (fence) return guestPending_(fence);
+        return guestPreviewImport_(guestReadStore_(), request);
       }
       if (action === 'exportAttendanceSnapshot' && typeof guestExportSnapshot_ === 'function') return guestExportSnapshot_(book);
       var valid = guestRequire_(GuestOps.validateOperationRequest(request));
@@ -95,14 +99,15 @@ function guestActionPlan_(store, request) {
   plan.sourceRevisions.sheetRevision = revision;
   if (request.action === 'addMember') {
     var name = SheetOps.cellText(request.name), member = guestPlanMember_(plan, ctx, name);
-    var memberGrid = ctx.grid.map(function (row) {
-      var copy = row.slice(); copy.splice(member.insertion.insertBefore - 1, 0, '');
-      if (member.insertion.relocateDisplaced) {
-        copy[member.insertion.insertBefore - 1] = copy[member.insertion.displacedCol - 1];
-        copy[member.insertion.displacedCol - 1] = '';
-      }
-      return copy;
+    var memberColumns = {};
+    store.seasons.forEach(function (season) {
+      var index = SheetOps.findMemberIndex(season.band, name);
+      if (index >= 0) memberColumns[season.sheetId] = { column: season.band[index].colIndex };
     });
+    memberColumns[ctx.sheetId] = member;
+    store.seasons.forEach(function (season) { guestPlanExistingHistory_(plan, store, season, memberColumns); });
+    guestPlanMemberHistory_(plan, store, ctx, member, memberColumns);
+    var memberGrid = guestMemberGrid_(ctx.grid, member);
     memberGrid[ctx.headerRow - 1][member.column - 1] = name;
     var memberContext = Object.assign({}, ctx, { grid: memberGrid });
     plan.response = { memberName: name, colIndex: member.column,

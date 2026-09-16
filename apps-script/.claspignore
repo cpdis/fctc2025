@@ -10,3 +10,6 @@
 !GuestOperations.gs
 !GuestSetup.gs
 !SheetBatch.gs
+!GuestPromotion.gs
+!GuestPromotionSafety.gs
+!GuestImport.gs

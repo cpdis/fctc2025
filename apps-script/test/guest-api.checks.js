@@ -58,7 +58,7 @@ test('setup creates hidden tables and stable run identities without changing sea
   const request = setup(env);
   const state = env.post({ action: 'getState', apiVersion: 2 });
   assert.equal(state.capabilities.sharedGuests, true);
-  assert.equal(state.capabilities.guestPromotion, false);
+  assert.equal(state.capabilities.guestPromotion, true);
   assert.equal(state.runs.length, 2);
   assert.notEqual(state.runs[0].runId, state.runs[1].runId);
   assert.deepEqual(env.grid(), before);

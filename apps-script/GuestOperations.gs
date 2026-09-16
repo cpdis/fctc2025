@@ -64,6 +64,12 @@ function guestPending_(operationId) {
 }
 /** Read back precise targets after a receipt. Success is never based on absence alone. */
 function guestVerifyTargets_(book, target) {
+  if (target.promotion && !guestVerifyPromotion_(book, target.promotion)) return false;
+  var formulas = target.formulas || [];
+  for (var f = 0; f < formulas.length; f++) {
+    var formula = formulas[f], formulaSheet = book.getSheetById(formula.sheetId);
+    if (!formulaSheet || formulaSheet.getRange(formula.row, formula.col).getFormulas()[0][0] !== formula.formula) return false;
+  }
   for (var i = 0; i < target.cells.length; i++) {
     var cell = target.cells[i], sheet = book.getSheetById(cell.sheetId);
     if (!sheet) return false;

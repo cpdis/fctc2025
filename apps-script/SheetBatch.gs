@@ -40,18 +40,49 @@ function guestPlanMember_(plan, ctx, name) {
   if (ctx.band.length < 2) guestFail_('unsafe_member_insertion', 'This season needs a reviewed member formula template.');
   var position = SheetOps.alphabeticalInsertIndex(ctx.band, name);
   var insertion = SheetOps.memberInsertPlan(ctx.band, ctx.bounds, position);
+  // Inserting at either outer edge excludes the new column from existing ranges.
+  // The first name uses the second column, then moves the old first member right.
+  if (position === 0) insertion = { insertBefore: ctx.band[1].colIndex,
+    relocateFirst: true, relocateDisplaced: false, displacedCol: 0 };
   plan.requests.push({ insertDimension: { range: { sheetId: ctx.sheetId, dimension: 'COLUMNS',
     startIndex: insertion.insertBefore - 1, endIndex: insertion.insertBefore }, inheritFromBefore: false } });
   var newCol = insertion.insertBefore;
-  if (insertion.relocateDisplaced) {
+  var templateCol = newCol + 1;
+  if (insertion.relocateFirst) {
+    newCol = ctx.bounds.firstMemberCol;
+    plan.requests.push(guestCopyRequest_(ctx.sheetId, 1, newCol, 1, insertion.insertBefore, ctx.sheet.getMaxRows(), 1));
+    plan.requests.push({ repeatCell: { range: { sheetId: ctx.sheetId, startColumnIndex: newCol - 1,
+      endColumnIndex: newCol }, cell: {}, fields: 'userEnteredValue,note' } });
+    templateCol = insertion.insertBefore;
+  } else if (insertion.relocateDisplaced) {
     // Full-cell relocation keeps absence annotations, notes and relative summary formulas.
     plan.requests.push(guestCopyRequest_(ctx.sheetId, 1, insertion.displacedCol, 1, insertion.insertBefore, ctx.sheet.getMaxRows(), 1));
     plan.requests.push({ repeatCell: { range: { sheetId: ctx.sheetId, startColumnIndex: insertion.displacedCol - 1,
       endColumnIndex: insertion.displacedCol }, cell: {}, fields: 'userEnteredValue,note' } });
     newCol = insertion.displacedCol;
+    templateCol = insertion.insertBefore;
   }
+  // Only formulas are copied above the header; another member's historical
+  // opening values or annotations must never become the new member's credit.
+  if (ctx.headerRow > 1) plan.requests.push(guestCopyRequest_(ctx.sheetId, 1, templateCol, 1, newCol,
+    ctx.headerRow - 1, 1, 'PASTE_FORMULA'));
   guestPlanCell_(plan, ctx.sheetId, ctx.headerRow, newCol, [name]);
-  return { column: newCol, insertion: insertion };
+  return { column: newCol, insertion: insertion, templateCol: templateCol };
+}
+/** Predict plain cells after one insertion; Google adjusts formula references. */
+function guestMemberGrid_(grid, member) {
+  return grid.map(function (row) {
+    var copy = row.slice(), insertion = member.insertion;
+    copy.splice(insertion.insertBefore - 1, 0, '');
+    if (insertion.relocateFirst) {
+      copy[insertion.insertBefore - 1] = copy[member.column - 1];
+      copy[member.column - 1] = '';
+    } else if (insertion.relocateDisplaced) {
+      copy[insertion.insertBefore - 1] = copy[insertion.displacedCol - 1];
+      copy[insertion.displacedCol - 1] = '';
+    }
+    return copy;
+  });
 }
 /** New rows receive their locator and copied derived formulas in the same batch. */
 function guestPlanRun_(plan, store, ctx, request) {
