@@ -14,6 +14,7 @@ struct OutboxView: View {
         filter: #Predicate<PendingSubmission> { $0.stateRaw != "done" },
         sort: \PendingSubmission.createdAt
     ) private var cachedSubmissions: [PendingSubmission]
+    @Query(sort: \PendingGuestOperation.createdAt) private var guestOperations: [PendingGuestOperation]
     @State private var viewModel: OutboxViewModel
     @State private var selectedConflict: PendingSubmissionSnapshot?
     @State private var showingSettings = false
@@ -57,7 +58,25 @@ struct OutboxView: View {
                 }
             }
 
-            if outstanding.isEmpty {
+            if !pendingGuestOperations.isEmpty {
+                Section("Guest changes") {
+                    ForEach(pendingGuestOperations) { operation in
+                        if operation.conflict?.reason == "identity_ambiguous",
+                           let provisionalId = operation.operation?.request["guestId"]?.string {
+                            NavigationLink {
+                                GuestIdentityReviewView(runtime: runtime, provisionalId: provisionalId,
+                                    displayName: operation.operation?.request["displayName"]?.string ?? "Guest",
+                                    candidateIds: operation.conflict?.guestIds ?? [])
+                            } label: { guestOperationLabel(operation) }
+                        } else {
+                            NavigationLink { GuestOperationStatusView(runtime: runtime, id: operation.id) } label: { guestOperationLabel(operation) }
+                        }
+                    }
+                    Button("Check saved guest changes") { Task { await runtime.engine.drain() } }
+                        .accessibilityIdentifier("check-guest-operations")
+                }
+            }
+            if outstanding.isEmpty && pendingGuestOperations.isEmpty {
                 ContentUnavailableView(
                     "Outbox Clear",
                     systemImage: "checkmark.circle",
@@ -107,13 +126,31 @@ struct OutboxView: View {
             }
         }
         .sheet(item: $selectedConflict) { submission in
-            ConflictResolutionView(submission: submission, viewModel: viewModel)
+            if submission.conflictReason == "guest_promoted" {
+                GuestConflictReviewView(runtime: runtime, submission: submission)
+            } else {
+                ConflictResolutionView(runtime: runtime, submission: submission, viewModel: viewModel)
+            }
         }
         .sheet(isPresented: $showingSettings) {
             NavigationStack { SettingsView(runtime: runtime) }
         }
         .onChange(of: runtime.generation) { _, _ in
             viewModel.replaceEngine(runtime.engine)
+        }
+    }
+
+    private var pendingGuestOperations: [PendingGuestOperation] {
+        guestOperations.filter { $0.endpointIdentity == runtime.config.endpoint?.absoluteString && $0.phase != .completed && $0.phase != .superseded }
+    }
+    private func guestOperationLabel(_ operation: PendingGuestOperation) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(operation.operation?.action == "commitPromotion" ? "Member promotion" : operation.operation?.action == "importGuestHistory" ? "Guest history import" : "Guest identity")
+                .font(.headline)
+            Text(operation.lastError ?? "Waiting to sync").font(.footnote).foregroundStyle(.secondary)
+            if operation.phase == .rejected || (operation.phase == .conflict && operation.conflict?.reason != "identity_ambiguous") {
+                Text("Open the guest history to review this change again.").font(.footnote).foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -176,7 +213,7 @@ private struct OutboxRow: View {
 
     private var detail: String {
         switch submission.status {
-        case .queued: submission.lastError == nil ? "Waiting to sync" : "Waiting for a connection"
+        case .queued: submission.verificationPending ? "Checking saved changes" : submission.lastError ?? "Waiting to sync"
         case .inFlight: "Sending"
         case .conflict: submission.conflictMessage ?? "Sheet changes need review"
         case .done: "Synced"
@@ -185,6 +222,7 @@ private struct OutboxRow: View {
 }
 
 private struct ConflictResolutionView: View {
+    let runtime: AppRuntime
     let submission: PendingSubmissionSnapshot
     let viewModel: OutboxViewModel
 
@@ -202,6 +240,13 @@ private struct ConflictResolutionView: View {
                     Text("Attendance difference")
                 } footer: {
                     Text(submission.conflictMessage ?? "The sheet changed after this attendance was prepared.")
+                }
+
+                Section("Guest names") {
+                    LabeledContent("Local", value: submission.guestNames.isEmpty ? "None" : submission.guestNames.joined(separator: ", "))
+                    LabeledContent("Sheet", value: serverGuestNames.isEmpty ? "None" : serverGuestNames.joined(separator: ", "))
+                    LabeledContent("Local unnamed", value: submission.unnamedGuests?.formatted() ?? "Not recorded")
+                    LabeledContent("Sheet unnamed", value: serverRun?.unnamedGuests?.formatted() ?? "Not recorded")
                 }
 
                 Section("Guest count") {
@@ -244,20 +289,32 @@ private struct ConflictResolutionView: View {
                 }
 
                 Section {
-                    Button("Merge with Sheet") { resolve(.merge) }
-                        .buttonStyle(.borderedProminent)
-                        .frame(maxWidth: .infinity)
-                        .accessibilityIdentifier("conflict-merge")
+                    if submission.runIdentity != nil || submission.conflictReason != "identity_review_required" {
+                    if !requiresGuestOverwrite {
+                        Button("Merge with Sheet") { resolve(.merge) }
+                            .buttonStyle(.borderedProminent)
+                            .frame(maxWidth: .infinity)
+                            .accessibilityIdentifier("conflict-merge")
+                    }
 
                     Button("Overwrite Sheet") { resolve(.overwrite) }
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("conflict-overwrite")
 
+                    } else {
+                        if !submission.guestNames.isEmpty {
+                            NavigationLink("Recover local guest history") { GuestRecoveryView(runtime: runtime) }
+                        }
+                        Text("This older submission has no verified workbook or season. It remains saved here. Open the original run and compare these details before recording it again.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     Button("Discard Local Submission", role: .destructive) { resolve(.discard) }
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("conflict-discard")
                 } footer: {
-                    Text("Merge keeps all sheet checks. Overwrite uses the local checklist exactly.")
+                    Text(requiresGuestOverwrite
+                         ? "This guest correction needs an overwrite. Review the local and sheet allocations above. Overwrite uses the local checklist exactly."
+                         : "Merge keeps all sheet checks and guest allocations. Overwrite uses the local checklist exactly.")
                 }
             }
             .listStyle(.insetGrouped)
@@ -272,12 +329,20 @@ private struct ConflictResolutionView: View {
         }
     }
 
-    private var serverAttendees: [String] {
-        guard let state = submission.conflictState else { return [] }
-        let run = state.runs.first {
-            $0.date == submission.expectedDate && $0.run == submission.expectedRun
-        } ?? state.runs.first { $0.rowIndex == submission.rowIndex }
-        return run?.attendees ?? []
+    private var serverRun: RunRecord? {
+        guard let state = submission.conflictState else { return nil }
+        if let identity = submission.runIdentity { return state.runs.first { $0.identity == identity } }
+        return state.runs.first { $0.date == submission.expectedDate && $0.run == submission.expectedRun }
+    }
+    private var serverAttendees: [String] { serverRun?.attendees ?? [] }
+    private var requiresGuestOverwrite: Bool {
+        guard submission.mode == .overwrite, submission.runIdentity != nil, let run = serverRun,
+              let named = submission.namedGuestIds, let unnamed = submission.unnamedGuests else { return false }
+        return !Set(run.namedGuestIds ?? []).isSubset(of: Set(named))
+            || unnamed < (run.unnamedGuests ?? max(0, run.plusOnes - (run.namedGuestIds?.count ?? 0)))
+    }
+    private var serverGuestNames: [String] {
+        (serverRun?.namedGuestIds ?? []).map { id in submission.conflictState?.guests?.first { $0.guestId == id }?.displayName ?? "Saved guest" }
     }
 
     private var diff: ConflictDiff {

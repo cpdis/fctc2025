@@ -1,5 +1,60 @@
 # iOS handoff
 
+## Shared guests (September 2026)
+
+Work is on `codex/shared-guest-attendance`. The September plan supersedes the old
+phone-local guest counter and promotion behavior described below. Deployment,
+production migration, push, and TestFlight distribution require separate approval.
+
+The server stores shared UUID identities and dated attendance. Promotion converts
+the original season rows and keeps all prior run credit. The iOS store preserves
+legacy names and queues as recovery evidence. Unknown operation outcomes check
+receipts after restart; they do not repeat structural writes.
+
+The shared schema adds caches, provisional identities, operation receipts, and
+recovery candidates. A synthetic installed v1 SQLite fixture tests migration.
+Guest recovery requires an explicit person, season, run, and existing unnamed slot.
+Old `done` records remain ambiguous. Never uninstall the app to fix recovery.
+
+Naming, replacing, or removing a saved guest requires a reviewed overwrite.
+Promoted-guest conflict review shows the refreshed attendance and distance before
+replacement. An original merge keeps concurrent member and guest attendance.
+The Home screen ignores refresh results from a replaced connection.
+
+Offline retry retains the original UUID and digest when completed transport
+metrics prove that no request was sent. Missing evidence remains uncertain.
+An absent receipt never permits a structural replay. The
+[setup helper](../docs/operators/shared-guest-setup.md) follows this same rule
+after its durable dispatch marker exists.
+
+Before release, finish the copy-sheet and two-phone checks, inspect the local
+visual review page, and follow the shared guest section of
+`docs/plans/packets/U8-release-runbook.md`. Production credentials and sharing
+settings are release inputs, not evidence that a local branch has shipped.
+
+### Local verification on 16 September
+
+- Apps Script: 255 tests passed. Dashboard and operator tools: 300 tests passed.
+- iOS Kit: 266 tests in 40 suites passed. All 22 UI cases passed across the broad
+  run and final rerun. The final 13-case run covers every legacy UI case and the
+  final guest correction label.
+- The broad run first found two obsolete UI fixtures without endpoint identity.
+  Corrected the fake API; retained the production guard and all assertions.
+- App and share extension compile for the simulator. The dashboard production
+  build passes with its existing large-chunk advisory.
+- Small and large iPhone screenshots include largest Dynamic Type. The local
+  comparison is `review/shared-guests/index.html` and uses synthetic records.
+- All ten accepted code-review findings are fixed. The review and test receipts
+  are listed in `review/shared-guests/evidence.md`.
+
+**Remaining verification:** Google Sheets scope approval for the private test
+script is still pending. Real formula recalculation, metadata movement, atomic
+batches, receipt recovery, and the complete two-client flow remain unverified.
+Do not enable production shared guests until those copy checks pass. Retain both
+installed phone backups and reconcile their candidates before any real promotion.
+
+The sections below are historical handoff records, not current test results.
+
 ## Review round 2
 
 ### Delivered

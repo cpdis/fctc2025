@@ -140,6 +140,8 @@ extension SyncEngine {
         return row
     }
     func guestOperationRecord(id: UUID) throws -> PendingGuestOperation? {
-        try modelContext.fetch(FetchDescriptor<PendingGuestOperation>()).first { $0.id == id }
+        var descriptor = FetchDescriptor<PendingGuestOperation>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
 }

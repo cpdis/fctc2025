@@ -7,7 +7,9 @@ extension SyncEngine {
             let rows = try modelContext.fetch(FetchDescriptor<PendingGuestOperation>(sortBy: [SortDescriptor(\.createdAt)]))
             for row in rows where row.phase == .queued || row.phase == .checking {
                 await drainGuestOperation(id: row.id)
-                if row.phase == .checking { break }
+                // Retrying an unsent head must not let newer structural changes
+                // overtake it. Unknown delivery still blocks on its receipt.
+                if row.phase == .checking || row.phase == .queued { break }
             }
         } catch { eventBroadcaster.yield(.serviceFailed(message: UserFacingError.sync(error))) }
     }
@@ -22,16 +24,15 @@ extension SyncEngine {
             }
             let response: GuestJSON
             if row.phase == .checking {
-                guard let receipt = try await api.operationStatus(id: id) else {
+                switch try await checkedGuestReceipt(for: operation) {
+                case .missing:
                     row.lastError = UserFacingError.checkingSavedChanges; try modelContext.save(); return
-                }
-                guard receipt.requestDigest == operation.digest else { throw SheetAPIError.badPayload(message: "The saved receipt does not match this request.") }
-                if receipt.status == "pending" { return }
-                guard receipt.status == "completed", let saved = receipt.response else {
+                case .pending: return
+                case .notApplied:
                     row.phase = .rejected; row.lastError = "This change was not applied. Review it before submitting a new change."
                     try modelContext.save(); return
+                case .completed(let saved): response = saved
                 }
-                response = saved
             } else {
                 // Save checking before entering the transport; restart never repeats
                 // a structural request whose delivery may already have happened.
@@ -71,9 +72,11 @@ extension SyncEngine {
             try? modelContext.save()
         } catch {
             guard let row = try? guestOperationRecord(id: id) else { return }
-            // A transport failure is not evidence that the request was rejected.
+            // An ordinary transport failure does not prove non-delivery.
             // Typed validation/authentication errors occur before any mutation.
-            if attemptedDispatch, let error = error as? SheetAPIError,
+            if attemptedDispatch, case SheetAPIError.requestNotSent = error {
+                row.phase = .queued; row.lastError = UserFacingError.offline
+            } else if attemptedDispatch, let error = error as? SheetAPIError,
                error.code == "bad_secret" || error.code == "busy" {
                 row.phase = .queued; row.lastError = UserFacingError.sync(error)
             } else if attemptedDispatch, let error = error as? SheetAPIError,
@@ -114,5 +117,21 @@ extension SyncEngine {
         let result: AddRunResult = try completedGuestResponse(id: operation.id).decoded()
         _ = try await refreshState(seasonSheetId: season)
         return result
+    }
+}
+
+
+/// Both queue types validate the same receipt, then retain their own persistence policy.
+enum CheckedGuestReceipt { case missing, pending, notApplied, completed(GuestJSON) }
+
+extension SyncEngine {
+    func checkedGuestReceipt(for operation: SharedGuestOperation) async throws -> CheckedGuestReceipt {
+        guard let receipt = try await api.operationStatus(id: operation.id) else { return .missing }
+        guard receipt.requestDigest == operation.digest else {
+            throw SheetAPIError.badPayload(message: "The saved receipt does not match this request.")
+        }
+        if receipt.status == "pending" { return .pending }
+        guard receipt.status == "completed", let saved = receipt.response else { return .notApplied }
+        return .completed(saved)
     }
 }

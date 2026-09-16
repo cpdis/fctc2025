@@ -42,7 +42,7 @@ public enum UserFacingError {
         switch sheetError {
         case .notConfigured:
             return "Finish setup before you connect to the sheet."
-        case .network:
+        case .network, .requestNotSent:
             return offline
         case .badSecret:
             return authentication

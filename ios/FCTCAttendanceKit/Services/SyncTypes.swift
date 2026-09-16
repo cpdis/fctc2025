@@ -117,6 +117,8 @@ public protocol SyncEngineClient: Sendable {
     func previewGuestImport(guestId: String, entries: [GuestImportEntry]) async throws -> GuestImportPreview
     func importGuestHistory(_ preview: GuestImportPreview, candidateIds: [String]) async throws -> UUID
     func guestOperation(id: UUID) async throws -> GuestOperationSnapshot?
+    func pendingSubmission(id: UUID) async throws -> PendingSubmissionSnapshot?
+    func replacePromotedGuestSubmission(id: UUID, reviewedDraft: AttendanceDraft) async throws -> UUID
 
     func refreshState() async throws -> SheetState
     func enqueue(_ submission: AttendanceSubmission) async throws -> UUID

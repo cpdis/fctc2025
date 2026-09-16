@@ -13,11 +13,13 @@ import UIKit
 struct ProposalTriageView: View {
     let set: DraftProposalSet
     let roster: [String]
+    let onGuestNames: (([String]) -> Void)?
     let onApply: ([String]) -> Void
     let onAddPerson: (String) async throws -> Void
     let onCancel: () -> Void
 
     @State private var selections: [String: String]
+    @State private var guestProposalIDs: Set<String> = []
     @State private var addNewProposalIDs: Set<String> = []
     @State private var isApplying = false
     @State private var applyErrorMessage: String?
@@ -26,12 +28,14 @@ struct ProposalTriageView: View {
     init(
         set: DraftProposalSet,
         roster: [String],
+        onGuestNames: (([String]) -> Void)? = nil,
         onApply: @escaping ([String]) -> Void,
         onAddPerson: @escaping (String) async throws -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.set = set
         self.roster = roster
+        self.onGuestNames = onGuestNames
         self.onApply = onApply
         self.onAddPerson = onAddPerson
         self.onCancel = onCancel
@@ -248,6 +252,15 @@ struct ProposalTriageView: View {
                         candidate: candidate
                     )
                 }
+                if onGuestNames != nil {
+                    Button {
+                        selections.removeValue(forKey: proposal.id)
+                        addNewProposalIDs.remove(proposal.id)
+                        guestProposalIDs.insert(proposal.id)
+                    } label: {
+                        Label(guestProposalIDs.contains(proposal.id) ? "Guest identity needs review" : "Review as guest", systemImage: "person.crop.circle.badge.questionmark")
+                    }.accessibilityIdentifier("triage-guest-\(proposal.raw)")
+                }
                 ignoreButton(proposal)
             }
             .padding(.vertical, 4)
@@ -291,11 +304,21 @@ struct ProposalTriageView: View {
                 Button {
                     selections[proposal.id] = proposal.raw
                     addNewProposalIDs.insert(proposal.id)
+                    guestProposalIDs.remove(proposal.id)
                 } label: {
                     Label("Add \(proposal.raw) as new person", systemImage: "person.badge.plus")
                 }
                 .accessibilityIdentifier("triage-add-\(proposal.raw)")
 
+                if onGuestNames != nil {
+                    Button {
+                        selections.removeValue(forKey: proposal.id)
+                        addNewProposalIDs.remove(proposal.id)
+                        guestProposalIDs.insert(proposal.id)
+                    } label: {
+                        Label(guestProposalIDs.contains(proposal.id) ? "Guest identity needs review" : "Review as guest", systemImage: "person.crop.circle.badge.questionmark")
+                    }.accessibilityIdentifier("triage-guest-\(proposal.raw)")
+                }
                 ignoreButton(proposal)
             }
             .padding(.vertical, 4)
@@ -334,6 +357,7 @@ struct ProposalTriageView: View {
         Button {
             selections.removeValue(forKey: proposal.id)
             addNewProposalIDs.remove(proposal.id)
+            guestProposalIDs.remove(proposal.id)
         } label: {
             Label(
                 selections[proposal.id] == nil ? "Ignored" : "Ignore",
@@ -342,7 +366,7 @@ struct ProposalTriageView: View {
             .foregroundStyle(.secondary)
         }
         .buttonStyle(.plain)
-        .disabled(selections[proposal.id] == nil)
+        .disabled(selections[proposal.id] == nil && !guestProposalIDs.contains(proposal.id))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Ignore \(proposal.raw)")
         .accessibilityAddTraits(.isButton)
@@ -352,6 +376,7 @@ struct ProposalTriageView: View {
     private func select(_ candidate: String, for proposal: DraftProposal) {
         selections[proposal.id] = candidate
         addNewProposalIDs.remove(proposal.id)
+        guestProposalIDs.remove(proposal.id)
     }
 
     private func applySelections() {
@@ -371,6 +396,7 @@ struct ProposalTriageView: View {
                     try await onAddPerson(name)
                 }
                 try Task<Never, Never>.checkCancellation()
+                onGuestNames?(set.proposals.filter { guestProposalIDs.contains($0.id) }.map(\.raw))
                 onApply(names)
             } catch is CancellationError {
                 isApplying = false

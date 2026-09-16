@@ -30,12 +30,14 @@ struct HomeView: View {
     let pendingRoutes: PendingRouteStore
 
     @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
+    @Query private var guestOperations: [PendingGuestOperation]
     @Query(sort: \Member.name) private var cachedMembers: [Member]
     @Query(
         filter: #Predicate<PendingSubmission> { $0.stateRaw != "done" },
         sort: \PendingSubmission.createdAt
     ) private var cachedSubmissions: [PendingSubmission]
     @State private var viewModel: HomeViewModel
+    @State private var recovery: [GuestRecoverySnapshot] = []
     @State private var path: [HomeRoute] = []
     @State private var deferredRoute: PendingAppRoute?
     @State private var sharedScreenshotCount = 0
@@ -75,7 +77,7 @@ struct HomeView: View {
                     .listRowBackground(Color.clear)
                 }
 
-                if viewModel.isInitialLoading && cachedRuns.isEmpty {
+                if viewModel.isInitialLoading && activeRuns.isEmpty {
                     Section {
                         ContentUnavailableView(
                             "Loading Season",
@@ -90,7 +92,7 @@ struct HomeView: View {
                     // The hero floats in its own section: sharing one with the
                     // run rows fused the card's bottom edge to the grouped
                     // rectangle behind it (Colin's review).
-                    if !(viewModel.initialLoadFailed && cachedRuns.isEmpty),
+                    if !(viewModel.initialLoadFailed && activeRuns.isEmpty),
                        let todayRun = viewModel.todayRun {
                         Section {
                             Button {
@@ -106,7 +108,7 @@ struct HomeView: View {
                     }
 
                     Section {
-                        if viewModel.initialLoadFailed && cachedRuns.isEmpty {
+                        if viewModel.initialLoadFailed && activeRuns.isEmpty {
                             ContentUnavailableView {
                                 Label("Runs Unavailable", systemImage: "wifi.exclamationmark")
                             } description: {
@@ -167,14 +169,30 @@ struct HomeView: View {
 
                 // Always present, including before the first sync, where it falls
                 // through to its own empty state rather than vanishing.
+                if recovery.contains(where: { $0.status == .pending }) {
+                    Section {
+                        NavigationLink { GuestRecoveryView(runtime: runtime) } label: {
+                            Label("Review local guest history", systemImage: "person.crop.circle.badge.clock")
+                        }.accessibilityIdentifier("recover-guests-reminder")
+                        Button("Dismiss reminder") {
+                            Task {
+                                for candidate in recovery where candidate.status == .pending {
+                                    try? await runtime.engine.updateRecoveryCandidate(id: candidate.id, guestId: candidate.selectedGuestId, run: candidate.selectedRun, status: .dismissed)
+                                }
+                                recovery = (try? await runtime.engine.recoveryCandidates()) ?? []
+                            }
+                        }
+                    } footer: { Text("Names from this phone need review. You can recover them later in Settings.") }
+                }
+
                 MilestonesSection(
-                    members: cachedMembers,
+                    totals: activeMemberTotals,
                     emptyPhrase: runtime.milestoneEmptyPhrase
                 )
 
                 if let banner = viewModel.syncBanner {
                     HomeSyncBanner(banner: banner, runtime: runtime) {
-                        await viewModel.retry(hasCachedState: !cachedRuns.isEmpty)
+                        await viewModel.retry(hasCachedState: !activeRuns.isEmpty)
                         updateFromCache()
                     }
                 }
@@ -211,17 +229,22 @@ struct HomeView: View {
                 }
             }
             .refreshable {
-                await viewModel.refresh(hasCachedState: !cachedRuns.isEmpty)
+                await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
                 updateFromCache()
             }
             .task {
                 updateFromCache()
                 handlePendingRoute()
                 checkSharedScreenshotInbox()
-                await viewModel.refresh(hasCachedState: !cachedRuns.isEmpty)
+                await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
                 updateFromCache()
                 handlePendingRoute()
                 checkSharedScreenshotInbox()
+            }
+            .onChange(of: viewModel.activeState) { _, state in
+                runtime.activeState = state
+                updateFromCache()
+                Task { recovery = (try? await runtime.engine.recoveryCandidates()) ?? [] }
             }
             .onChange(of: cacheFingerprint) { _, _ in
                 updateFromCache()
@@ -230,7 +253,7 @@ struct HomeView: View {
             .onChange(of: runtime.generation) { _, _ in
                 viewModel.replaceEngine(runtime.engine)
                 Task {
-                    await viewModel.refresh(hasCachedState: !cachedRuns.isEmpty)
+                    await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
                     updateFromCache()
                     handlePendingRoute()
                 }
@@ -309,25 +332,45 @@ struct HomeView: View {
         }
     }
 
+    private var activeMemberTotals: [MemberTotal] {
+        guard let state = runtime.activeSheetState, !state.lifetimeTotals.isEmpty else {
+            return cachedMembers.map { MemberTotal(name: $0.name, runs: $0.lifetimeRuns) }
+        }
+        let roster = Set(state.roster.map(\.name))
+        return state.lifetimeTotals.filter { roster.contains($0.name) }
+    }
+
+    private var pendingGuestOperations: [PendingGuestOperation] {
+        guestOperations.filter { $0.endpointIdentity == runtime.config.endpoint?.absoluteString && $0.phase != .completed && $0.phase != .superseded }
+    }
+
+    private var activeRuns: [ScheduledRun] {
+        let ids = Set(RunCacheScope.runs(cachedRuns.map(RunSnapshot.init), endpoint: runtime.config.endpoint?.absoluteString,
+                                        state: runtime.activeSheetState).map(\.id))
+        return cachedRuns.filter { ids.contains($0.cacheKey) && ($0.identity == nil || $0.endpointIdentity == runtime.config.endpoint?.absoluteString) }
+    }
+
     /// "94 of 163 runs recorded", or nil before the season has loaded.
     private var seasonProgress: String? {
-        guard !cachedRuns.isEmpty else { return nil }
-        let recorded = cachedRuns.filter { !$0.attendees.isEmpty || $0.plusOnes > 0 }.count
-        return "\(recorded) of \(cachedRuns.count) runs recorded"
+        guard !activeRuns.isEmpty else { return nil }
+        let recorded = activeRuns.filter { !$0.attendees.isEmpty || $0.plusOnes > 0 }.count
+        return "\(recorded) of \(activeRuns.count) runs recorded"
     }
 
     private var cacheFingerprint: String {
-        let runs = cachedRuns.map {
+        let runs = activeRuns.map {
             "\($0.rowIndex):\($0.attendees.count):\($0.plusOnes):\($0.cachedRevision ?? "")"
         }.joined(separator: "|")
         let submissions = cachedSubmissions.map { "\($0.id):\($0.stateRaw)" }.joined(separator: "|")
-        return runs + "#" + submissions
+        return runs + "#" + submissions + pendingGuestOperations.map { "\($0.id):\($0.phaseRaw)" }.joined(separator: "|")
     }
 
     private func updateFromCache() {
         viewModel.update(
-            runs: cachedRuns.map(RunSnapshot.init),
-            submissions: cachedSubmissions.map(PendingSubmissionSnapshot.init)
+            runs: activeRuns.map(RunSnapshot.init),
+            submissions: cachedSubmissions.map(PendingSubmissionSnapshot.init),
+            pendingGuestChanges: pendingGuestOperations.count,
+            guestConflicts: pendingGuestOperations.filter { $0.phase == .conflict || $0.phase == .rejected }.count
         )
     }
 
@@ -344,7 +387,7 @@ struct HomeView: View {
             target = viewModel.todayRun
             presentation = .dictation
         case .checklist(let rowIndex, let date, let run):
-            target = cachedRuns.map(RunSnapshot.init).first {
+            target = activeRuns.map(RunSnapshot.init).first {
                 $0.rowIndex == rowIndex && $0.date == date && $0.run == run
             }
             presentation = .standard

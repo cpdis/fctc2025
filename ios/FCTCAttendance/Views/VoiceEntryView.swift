@@ -89,9 +89,14 @@ struct VoiceEntryView: View {
             checklistViewModel.applyProposals(checks: checks, from: set)
             dismiss()
         }
+        let guestReview: (([String]) -> Void)?
+        if checklistViewModel.supportsSharedGuests {
+            guestReview = { names in checklistViewModel.requireGuestReview(names) }
+        } else { guestReview = nil }
         return ProposalTriageView(
             set: set,
             roster: checklistViewModel.roster,
+            onGuestNames: guestReview,
             onApply: apply,
             onAddPerson: addPerson,
             onCancel: viewModel.returnToRecording

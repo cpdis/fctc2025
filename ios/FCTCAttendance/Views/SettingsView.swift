@@ -70,6 +70,12 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings-secret")
             }
 
+            Section("Guest history") {
+                NavigationLink { GuestRecoveryView(runtime: runtime) } label: {
+                    Label("Recover guest history", systemImage: "person.crop.circle.badge.clock")
+                }.accessibilityIdentifier("settings-recover-guests")
+            }
+
             Section("This device") {
                 TextField("Device name", text: $viewModel.deviceName)
                     .textInputAutocapitalization(.words)
@@ -114,7 +120,7 @@ struct SettingsView: View {
                 .disabled(viewModel.isRefreshing || !runtime.config.isConfigured)
                 .accessibilityIdentifier("settings-refresh-roster")
             } footer: {
-                Text("Refresh replaces the local cache with the current sheet roster and runs.")
+                Text("Refresh updates the current season. Saved guest history remains available.")
             }
 
             if let error = viewModel.errorMessage {

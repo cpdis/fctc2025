@@ -41,6 +41,8 @@ extension SyncEngineClient {
     public func previewGuestImport(guestId: String, entries: [GuestImportEntry]) async throws -> GuestImportPreview { throw SheetAPIError.notImplemented }
     public func importGuestHistory(_ preview: GuestImportPreview, candidateIds: [String]) async throws -> UUID { throw SheetAPIError.notImplemented }
     public func guestOperation(id: UUID) async throws -> GuestOperationSnapshot? { nil }
+    public func pendingSubmission(id: UUID) async throws -> PendingSubmissionSnapshot? { nil }
+    public func replacePromotedGuestSubmission(id: UUID, reviewedDraft: AttendanceDraft) async throws -> UUID { throw SheetAPIError.notImplemented }
 }
 
 public struct GuestOperationSnapshot: Hashable, Sendable, Identifiable {

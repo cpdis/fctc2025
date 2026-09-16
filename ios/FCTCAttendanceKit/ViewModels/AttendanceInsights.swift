@@ -108,35 +108,6 @@ public struct MemberStats: Hashable, Sendable {
     }
 }
 
-public enum GuestPromotionCounter {
-    public static let threshold = 3
-
-    /// Count a guest once per submission. Case and diacritics do not create a new
-    /// history identity, matching the roster's existing uniqueness rule.
-    public static func counts(in submissionGuestNames: [[String]]) -> [String: Int] {
-        var result: [String: Int] = [:]
-        for names in submissionGuestNames {
-            let unique = Set(names.map(canonical).filter { !$0.isEmpty })
-            for name in unique { result[name, default: 0] += 1 }
-        }
-        return result
-    }
-
-    public static func isFrequent(
-        _ name: String,
-        counts: [String: Int],
-        threshold: Int = threshold
-    ) -> Bool {
-        counts[canonical(name), default: 0] >= threshold
-    }
-
-    public static func canonical(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
-            .lowercased()
-    }
-}
-
 public enum MemberAvatar {
     public static let paletteCount = 8
 
@@ -148,7 +119,7 @@ public enum MemberAvatar {
     /// Swift's Hasher changes between launches. This small weighted hash stays
     /// stable across app versions and gives each canonical sheet name one color.
     public static func paletteIndex(for name: String) -> Int {
-        let canonical = GuestPromotionCounter.canonical(name)
+        let canonical = GuestNames.canonical(name)
         let value = canonical.utf8.enumerated().reduce(0) { partial, pair in
             partial &+ (pair.offset + 1) &* Int(pair.element)
         }

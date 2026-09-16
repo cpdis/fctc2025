@@ -82,6 +82,16 @@ public struct MemberTotal: Codable, Hashable, Sendable {
     }
 }
 
+/// Explicit sheet identities let recovery select earlier seasons without guessing.
+public struct SupportedSeason: Codable, Hashable, Sendable, Identifiable {
+    public var seasonSheetId: Int
+    public var seasonYear: Int
+    public var id: Int { seasonSheetId }
+    public init(seasonSheetId: Int, seasonYear: Int) {
+        self.seasonSheetId = seasonSheetId; self.seasonYear = seasonYear
+    }
+}
+
 public struct SheetState: Codable, Hashable, Sendable {
     public var roster: [RosterEntry]
     public var runs: [RunRecord]
@@ -98,6 +108,7 @@ public struct SheetState: Codable, Hashable, Sendable {
     public var guests: [SharedGuest]?
     public var guestRevision: String?
     public var pendingOperationId: String?
+    public var supportedSeasons: [SupportedSeason]?
     public var supportsSharedGuests: Bool { capabilities?.canWrite == true }
 
     public init(
@@ -108,8 +119,10 @@ public struct SheetState: Codable, Hashable, Sendable {
         lifetimeTotals: [MemberTotal] = [],
         apiVersion: Int? = nil, capabilities: GuestCapabilities? = nil,
         spreadsheetId: String? = nil, seasonSheetId: Int? = nil,
-        guests: [SharedGuest]? = nil, guestRevision: String? = nil, pendingOperationId: String? = nil
+        guests: [SharedGuest]? = nil, guestRevision: String? = nil, pendingOperationId: String? = nil,
+        supportedSeasons: [SupportedSeason]? = nil
     ) {
+        self.supportedSeasons = supportedSeasons
         self.roster = roster
         self.runs = runs
         self.seasonYear = seasonYear
@@ -137,6 +150,7 @@ public struct SheetState: Codable, Hashable, Sendable {
         guests = try container.decodeIfPresent([SharedGuest].self, forKey: .guests)
         guestRevision = try container.decodeIfPresent(String.self, forKey: .guestRevision)
         pendingOperationId = try container.decodeIfPresent(String.self, forKey: .pendingOperationId)
+        supportedSeasons = try container.decodeIfPresent([SupportedSeason].self, forKey: .supportedSeasons)
     }
 }
 

@@ -5,6 +5,8 @@ import Foundation
 public enum SheetAPIError: Error, Sendable, Equatable {
     case notConfigured
     case network(String)
+    /// Completed transport evidence proves that no request was sent.
+    case requestNotSent(String)
     case badSecret(message: String)
     case unknownAction(message: String)
     case duplicateMember(message: String)
@@ -20,6 +22,7 @@ public enum SheetAPIError: Error, Sendable, Equatable {
         switch self {
         case .notConfigured: "not_configured"
         case .network: "network"
+        case .requestNotSent: "request_not_sent"
         case .badSecret: "bad_secret"
         case .unknownAction: "unknown_action"
         case .duplicateMember: "duplicate_member"
@@ -35,7 +38,7 @@ public enum SheetAPIError: Error, Sendable, Equatable {
 
     public var isRetryable: Bool {
         switch self {
-        case .network, .busy: true
+        case .network, .requestNotSent, .busy: true
         default: false
         }
     }
@@ -45,7 +48,7 @@ extension SheetAPIError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .notConfigured: "The sheet endpoint and secret are not configured."
-        case .network(let message), .decoding(let message): message
+        case .network(let message), .requestNotSent(let message), .decoding(let message): message
         case .badSecret(let message), .unknownAction(let message),
              .duplicateMember(let message), .badPayload(let message),
              .sheetUnreadable(let message), .busy(let message),
@@ -82,6 +85,7 @@ public protocol HTTPTransport: Sendable {
 public enum HTTPTransportError: Error, Sendable, Equatable {
     case invalidResponse
     case statusCode(Int)
+    case requestNotSent(String)
 }
 
 /// The only type in the kit that knows about URLSession.
@@ -100,7 +104,19 @@ public actor URLSessionTransport: HTTPTransport {
         request.httpBody = body
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let (data, response) = try await session.data(for: request)
+        let delivery = RequestDeliveryTracker()
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request, delegate: delivery)
+        } catch {
+            // An error code alone cannot distinguish initial connection failure
+            // from a failure following a redirect after the server committed.
+            if delivery.provesRequestWasNotSent {
+                throw HTTPTransportError.requestNotSent(String(describing: error))
+            }
+            throw error
+        }
         guard let httpResponse = response as? HTTPURLResponse else {
             throw HTTPTransportError.invalidResponse
         }
@@ -222,6 +238,8 @@ public actor SheetAPI: SheetAPIClient {
             data = try await transport.post(body)
         } catch let error as SheetAPIError {
             throw error
+        } catch HTTPTransportError.requestNotSent(let message) {
+            throw SheetAPIError.requestNotSent(message)
         } catch {
             throw SheetAPIError.network(String(describing: error))
         }

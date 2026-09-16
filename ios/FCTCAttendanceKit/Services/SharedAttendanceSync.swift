@@ -24,15 +24,14 @@ extension SyncEngine {
             let operation = try JSONDecoder().decode(SharedGuestOperation.self, from: bytes)
             let response: GuestJSON
             if row.verificationPending == true || row.status == .inFlight {
-                guard let receipt = try await api.operationStatus(id: operation.id) else {
+                switch try await checkedGuestReceipt(for: operation) {
+                case .missing:
                     row.lastError = UserFacingError.checkingSavedChanges; try modelContext.save(); return
-                }
-                guard receipt.requestDigest == operation.digest else { throw SheetAPIError.badPayload(message: "The saved receipt does not match this request.") }
-                if receipt.status == "pending" { return }
-                guard receipt.status == "completed", let saved = receipt.response else {
+                case .pending: return
+                case .notApplied:
                     try parkForReview(row, message: "This run was not saved. Review it before submitting a new change."); return
+                case .completed(let saved): response = saved
                 }
-                response = saved
             } else {
                 row.status = .inFlight; row.verificationPending = true; row.lastAttemptAt = await clock.now()
                 row.attemptCount += 1; row.lastError = UserFacingError.checkingSavedChanges
@@ -65,7 +64,14 @@ extension SyncEngine {
             try? modelContext.save()
         } catch {
             guard let row = try? pending(id: id) else { return }
-            if attemptedDispatch, let error = error as? SheetAPIError,
+            if attemptedDispatch, case SheetAPIError.requestNotSent = error {
+                // Keep the exact saved UUID and digest. Only this dispatch's
+                // proven non-delivery can clear its persisted verification flag.
+                row.status = .queued; row.verificationPending = false
+                row.lastError = UserFacingError.offline
+                try? modelContext.save()
+                eventBroadcaster.yield(.parked(id: id, message: UserFacingError.offline))
+            } else if attemptedDispatch, let error = error as? SheetAPIError,
                error.code == "bad_secret" || error.code == "busy" {
                 row.status = .queued; row.verificationPending = false
                 row.lastError = UserFacingError.sync(error)

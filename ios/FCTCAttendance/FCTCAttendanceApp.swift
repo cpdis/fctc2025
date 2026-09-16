@@ -39,7 +39,7 @@ struct FCTCAttendanceApp: App {
                     "FCTCAttendance-UITest",
                     schema: AttendanceSchema.schema,
                     url: FileManager.default.temporaryDirectory
-                        .appending(path: "fctc-uitest-\(UUID().uuidString).store")
+                        .appending(path: "fctc-uitest-\(UITestSupport.storeName).store")
                 )
                 : ModelConfiguration(
                     "FCTCAttendance",
