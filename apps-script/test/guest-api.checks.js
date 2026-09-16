@@ -341,11 +341,35 @@ test('pending journals remain bounded and contain canonical requests, source rev
   assert.equal(operation.canonicalRequest, GuestOps.canonicalRequest(request));
   assert.ok(operation.sourceRevisions.sheetRevision);
   assert.ok(operation.sourceRevisions.guestRevision);
-  assert.ok(operation.plannedRequests.length);
+  assert.equal(operation.plannedRequests, undefined, 'Targets retain recovery evidence without duplicating the write batch');
   assert.ok(operation.targetState.cells.length);
   assert.ok(operation.receiptLocation.rowIndex > 1);
   assert.equal(props.FCTC_JOURNAL_PHASE, 'dispatching');
   assert.ok(!text.includes('test-secret'));
+});
+
+test('two full seasons fit one setup journal and recover without replay after response loss', () => {
+  const grid = [fixture()[0], ...Array.from({ length: 160 }, (_, index) => [
+    'Fri, 3-Jan', 'Beach', `Run ${index + 1}`, 7.5, 7.2, 'x', '-', 1, '',
+  ])];
+  const env = createEnvironment({ grid, sheetName: '2026', sheetId: 26,
+    extraSheets: [{ name: '2025', sheetId: 0, grid }],
+    properties: { SHARED_GUESTS_SETUP_ALLOWED: 'true' } });
+  const request = mutation('setupSharedGuests', { spreadsheetId: 'test-workbook', seasonSheetIds: [0, 26] });
+  const before = env.allSheets.map(sheet => sheet.snapshot());
+  env.failNextBatch('after');
+  assert.equal(env.post(request).conflict?.reason, 'pending_verification');
+  assert.equal(env.context.guestJournal_().targetState.metadata.length, 320);
+  const restarted = env.restart();
+  const receipt = restarted.post({ action: 'getOperationStatus', operationId: request.operationId }).operation;
+  assert.equal(receipt.status, 'completed');
+  assert.deepEqual(receipt.response.seasonSheetIds, [0, 26]);
+  assert.equal(restarted.properties.FCTC_PENDING_OPERATION, undefined);
+  assert.deepEqual(restarted.allSheets.slice(0, 2).map(sheet => sheet.snapshot()), before);
+  assert.equal(restarted.allSheets.slice(0, 2).reduce((sum, sheet) => sum + sheet.metadata.length, 0), 320);
+  const writesBefore = restarted.writes().length;
+  assert.deepEqual(restarted.post(request), receipt.response);
+  assert.equal(restarted.writes().length, writesBefore);
 });
 
 test('disabling shared guests cannot reopen legacy writers after shared attendance exists', () => {

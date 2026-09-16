@@ -181,7 +181,9 @@ function guestExecutePlan_(book, request, canonicalRequest, plan, receiptLocatio
   guestValidateCapacity_(book, plan, receiptLocation);
   var operation = { operationId: request.operationId, requestDigest: request.requestDigest, status: 'pending',
     canonicalRequest: canonicalRequest, sourceRevisions: plan.sourceRevisions, targetState: plan.targetState,
-    plannedRequests: plan.requests, receiptLocation: receiptLocation,
+    // Recovery verifies these exact targets and never replays a write batch.
+    // Duplicating requests here can exhaust the journal during multi-season setup.
+    receiptLocation: receiptLocation,
     response: Object.assign({ ok: true, operationId: request.operationId, status: 'completed' }, plan.response) };
   guestReserveJournal_(operation);
   try {

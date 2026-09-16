@@ -20,7 +20,9 @@ function makeSheetsService({ allSheets, spreadsheetId, FakeSheet }) {
     get(id) {
       requireBook(id);
       return { spreadsheetId, sheets: allSheets.map(sheet => ({
-        properties: properties(sheet), developerMetadata: structuredClone(sheet.metadata),
+        // A sheet resource contains sheet-level metadata, not row locators.
+        properties: properties(sheet), developerMetadata: structuredClone(sheet.metadata.filter(meta =>
+          meta.location?.sheetId === sheet.sheetId && !meta.location?.dimensionRange)),
       })) };
     },
     DeveloperMetadata: {
@@ -30,7 +32,14 @@ function makeSheetsService({ allSheets, spreadsheetId, FakeSheet }) {
         return { matchedDeveloperMetadata: allSheets.flatMap(sheet => sheet.metadata)
           .filter(meta => lookups.some(lookup => (!lookup.metadataKey || lookup.metadataKey === meta.metadataKey)
             && (!lookup.metadataValue || lookup.metadataValue === meta.metadataValue)))
-          .map(meta => ({ developerMetadata: structuredClone(meta) })) };
+          .map(meta => {
+            const developerMetadata = structuredClone(meta);
+            const range = developerMetadata.location?.dimensionRange;
+            // Google's advanced service omits zero-valued dimension fields.
+            if (range?.sheetId === 0) delete range.sheetId;
+            if (range?.startIndex === 0) delete range.startIndex;
+            return { developerMetadata };
+          }) };
       },
     },
     batchUpdate(request, id) {

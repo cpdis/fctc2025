@@ -46,11 +46,17 @@ and `supportedSeasons: [{seasonSheetId, seasonYear}]` for explicit recovery sele
 `renameGuest`; they do not need an attendance or distance change.
 
 Every writer checks the workbook fence while holding the script lock. A pending journal
-stores the canonical request, source revisions, planned requests, targets, and receipt location
+stores the canonical request, source revisions, exact targets, and receipt location
 before dispatch. The final batch includes its completed receipt. `getOperationStatus` verifies
 the saved targets before it clears an uncertain operation. A missing receipt after dispatch
 is not permission to repeat a batch. A bootstrap interruption before the ledger exists
 retains its fence for operator recovery, even if dispatch never started.
+
+The journal does not duplicate the write batch: reconciliation uses its exact targets,
+and never executes stored requests. This keeps a two-season setup within the bounded
+property store. Row locators use `DeveloperMetadata.search`; sheet-level metadata
+reads omit them. Normalize omitted numeric defaults, including historical sheet ID `0`,
+before validating the returned locations.
 
 The iOS outbox may resend the same saved UUID and digest only when completed
 transport metrics prove that its request never started. Missing metrics, a sent

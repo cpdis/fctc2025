@@ -20,7 +20,10 @@ test('batch fake preserves committed data and metadata after a lost response and
   ] }, env.spreadsheet.getId()));
   const restarted = env.restart();
   restarted.sheet.insertRowBefore(2);
-  const meta = restarted.context.Sheets.Spreadsheets.get(restarted.spreadsheet.getId()).sheets[0].developerMetadata[0];
+  assert.deepEqual(restarted.context.Sheets.Spreadsheets.get(restarted.spreadsheet.getId()).sheets[0].developerMetadata, []);
+  const meta = restarted.context.Sheets.Spreadsheets.DeveloperMetadata.search({ dataFilters: [
+    { developerMetadataLookup: { metadataKey: 'fctc.runId' } },
+  ] }, restarted.spreadsheet.getId()).matchedDeveloperMetadata[0].developerMetadata;
   assert.equal(meta.location.dimensionRange.startIndex, 2);
   assert.equal(meta.metadataValue, 'stable-id');
 });

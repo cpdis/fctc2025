@@ -40,10 +40,24 @@ function guestTableRecords_(table, validator) {
 }
 /** Only row-associated metadata is accepted. Invalid or duplicate IDs block reads/writes. */
 function guestMetadata_ (book) {
-  var response = Sheets.Spreadsheets.get(book.getId(), { fields: 'sheets(properties,developerMetadata)' });
+  // Sheet resources omit row-associated metadata. Search by key so setup,
+  // reads and receipt verification all receive the actual row locators.
+  var response = Sheets.Spreadsheets.DeveloperMetadata.search({ dataFilters: [
+    { developerMetadataLookup: { metadataKey: GUEST_RUN_METADATA } }
+  ] }, book.getId());
   var bySheet = {};
-  (response.sheets || []).forEach(function (sheet) {
-    bySheet[sheet.properties.sheetId] = (sheet.developerMetadata || []).filter(function (m) { return m.metadataKey === GUEST_RUN_METADATA; });
+  (response.matchedDeveloperMetadata || []).forEach(function (match) {
+    var metadata = match.developerMetadata, range = metadata && metadata.location && metadata.location.dimensionRange;
+    if (!range) guestFail_('invalid_run', 'Repair run metadata that is not associated with a season row.');
+    // Advanced-service responses omit numeric defaults, including sheet ID 0
+    // on the original season. Normalize them before strict identity checks.
+    range = Object.assign({ sheetId: 0, startIndex: 0 }, range);
+    if (!Number.isSafeInteger(range.sheetId) || range.sheetId < 0) {
+      guestFail_('invalid_run', 'Repair run metadata that is not associated with a season row.');
+    }
+    metadata = Object.assign({}, metadata, { location: Object.assign({}, metadata.location, { dimensionRange: range }) });
+    if (!bySheet[range.sheetId]) bySheet[range.sheetId] = [];
+    bySheet[range.sheetId].push(metadata);
   });
   return bySheet;
 }
