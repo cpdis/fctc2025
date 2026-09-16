@@ -104,6 +104,10 @@ function handleRequest(request) {
   }
 
   var action = SheetOps.cellText(request.action);
+  // V2 owns its locked operation journal. Legacy writes remain readable during
+  // rollout, but cannot bypass a pending operation or an enabled shared ledger.
+  var sharedResponse = guestRoute_(request);
+  if (sharedResponse !== null) return sharedResponse;
   switch (action) {
     case 'getState':
       return withSheet_(function (ctx) {

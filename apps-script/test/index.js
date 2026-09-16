@@ -22,3 +22,5 @@ require('./api.checks.js');
 require('./fixtures.checks.js');
 require('./setupqr.checks.js');
 require('./guestops.checks.js');
+require('./guest-api.checks.js');
+require('./fake-sheets.checks.js');

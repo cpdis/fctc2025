@@ -5,11 +5,11 @@ project living inside the FCTC spreadsheet, deployed as a Web App that speaks JS
 over POST. The iOS app therefore needs no Google OAuth at all — just a URL and a
 shared secret.
 
-Plan: `docs/plans/2026-08-14-001-feat-fctc-attendance-ios-app-plan.md`.
-Status: **release candidate (U8)** — all four actions are covered by
-`node --test apps-script/test`. The 2026-08-14 smoke run verified the deployment,
-formulas, concurrency, date handling, and sheet-safety carve-out against a copy.
-Run `test/smoke.md` again after a write-layer change.
+The original app follows `docs/plans/2026-08-14-001-feat-fctc-attendance-ios-app-plan.md`.
+Shared guest work follows the September plan below. New capabilities stay disabled
+until copy verification and an explicitly approved production upgrade are complete.
+The August smoke result covers the original writer only. Run `test/smoke.md` again
+after a write-layer change.
 
 ## Shared guest contract (v2)
 
@@ -27,8 +27,26 @@ Promotion preserves historical attendance and rejects later writes that still tr
 Every v2 mutation has an operation UUID and a verified canonical-request SHA-256 digest.
 Receipts distinguish pending, completed, rejected, and reconciled non-application (`not_applied`).
 Pending outcomes fence workbook writes until verified; a repeated UUID returns its saved outcome.
-The pure module validates contracts. The adapter must recompute digests, enforce revisions,
-bound stored recovery data, and make related sheet changes atomically.
+The pure module validates contracts. The adapter recomputes digests, enforces revisions,
+bounds stored recovery data, and makes related sheet changes atomically.
+
+`setupSharedGuests` requires `SHARED_GUESTS_SETUP_ALLOWED=true`, the exact workbook ID,
+and explicit season sheet IDs. It creates hidden tables and run metadata without enabling
+writes. `SHARED_GUESTS_ENABLED=true` enables available shared actions after setup.
+Setup leaves a durable format marker: setting the enable flag back to false pauses shared
+writes but does not permit older apps to overwrite named allocations.
+
+`getState` accepts an optional `seasonSheetId` for historical navigation. Shared state includes
+guest summaries, stable run IDs, named selections, unnamed counts, and pending operation IDs.
+`getGuestHistory` returns dated entries across configured seasons. Name-only edits use
+`renameGuest`; they do not need an attendance or distance change.
+
+Every writer checks the workbook fence while holding the script lock. A pending journal
+stores the canonical request, source revisions, planned requests, targets, and receipt location
+before dispatch. The final batch includes its completed receipt. `getOperationStatus` verifies
+the saved targets before it clears an uncertain operation. A missing receipt after dispatch
+is not permission to repeat a batch. A bootstrap interruption before the ledger exists
+retains its fence for operator recovery, even if dispatch never started.
 
 **Narrow sheet-safety extension:** the v2 adapter may maintain `_FCTC_Guests`,
 `_FCTC_GuestAttendance`, `_FCTC_Operations`, and run-row developer metadata.
@@ -82,9 +100,12 @@ and writes nothing. Three operational codes round it out: `sheet_unreadable` (th
 
 | File | Role |
 |---|---|
-| `Code.gs` | Web app entry (`doPost` router, auth, LockService). All `SpreadsheetApp` I/O lives here. |
+| `Code.gs` | Web app entry, authentication, lock helper, and legacy sheet operations. |
 | `SheetOps.js` | Pure sheet geometry (header detection, member band, revision hash, insert positions). No I/O, no `require` — see the dual-environment note below. |
 | `GuestOps.js` | Pure shared UUID, history, allocation, revision, and operation-request contracts. No Apps Script services. |
+| `GuestStore.gs`, `GuestActions.gs` | Shared snapshots, authenticated routes, identity edits, and attendance plans. |
+| `GuestSetup.gs`, `SheetBatch.gs` | Explicit setup and precise Sheets v4 request builders. |
+| `GuestOperations.gs` | Durable pending journals, atomic receipts, and restart reconciliation. |
 | `appsscript.json` | Manifest: V8, web app `ANYONE_ANONYMOUS` / execute as `USER_DEPLOYING`. |
 | `.clasp.json.example` | Template for the (gitignored) `.clasp.json`. |
 | `.claspignore` | Keeps `test/`, `package.json` and this README out of the pushed project. |

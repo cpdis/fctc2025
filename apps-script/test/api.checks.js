@@ -872,10 +872,10 @@ test.describe('serialization (LockService)', () => {
     assert.deepEqual(env.lockLog.map((e) => e.kind), ['waitLock', 'releaseLock']);
   });
 
-  test.it('does not lock for a read', () => {
+  test.it('locks state reads for a consistent snapshot across shared mutations', () => {
     const env = api(2026);
     assertOk(env.post({ action: 'getState' }));
-    assert.deepEqual(env.lockLog, []);
+    assert.deepEqual(env.lockLog.map((entry) => entry.kind), ['waitLock', 'releaseLock']);
   });
 
   test.it('reports busy rather than writing when another writer holds the lock', () => {

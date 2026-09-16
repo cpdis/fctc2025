@@ -4,3 +4,9 @@
 !appsscript.json
 !Code.gs
 !SheetOps.js
+!GuestOps.js
+!GuestStore.gs
+!GuestActions.gs
+!GuestOperations.gs
+!GuestSetup.gs
+!SheetBatch.gs
