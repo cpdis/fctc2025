@@ -18,12 +18,14 @@ function guestRequire_(result) {
   if (!result.ok) guestFail_(result.conflict.reason, result.conflict.message, result.conflict);
   return result;
 }
-function guestReadTable_(book, name) {
+function guestReadTable_(book, name, headerOnly) {
   var sheet = book.getSheetByName(name);
   if (!sheet) guestFail_('setup_required', 'Set up shared guest tables before enabling this feature.');
-  var grid = sheet.getDataRange().getValues();
+  // Store snapshots need the operations schema and append position, never the
+  // historical request payloads. Setup keeps its existing full-table contract.
+  var grid = headerOnly ? sheet.getRange(1, 1, 1, 3).getValues() : sheet.getDataRange().getValues();
   if (!grid.length || grid[0][0] !== 'FCTC_V2') guestFail_('invalid_table', 'The reserved guest table has an unexpected header.');
-  return { sheet: sheet, sheetId: sheet.getSheetId(), grid: grid };
+  return { sheet: sheet, sheetId: sheet.getSheetId(), grid: grid, lastRow: sheet.getLastRow() };
 }
 function guestTableRecords_(table, validator) {
   var records = [];
@@ -48,7 +50,7 @@ function guestMetadata_ (book) {
 function guestReadStore_() {
   var book = SpreadsheetApp.getActiveSpreadsheet();
   var tables = {};
-  Object.keys(GUEST_TABLES).forEach(function (key) { tables[key] = guestReadTable_(book, GUEST_TABLES[key]); });
+  Object.keys(GUEST_TABLES).forEach(function (key) { tables[key] = guestReadTable_(book, GUEST_TABLES[key], key === 'operations'); });
   var guestRows = guestTableRecords_(tables.guests, GuestOps.validateGuest);
   var attendanceRows = guestTableRecords_(tables.attendance, GuestOps.validateAttendance);
   var guests = guestRows.map(function (r) { return r.value; });
@@ -130,6 +132,7 @@ function guestState_(store, sheetId) {
   var ctx = guestSeason_(store, sheetId);
   return Object.assign(stateOf_(ctx), { apiVersion: 2, capabilities: guestCapabilities_(),
     spreadsheetId: store.book.getId(), seasonSheetId: ctx.sheetId, runs: ctx.runs,
+    supportedSeasons: store.seasons.map(function (season) { return { seasonSheetId: season.sheetId, seasonYear: season.seasonYear }; }),
     guests: store.guests.map(function (g) { return guestSummary_(store, g); }),
     guestRevision: store.guestRevision, sheetRevision: guestSheetRevision_(ctx, store.guestRevision),
     pendingOperationId: scriptProperty_(GUEST_FENCE_PROPERTY) || null });

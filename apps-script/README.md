@@ -35,9 +35,13 @@ and explicit season sheet IDs. It creates hidden tables and run metadata without
 writes. `SHARED_GUESTS_ENABLED=true` enables available shared actions after setup.
 Setup leaves a durable format marker: setting the enable flag back to false pauses shared
 writes but does not permit older apps to overwrite named allocations.
+Use the [operator setup procedure](../docs/operators/shared-guest-setup.md) to
+prepare and retain the canonical request. After dispatch starts, the helper only
+checks status; an absent receipt does not permit another setup attempt.
 
 `getState` accepts an optional `seasonSheetId` for historical navigation. Shared state includes
-guest summaries, stable run IDs, named selections, unnamed counts, and pending operation IDs.
+guest summaries, stable run IDs, named selections, unnamed counts, pending operation IDs,
+and `supportedSeasons: [{seasonSheetId, seasonYear}]` for explicit recovery selection.
 `getGuestHistory` returns dated entries across configured seasons. Name-only edits use
 `renameGuest`; they do not need an attendance or distance change.
 
@@ -48,12 +52,19 @@ the saved targets before it clears an uncertain operation. A missing receipt aft
 is not permission to repeat a batch. A bootstrap interruption before the ledger exists
 retains its fence for operator recovery, even if dispatch never started.
 
+The iOS outbox may resend the same saved UUID and digest only when completed
+transport metrics prove that its request never started. Missing metrics, a sent
+request, or a redirect leave delivery uncertain. Those operations continue receipt
+checks after restart. Existing uncertain records cannot infer non-delivery later.
+
 **Narrow sheet-safety extension:** the v2 adapter may maintain `_FCTC_Guests`,
 `_FCTC_GuestAttendance`, `_FCTC_Operations`, and run-row developer metadata.
 Reviewed promotion may convert original historical run cells inside the normal member band
 and decrement their `+1's` cells. Each run's headcount, distance, and formulas must remain unchanged.
 Member-column insertion retains the existing right-edge formula protection.
-This extension permits no arbitrary writes to formulas, summary rows, or unrelated tabs.
+New member summaries copy recognised formulas. Direct earlier-season references are
+relocated by member identity when columns move. Unrecognised historical formulas stop
+the operation before mutation. This permits no arbitrary changes to unrelated tabs.
 Hidden tabs organise data; workbook sharing and publication settings control access.
 
 Focused contract checks: `node --test apps-script/test/guestops.checks.js`.
@@ -106,6 +117,9 @@ and writes nothing. Three operational codes round it out: `sheet_unreadable` (th
 | `GuestStore.gs`, `GuestActions.gs` | Shared snapshots, authenticated routes, identity edits, and attendance plans. |
 | `GuestSetup.gs`, `SheetBatch.gs` | Explicit setup and precise Sheets v4 request builders. |
 | `GuestOperations.gs` | Durable pending journals, atomic receipts, and restart reconciliation. |
+| `GuestPromotion.gs`, `GuestPromotionSafety.gs` | Reviewed historical conversion and formula preservation. |
+| `GuestImport.gs` | Explicit local-history review and unnamed-slot assignment. |
+| `AttendanceExport.gs` | Locked, authenticated snapshot of every supported season. |
 | `appsscript.json` | Manifest: V8, web app `ANYONE_ANONYMOUS` / execute as `USER_DEPLOYING`. |
 | `.clasp.json.example` | Template for the (gitignored) `.clasp.json`. |
 | `.claspignore` | Keeps `test/`, `package.json` and this README out of the pushed project. |
@@ -276,3 +290,6 @@ Run `node scripts/sync-attendance-snapshot.js` from the repository root with
 validates the entire snapshot before replacing any supported-year CSV. Unchanged
 CSV files leave `last-updated.json` unchanged. Configure the endpoint and secret in
 private deployment settings; never put them in a URL or a public artifact.
+The client retries transient network errors, HTTP 429/5xx, and `busy` at most four
+times. Authentication and invalid snapshots fail without retry. Local replacement
+failure restores the previous files; a failed restoration requires local recovery.

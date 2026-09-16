@@ -1,60 +1,71 @@
-# R11 weekly-sync fidelity check
+# Shared attendance snapshot fidelity
 
-Run this check after the first real attendance submission. It proves that the
-weekly dashboard export preserves the same cell values as a manual sheet edit.
+Run this check on a private workbook copy before a production upgrade. Use a
+separate local output directory. Never commit copied attendance or test secrets.
+The weekly workflow now uses `exportAttendanceSnapshot`, not public CSV downloads.
 
-## Prepare two comparable rows
+## Prepare the copy
 
-1. Choose the first real run written by the app.
-2. Record its Date, Run, row number, attendance marks, plus-ones, and actual kilometres.
-3. Choose an unused scheduled run in the real season tab as the control row.
-4. Enter the control values by hand in Google Sheets.
-5. Use lowercase `x` for each attendance mark.
-6. Leave every absent member cell blank.
-7. Do not enter `0` in a blank member or plus-one cell.
-8. Record both row numbers and take one screenshot before the sync.
-9. Record the control row's original values so you can restore them after approval.
+1. Keep the copy restricted to its owner and authorised testers.
+2. Verify the bound script's parent workbook ID before uploading code.
+3. Complete shared guest setup for each supported season.
+4. Keep other editors out during setup, import, and promotion.
+5. Use synthetic guest names and record each test operation UUID.
+6. Preserve the original cells, formulas, notes, and metadata as private evidence.
 
-## Run the weekly workflow now
+## Verify the eleven-run transfer
 
-1. Open the repository on GitHub.
-2. Select **Actions > Weekly Data Sync**.
-3. Select **Run workflow** for the release branch.
-4. Wait for the workflow to finish successfully.
-5. Open its commit or artifact diff for `public/data/2026.csv`.
-6. Pull the workflow commit before a local comparison.
+1. Select three recorded runs in 2025 and eight in 2026 with available unnamed slots.
+2. Record each stable run ID, sheet ID, date, actual distance, headcount, and guest count.
+3. Create one synthetic shared guest and import those eleven slots after preview.
+4. Confirm both clients show eleven confirmed runs after refresh.
+5. Capture the authenticated snapshot before promotion.
+6. Preview promotion, including the exact new member name and affected seasons.
+7. Commit it once and verify its completed receipt.
+8. Refresh both clients and confirm eleven ordinary member runs.
+9. Capture the authenticated snapshot after promotion.
+10. Validate both snapshots with `validateSnapshot` in `scripts/sync-attendance-snapshot.js`.
+11. Serialize each season with `serializeCSV`; compare fields with a CSV parser.
+12. Confirm eleven member marks replaced eleven named guest allocations exactly once.
+13. Confirm every affected run retains its headcount, actual distance, and aggregate distance.
+14. Confirm other member marks, notes, and formula results remain unchanged.
+15. Confirm the dashboard parser and milestone loader produce eleven for the member.
 
-## Compare cell values
+The automated integration check runs the production handlers, snapshot client,
+CSV parser, dashboard aggregation, and digest loader together:
 
-Compare the app row and control row by CSV field. Ignore sheet formatting, formulas,
-comments, and visual style. Check these values exactly:
+```bash
+npx vitest run scripts/guest-promotion-export.test.js scripts/sync-attendance-snapshot.test.js
+node --test apps-script/test
+```
 
-1. Confirm Date, Meet, Run, Approx. kms, and Actual kms.
-2. Confirm every member column in header order.
-3. Confirm that each attendance mark is lowercase `x`.
-4. Confirm that every absence is an empty CSV field.
-5. Confirm that no empty field became `0`, `0.0`, `false`, or a space.
-6. Confirm the `+1's` value and its blank behavior.
-7. Confirm that the app row and manual row are indistinguishable when their
-   intended inputs are the same.
-8. Confirm that derived sheet formulas still show the expected totals.
-9. Open the dashboard and confirm that the run renders with the same attendance.
-10. Restore the control row to its exact original values after the check passes.
-11. Run one more `getState` refresh and confirm that the restore caused no formula damage.
+The Sheets fake does not evaluate formulas. Copy-sheet screenshots and before/after
+cell comparisons remain required evidence for formula recalculation and metadata movement.
 
-For a strict local field comparison, copy the two CSV lines into temporary files.
-Then use `diff -u control-row.csv app-row.csv`. Do not edit the synced CSV to make
-the comparison pass.
+## Verify export failures and no-op behavior
 
-## If any value differs
+1. Check missing and invalid secrets return no snapshot data.
+2. Check a pending mutation returns `busy` until its receipt is verified.
+3. Check a missing supported season prevents all CSV replacement.
+4. Check the snapshot includes every configured year exactly once.
+5. Check quoted text, embedded newlines, empty fields, dates, and numbers survive serialization.
+6. Repeat the same snapshot. Confirm no CSV or timestamp changes.
+7. Pause shared writes. Confirm snapshot reads work and legacy writes remain blocked.
+8. Confirm anonymous workbook exports cannot expose auxiliary guest tabs.
+9. Confirm the public dashboard remains available from committed CSVs.
 
-1. Stop the release check.
-2. Keep the sheet rows, workflow run, CSV diff, and screenshots as evidence.
-3. Do not normalize casing or replace blanks in the CSV by hand.
-4. Identify whether the difference first appears in the sheet or during CSV export.
-5. If the sheet differs, inspect the app request and Apps Script write range.
-6. If only the CSV differs, inspect the published export and weekly fetch validation.
-7. Confirm that the sheet-safety invariant still holds before any retry.
-8. Fix the source of the difference and add a regression test.
-9. Repeat the real submission and this full check.
-10. Do not approve the release until the two rows match by cell value.
+A snapshot racing a cooperating promotion must capture all seasons before or all
+seasons after the promotion. The same script lock covers both operations. Direct
+spreadsheet edits do not use that lock and need the edit-free window.
+
+## Production check after separate approval
+
+Configure repository variable `FCTC_ATTENDANCE_ENDPOINT` and repository secret
+`FCTC_ATTENDANCE_SECRET`. Run **Weekly Data Sync** on main with notification mode
+**preview**. Check the complete supported-year diff and milestone preview before
+any deliberate email send. Failed sync must prevent notification processing.
+An unchanged snapshot must create no commit or deployment.
+
+If values differ, keep the copy, request UUIDs, receipts, and CSV diff. Identify
+whether the first mismatch appears in the sheet, snapshot, serializer, or parser.
+Fix that layer and repeat the check. Do not edit CSVs to hide a mismatch.

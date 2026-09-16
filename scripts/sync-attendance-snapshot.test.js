@@ -1,6 +1,7 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest'
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { afterEach, describe, it, expect } from 'vitest'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, readdirSync } from 'node:fs'
+import { rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createHash } from 'node:crypto'
@@ -18,15 +19,23 @@ function snapshot() {
 function digest(value) {
   return createHash('sha256').update(JSON.stringify({ spreadsheetId: value.spreadsheetId, seasons: value.seasons })).digest('hex')
 }
+const roots = []
+afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }) })
 function directory() {
   const root = mkdtempSync(join(tmpdir(), 'fctc-snapshot-test-'))
+  roots.push(root)
   mkdirSync(join(root, 'public/data'), { recursive: true })
   for (const year of [2025, 2026]) writeFileSync(join(root, `public/data/${year}.csv`), 'original ' + year)
   writeFileSync(join(root, 'public/data/last-updated.json'), '{"updatedAt":"before"}\n')
   return root
 }
 const response = value => ({ ok: true, status: 200, text: async () => JSON.stringify(value) })
-const options = root => ({ root, endpoint: 'https://script.google.com/macros/s/test/exec', secret: 'private-test-secret' })
+const options = root => ({ root, endpoint: 'https://script.google.com/macros/s/test/exec', secret: 'private-test-secret',
+  sleep: async () => {}, random: () => 0.5 })
+function expectOriginals(root) {
+  for (const year of [2025, 2026]) expect(readFileSync(join(root, `public/data/${year}.csv`), 'utf8')).toBe('original ' + year)
+  expect(readFileSync(join(root, 'public/data/last-updated.json'), 'utf8')).toBe('{"updatedAt":"before"}\n')
+}
 
 describe('consistent attendance snapshot sync', () => {
   it('serializes quoted fields, embedded newlines, dates and empty cells without changing values', () => {
@@ -72,13 +81,104 @@ describe('consistent attendance snapshot sync', () => {
     expect(JSON.stringify(first)).not.toContain('private-test-secret')
   })
 
-  it('fails on busy, authentication and HTML responses without writing any data', async () => {
-    for (const result of [response({ ok: false, error: 'busy' }), response({ ok: false, error: 'bad_secret' }),
-      { ok: true, status: 200, text: async () => '<html>Sign in</html>' }]) {
-      const root = directory()
-      await expect(syncAttendanceSnapshot({ ...options(root), fetchImpl: async () => result })).rejects.toThrow()
-      expect(readFileSync(join(root, 'public/data/2025.csv'), 'utf8')).toBe('original 2025')
-      expect(readFileSync(join(root, 'public/data/2026.csv'), 'utf8')).toBe('original 2026')
+  it('retries a busy snapshot then writes both years from the successful capture', async () => {
+    const root = directory(), delays = []; let requests = 0
+    const result = await syncAttendanceSnapshot({ ...options(root), sleep: async ms => { delays.push(ms) },
+      fetchImpl: async () => ++requests === 1 ? response({ ok: false, error: 'busy' }) : response(snapshot()) })
+    expect(requests).toBe(2)
+    expect(delays).toEqual([1125])
+    expect(result.changedYears).toEqual([2025, 2026])
+    for (const season of snapshot().seasons) expect(readFileSync(join(root, `public/data/${season.year}.csv`), 'utf8')).toBe(serializeCSV(season.grid))
+  })
+
+  const transients = [
+    ['network', async () => { throw new TypeError('private-test-secret') }],
+    ['abort', async () => { throw new DOMException('private-test-secret', 'AbortError') }],
+    ['body disconnect', async () => ({ ok: true, status: 200, text: async () => { throw new Error('private-test-secret') } })],
+    ['HTTP 429', async () => ({ ok: false, status: 429 })],
+    ['HTTP 500', async () => ({ ok: false, status: 500 })],
+    ['HTTP 503', async () => ({ ok: false, status: 503 })],
+    ['busy', async () => response({ ok: false, error: 'busy', message: 'private-test-secret' })],
+  ]
+  it.each(transients)('recovers from %s without exposing remote errors', async (label, transient) => {
+    const root = directory(); let requests = 0
+    const result = await syncAttendanceSnapshot({ ...options(root),
+      fetchImpl: async () => ++requests === 1 ? transient() : response(snapshot()) })
+    expect(requests).toBe(2)
+    expect(result.changedYears).toEqual([2025, 2026])
+    expect(JSON.stringify(result)).not.toContain('private-test-secret')
+  })
+  it.each(transients)('limits %s retries and preserves both CSVs and timestamp', async (label, transient) => {
+    const root = directory(), delays = []; let requests = 0
+    const error = await syncAttendanceSnapshot({ ...options(root), sleep: async ms => { delays.push(ms) },
+      fetchImpl: async () => { requests++; return transient() } }).catch(error => error)
+    expect(error).toBeInstanceOf(Error)
+    expect(error.message).not.toContain('private-test-secret')
+    expect(requests).toBe(4)
+    expect(delays).toEqual([1125, 2125, 4125])
+    expectOriginals(root)
+    expect(readdirSync(join(root, 'public/data')).sort()).toEqual(['2025.csv', '2026.csv', 'last-updated.json'])
+  })
+
+  it.each([
+    ['authentication', () => response({ ok: false, error: 'bad_secret', message: 'private-test-secret' })],
+    ['configuration', () => response({ ok: false, error: 'shared_guests_disabled' })],
+    ['server validation', () => response({ ok: false, error: 'snapshot_invalid' })],
+    ['unknown service error', () => response({ ok: false, error: 'private-test-secret', message: 'private-test-secret' })],
+    ['HTTP 401', () => ({ ok: false, status: 401 })],
+    ['HTTP 403', () => ({ ok: false, status: 403 })],
+    ['HTTP 404', () => ({ ok: false, status: 404 })],
+    ['HTML', () => ({ ok: true, status: 200, text: async () => '<html>private-test-secret</html>' })],
+    ['schema', () => response({ ok: true, privateValue: 'private-test-secret' })],
+    ['digest', () => { const value = snapshot(); value.snapshotRevision = 'a'.repeat(64); return response(value) }],
+    ['oversized payload', () => ({ ok: true, status: 200, text: async () => 'x'.repeat(5_000_001) })],
+  ])('treats %s as terminal without exposing payloads', async (label, result) => {
+    const root = directory(), delays = []; let requests = 0
+    const error = await syncAttendanceSnapshot({ ...options(root), sleep: async ms => { delays.push(ms) },
+      fetchImpl: async () => { requests++; return result() } }).catch(error => error)
+    expect(error).toBeInstanceOf(Error)
+    expect(error.message).not.toContain('private-test-secret')
+    expect(requests).toBe(1)
+    expect(delays).toEqual([])
+    expectOriginals(root)
+  })
+
+  it('rejects endpoint and secret configuration before any request or retry', async () => {
+    const root = directory(); let requests = 0
+    for (const overrides of [{ endpoint: 'https://example.com' }, { secret: '' }]) {
+      await expect(syncAttendanceSnapshot({ ...options(root), ...overrides,
+        fetchImpl: async () => { requests++; return response(snapshot()) } })).rejects.toThrow()
     }
+    expect(requests).toBe(0)
+    expectOriginals(root)
+  })
+
+  it('restores both CSVs and timestamp when the second adoption fails', async () => {
+    const root = directory(); let adoptions = 0
+    await expect(syncAttendanceSnapshot({ ...options(root), fetchImpl: async () => response(snapshot()),
+      fsImpl: { rename: async (...args) => {
+        if (++adoptions === 2) throw new Error('synthetic second rename failure')
+        return rename(...args)
+      } } })).rejects.toThrow('synthetic second rename failure')
+    expect(adoptions).toBe(2)
+    expectOriginals(root)
+    expect(readdirSync(join(root, 'public/data')).sort()).toEqual(['2025.csv', '2026.csv', 'last-updated.json'])
+  })
+
+  it('reports local recovery when adoption and rollback both fail', async () => {
+    const root = directory(); let adoptions = 0
+    const error = await syncAttendanceSnapshot({ ...options(root), fetchImpl: async () => response(snapshot()),
+      fsImpl: { rename: async (...args) => {
+        if (++adoptions === 2) throw new Error('synthetic adoption failure')
+        return rename(...args)
+      }, writeFile: async (path, ...args) => {
+        if (path === join(root, 'public/data/2025.csv')) throw new Error('synthetic rollback failure')
+        return writeFile(path, ...args)
+      } } }).catch(error => error)
+    expect(error).toBeInstanceOf(AggregateError)
+    expect(error.message).toContain('local recovery is required')
+    expect(error.errors.map(cause => cause.message)).toEqual(['synthetic adoption failure', 'synthetic rollback failure'])
+    expect(readFileSync(join(root, 'public/data/2026.csv'), 'utf8')).toBe('original 2026')
+    expect(readFileSync(join(root, 'public/data/last-updated.json'), 'utf8')).toBe('{"updatedAt":"before"}\n')
   })
 })

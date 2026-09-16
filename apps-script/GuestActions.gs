@@ -70,7 +70,7 @@ function guestRoute_(request) {
       else {
         store = guestReadStore_();
         planned = { plan: guestActionPlan_(store, request), receiptLocation: {
-          sheetId: store.tables.operations.sheetId, rowIndex: store.tables.operations.grid.length + 1 } };
+          sheetId: store.tables.operations.sheetId, rowIndex: store.tables.operations.lastRow + 1 } };
       }
       return guestExecutePlan_(book, request, valid.canonicalRequest, planned.plan, planned.receiptLocation);
     } catch (error) {

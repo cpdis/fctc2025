@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { mkdtemp, mkdir, readFile, writeFile, rename, rm } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { setTimeout as delay } from 'node:timers/promises'
 import SheetOps from '../apps-script/SheetOps.js'
 import { YEARS } from '../src/config/years.js'
 
@@ -10,6 +11,12 @@ const SUPPORTED_YEARS = Object.keys(YEARS).map(Number).sort()
 const MAX_BYTES = 5_000_000
 const MAX_CELLS = 250_000
 const MAX_CHARACTERS = 1_200_000
+const MAX_ATTEMPTS = 4
+const FILE_OPERATIONS = { mkdir, mkdtemp, writeFile, rename, rm }
+
+// Only a classified transport failure or temporary server condition can retry.
+// Parsing, authentication and snapshot validation remain terminal failures.
+class TransientSnapshotError extends Error {}
 
 export function serializeCSV(grid) {
   return grid.map(row => row.map(value => /[",\r\n]/.test(value)
@@ -65,43 +72,44 @@ async function existingFile(path) {
 }
 
 /** Stage every file first. Roll back adopted files if a local replacement fails. */
-async function replaceDataset(directory, replacements) {
-  await mkdir(directory, { recursive: true })
-  const stage = await mkdtemp(join(directory, '.snapshot-'))
+async function replaceDataset(directory, replacements, fileOps) {
+  await fileOps.mkdir(directory, { recursive: true })
+  const stage = await fileOps.mkdtemp(join(directory, '.snapshot-'))
   const applied = []
   try {
-    for (const item of replacements) await writeFile(join(stage, item.name), item.content, 'utf8')
+    for (const item of replacements) await fileOps.writeFile(join(stage, item.name), item.content, 'utf8')
     for (const item of replacements) {
-      await rename(join(stage, item.name), join(directory, item.name))
+      await fileOps.rename(join(stage, item.name), join(directory, item.name))
       applied.push(item)
     }
   } catch (error) {
     const failures = []
     for (const item of applied.reverse()) {
       try {
-        if (item.previous === null) await rm(join(directory, item.name))
-        else await writeFile(join(directory, item.name), item.previous, 'utf8')
+        if (item.previous === null) await fileOps.rm(join(directory, item.name))
+        else await fileOps.writeFile(join(directory, item.name), item.previous, 'utf8')
       } catch (rollbackError) { failures.push(rollbackError) }
     }
     if (failures.length) throw new AggregateError([error, ...failures], 'Snapshot replacement failed; local recovery is required. No commit was made.')
     throw error
-  } finally { await rm(stage, { recursive: true, force: true }) }
+  } finally { await fileOps.rm(stage, { recursive: true, force: true }) }
 }
 
-export async function syncAttendanceSnapshot({ root = resolve(import.meta.dirname, '..'), endpoint, secret,
-  fetchImpl = globalThis.fetch, now = () => new Date() } = {}) {
-  let url
-  try { url = new URL(endpoint) } catch { throw new Error('Set FCTC_ATTENDANCE_ENDPOINT to the Apps Script web app URL.') }
-  if (url.protocol !== 'https:' || url.hostname !== 'script.google.com' || url.username || url.password || url.search || url.hash ||
-      !/^\/macros\/s\/[^/]+\/exec$/.test(url.pathname)) throw new Error('Use the HTTPS Apps Script /exec endpoint without query parameters.')
-  if (typeof secret !== 'string' || !secret.trim()) throw new Error('Set FCTC_ATTENDANCE_SECRET before syncing attendance.')
+async function requestSnapshot(url, secret, fetchImpl) {
   let response
   try {
     response = await fetchImpl(url.href, { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'exportAttendanceSnapshot', secret }), signal: AbortSignal.timeout(60_000) })
-  } catch { throw new Error('Attendance snapshot request failed. No data changed.') }
-  if (!response.ok) throw new Error('Attendance snapshot request returned an HTTP error. No data changed.')
-  const body = await response.text()
+  } catch { throw new TransientSnapshotError('Attendance snapshot request failed. No data changed.') }
+  if (!response.ok) {
+    const ErrorType = response.status === 429 || (response.status >= 500 && response.status <= 599)
+      ? TransientSnapshotError : Error
+    throw new ErrorType('Attendance snapshot request returned an HTTP error. No data changed.')
+  }
+  let body
+  try { body = await response.text() } catch {
+    throw new TransientSnapshotError('Attendance snapshot response was interrupted. No data changed.')
+  }
   if (Buffer.byteLength(body) > MAX_BYTES) throw new Error('Attendance snapshot response is too large.')
   let snapshot
   try { snapshot = JSON.parse(body) } catch { throw new Error('Attendance endpoint did not return JSON. Check deployment and permissions.') }
@@ -109,8 +117,31 @@ export async function syncAttendanceSnapshot({ root = resolve(import.meta.dirnam
     // Do not echo remote messages, request bodies, or credentials into CI logs.
     const reason = ['busy', 'bad_secret', 'snapshot_invalid', 'snapshot_too_large', 'shared_guests_disabled'].includes(snapshot.error)
       ? snapshot.error : 'service_error'
-    throw new Error(`Attendance snapshot unavailable (${reason}). No data changed.`)
+    const ErrorType = reason === 'busy' ? TransientSnapshotError : Error
+    throw new ErrorType(`Attendance snapshot unavailable (${reason}). No data changed.`)
   }
+  return snapshot
+}
+
+/** Retry the read only; never enter file replacement until one capture validates. */
+async function requestWithRetry(url, secret, fetchImpl, sleep, random) {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try { return await requestSnapshot(url, secret, fetchImpl) } catch (error) {
+      if (!(error instanceof TransientSnapshotError) || attempt === MAX_ATTEMPTS - 1) throw error
+      // Four attempts wait about one, two and four seconds, with up to 249 ms jitter.
+      await sleep(1000 * 2 ** attempt + Math.floor(random() * 250))
+    }
+  }
+}
+
+export async function syncAttendanceSnapshot({ root = resolve(import.meta.dirname, '..'), endpoint, secret,
+  fetchImpl = globalThis.fetch, now = () => new Date(), sleep = delay, random = Math.random, fsImpl = {} } = {}) {
+  let url
+  try { url = new URL(endpoint) } catch { throw new Error('Set FCTC_ATTENDANCE_ENDPOINT to the Apps Script web app URL.') }
+  if (url.protocol !== 'https:' || url.hostname !== 'script.google.com' || url.username || url.password || url.search || url.hash ||
+      !/^\/macros\/s\/[^/]+\/exec$/.test(url.pathname)) throw new Error('Use the HTTPS Apps Script /exec endpoint without query parameters.')
+  if (typeof secret !== 'string' || !secret.trim()) throw new Error('Set FCTC_ATTENDANCE_SECRET before syncing attendance.')
+  const snapshot = await requestWithRetry(url, secret, fetchImpl, sleep, random)
   const seasons = validateSnapshot(snapshot), directory = join(root, 'public/data'), replacements = [], changedYears = []
   for (const season of seasons) {
     const name = `${season.year}.csv`, content = serializeCSV(season.grid), previous = await existingFile(join(directory, name))
@@ -120,7 +151,7 @@ export async function syncAttendanceSnapshot({ root = resolve(import.meta.dirnam
   const name = 'last-updated.json'
   replacements.push({ name, content: JSON.stringify({ updatedAt: now().toISOString() }, null, 2) + '\n',
     previous: await existingFile(join(directory, name)) })
-  await replaceDataset(directory, replacements)
+  await replaceDataset(directory, replacements, { ...FILE_OPERATIONS, ...fsImpl })
   return { changedYears, snapshotRevision: snapshot.snapshotRevision }
 }
 

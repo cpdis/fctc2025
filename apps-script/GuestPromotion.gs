@@ -18,7 +18,7 @@ function guestPromotionContext_(store, request) {
   if (mode === 'create' && existing.length) guestFail_('member_exists', 'This member already exists. Review and explicitly choose link instead.');
   if (mode === 'link' && !existing.length) guestFail_('member_missing', 'Choose an existing member to link, or explicitly create a new member.');
   var rows = store.attendanceRows.filter(function (r) { return r.value.guestId === guest.guestId && r.value.state === 'present'; });
-  var seen = {}, changes = [], affected = {};
+  var seen = {}, changes = [], affected = {}, formulaGrids = {};
   rows.forEach(function (row) {
     var record = row.value, key = guestRunKey(record);
     if (record.classification !== 'guest') guestFail_('invalid_attendance', 'An active guest has attendance already transferred. Review their history.');
@@ -30,7 +30,8 @@ function guestPromotionContext_(store, request) {
     if (memberIndex >= 0 && SheetOps.isAttendedMark(ctx.grid[run.rowIndex - 1][ctx.band[memberIndex].colIndex - 1])) {
       guestFail_('member_already_attended', 'The member is already marked on an affected run. Review the duplicate before promotion.', { runId: run.runId, seasonSheetId: ctx.sheetId });
     }
-    var formulas = ctx.sheet.getDataRange().getFormulas();
+    if (!formulaGrids[ctx.sheetId]) formulaGrids[ctx.sheetId] = ctx.sheet.getDataRange().getFormulas();
+    var formulas = formulaGrids[ctx.sheetId];
     var targetColumn = memberIndex < 0 ? null : ctx.band[memberIndex].colIndex;
     if (formulas[run.rowIndex - 1][ctx.bounds.plusOnesCol - 1] || (targetColumn && formulas[run.rowIndex - 1][targetColumn - 1])) {
       guestFail_('unsafe_formula', 'A target attendance cell contains a formula. Review it before promotion.');

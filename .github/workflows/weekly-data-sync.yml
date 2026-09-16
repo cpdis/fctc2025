@@ -1,28 +1,8 @@
-# Weekly Google Sheets -> CSV sync for the current running season.
-#
-# Every Sunday this fetches the current season's PUBLISHED Google Sheet as CSV,
-# validates it, writes it to public/data/<CURRENT_YEAR>.csv, and commits + pushes
-# ONLY if the content changed. Vercel's own GitHub integration handles the deploy
-# on push, so there is nothing to deploy here — a no-op run makes no commit and
-# therefore triggers no deploy.
-#
-# ============================================================================
-#  COLIN: ONE-TIME SETUP — you must do these two things for this to work
-# ============================================================================
-#  1. SHARE THE SHEET so the export URL is reachable without auth. Either:
-#       - File > Share > General access > "Anyone with the link" = Viewer, OR
-#       - File > Share > Publish to web (then use the /pub?...output=csv form).
-#     If the sheet is private, the fetch returns an HTML login page and the
-#     workflow fails loudly (by design) instead of committing garbage.
-#
-#  2. SET THE gid of the CURRENT-SEASON tab below (SHEET_GID env var).
-#     To find it: open the sheet, click the season's tab, and read the number
-#     after "gid=" in the browser URL, e.g.
-#       .../edit#gid=123456789   ->  SHEET_GID: "123456789"
-#     Replace the REPLACE_ME placeholder. Until you do, the run fails on purpose.
-#
-#  3. EACH NEW SEASON: bump CURRENT_YEAR (and point SHEET_GID at the new tab).
-# ============================================================================
+# Weekly authenticated Google Sheets snapshot of every supported season.
+# Historical guest promotion can change earlier years. Capture them together.
+# Configure FCTC_ATTENDANCE_ENDPOINT as a repository variable and
+# FCTC_ATTENDANCE_SECRET as a repository secret after the v2 script is deployed.
+# An unchanged snapshot makes no commit and causes no deployment.
 
 name: Weekly Data Sync
 
@@ -62,55 +42,35 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    # Sync configuration is not inherited by the notification job.
-    env:
-      # The spreadsheet ID from the sheet URL (already filled in — this is FCTC's sheet):
-      #   https://docs.google.com/spreadsheets/d/<THIS_ID>/edit
-      SHEET_ID: "1YEKXqp6A4LoGUyg7Rsm3w3MUkbfgRNIAWQkGBYulO2o"
-      # The current-season tab's gid (the "2026" tab; verified to match public/data/2026.csv).
-      SHEET_GID: "764664511"
-      # The season being synced. Bump this each new year (must match a file/entry
-      # the app knows about, i.e. public/data/<CURRENT_YEAR>.csv + src/config/years.js).
-      CURRENT_YEAR: "2026"
     steps:
       - name: Checkout repo
         # actions/checkout v6.0.2
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      - name: Fetch + validate current season CSV
-        run: |
-          # Published-CSV export endpoint for a link-viewable sheet. If you used
-          # "Publish to web" instead, swap to the /pub form:
-          #   https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv
-          CSV_URL="https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}"
-          DEST="public/data/${CURRENT_YEAR}.csv"
-          # The script does the curl --fail --location --silent --show-error fetch,
-          # validates (non-empty, not HTML, size/line floors), and writes DEST.
-          # It exits non-zero on any problem, failing the workflow loudly.
-          bash scripts/fetch-sheet.sh "$CSV_URL" "$DEST"
+      - name: Set up snapshot runtime
+        # actions/setup-node v6.4.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Fetch + validate all supported seasons
+        run: node scripts/sync-attendance-snapshot.js
+        env:
+          FCTC_ATTENDANCE_ENDPOINT: ${{ vars.FCTC_ATTENDANCE_ENDPOINT }}
+          FCTC_ATTENDANCE_SECRET: ${{ secrets.FCTC_ATTENDANCE_SECRET }}
 
       - name: Commit + push if changed
         run: |
-          DEST="public/data/${CURRENT_YEAR}.csv"
-          STAMP="public/data/last-updated.json"
-          # No change -> exit 0 without committing. This is the common case and
-          # MUST NOT create an empty commit (which would trigger a pointless deploy).
-          if git diff --quiet -- "$DEST"; then
-            echo "No change in ${DEST}; nothing to commit."
+          # The snapshot client writes the timestamp only when CSV data changes.
+          if git diff --quiet -- public/data; then
+            echo "No attendance changes; nothing to commit."
             exit 0
           fi
-          # The data actually changed, so stamp the moment of update (UTC, ISO 8601)
-          # and commit it alongside the CSV. The app reads this file to show a
-          # "Last updated" line. Writing it ONLY inside this changed branch keeps
-          # the timestamp truthful (it tracks real data changes, not every run) and
-          # preserves the no-op-run = no-commit = no-deploy contract above.
-          printf '{\n  "updatedAt": "%s"\n}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STAMP"
-          # Bot identity for the commit. Pushing with the default GITHUB_TOKEN;
-          # Vercel's GitHub integration deploys automatically on this push.
           git config user.name "fctc-data-bot"
           git config user.email "fctc-data-bot@users.noreply.github.com"
-          git add "$DEST" "$STAMP"
-          git commit -m "chore(data): weekly sync of ${CURRENT_YEAR} season from Google Sheet"
+          git add 'public/data/*.csv' public/data/last-updated.json
+          git commit -m "chore(data): sync all attendance seasons"
           git push
 
   notify:

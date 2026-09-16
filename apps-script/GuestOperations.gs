@@ -4,17 +4,20 @@ var GUEST_JOURNAL_MAX = 70000; // At most 280 KB plus keys, below the 500 KB pro
 function guestReadOperation_(book, operationId) {
   var sheet = book.getSheetByName(GUEST_TABLES.operations);
   if (!sheet) return null;
-  var rows = sheet.getDataRange().getValues(), found = [];
-  rows.slice(1).forEach(function (row) {
-    if (row[0] !== operationId) return;
-    var count = Number(row[2]);
-    if (!Number.isInteger(count) || count < 1 || count > 120) guestFail_('invalid_operation', 'The operation receipt is unreadable. Keep writes paused.');
-    var record = JSON.parse(row.slice(3, 3 + count).join(''));
-    if (record.operationId !== operationId || row[1] !== record.status) guestFail_('invalid_operation', 'The operation receipt does not match its reserved row.');
-    found.push(record);
+  var lastRow = sheet.getLastRow(), found = [];
+  if (lastRow < 2) return null;
+  // Scan only IDs before fetching the one bounded receipt row. Reading all
+  // matching IDs first retains duplicate detection without historical payloads.
+  sheet.getRange(2, 1, lastRow - 1, 1).getValues().forEach(function (row, index) {
+    if (row[0] === operationId) found.push(index + 2);
   });
   if (found.length > 1) guestFail_('invalid_operation', 'Duplicate operation receipts need repair.');
-  return found[0] || null;
+  if (!found.length) return null;
+  var row = sheet.getRange(found[0], 1, 1, 123).getValues()[0], count = Number(row[2]);
+  if (!Number.isInteger(count) || count < 1 || count > 120) guestFail_('invalid_operation', 'The operation receipt is unreadable. Keep writes paused.');
+  var record = JSON.parse(row.slice(3, 3 + count).join(''));
+  if (row[0] !== operationId || record.operationId !== operationId || row[1] !== record.status) guestFail_('invalid_operation', 'The operation receipt does not match its reserved row.');
+  return record;
 }
 function guestOperationRequest_(operation) {
   var json = JSON.stringify(operation), chunks = [];
@@ -65,17 +68,7 @@ function guestPending_(operationId) {
 /** Read back precise targets after a receipt. Success is never based on absence alone. */
 function guestVerifyTargets_(book, target) {
   if (target.promotion && !guestVerifyPromotion_(book, target.promotion)) return false;
-  var formulas = target.formulas || [];
-  for (var f = 0; f < formulas.length; f++) {
-    var formula = formulas[f], formulaSheet = book.getSheetById(formula.sheetId);
-    if (!formulaSheet || formulaSheet.getRange(formula.row, formula.col).getFormulas()[0][0] !== formula.formula) return false;
-  }
-  for (var i = 0; i < target.cells.length; i++) {
-    var cell = target.cells[i], sheet = book.getSheetById(cell.sheetId);
-    if (!sheet) return false;
-    var value = sheet.getRange(cell.row, cell.col).getValues()[0][0];
-    if ((value === '' ? null : value) !== (cell.value === '' ? null : cell.value)) return false;
-  }
+  if (!guestVerifyCellTargets_(book, target.cells, target.formulas || [])) return false;
   var sheets = target.sheets || [];
   for (var s = 0; s < sheets.length; s++) {
     var expected = sheets[s], found = book.getSheetById(expected.sheetId);
@@ -91,6 +84,47 @@ function guestVerifyTargets_(book, target) {
         return entry.metadataValue === locator.runId && range && range.startIndex === locator.row - 1 && range.endIndex === locator.row;
       });
       if (matches.length !== 1) return false;
+    }
+  }
+  return true;
+}
+/** Verify exact coordinates in memory, with no read larger than 10,000 cells. */
+function guestVerifyCellTargets_(book, cells, formulas) {
+  var groups = {};
+  function add(cell, kind) {
+    var group = groups[cell.sheetId];
+    if (!group) group = groups[cell.sheetId] = { sheetId: cell.sheetId, cells: [], formulas: [],
+      minRow: cell.row, maxRow: cell.row, minCol: cell.col, maxCol: cell.col };
+    group[kind].push(cell);
+    group.minRow = Math.min(group.minRow, cell.row); group.maxRow = Math.max(group.maxRow, cell.row);
+    group.minCol = Math.min(group.minCol, cell.col); group.maxCol = Math.max(group.maxCol, cell.col);
+  }
+  cells.forEach(function (cell) { add(cell, 'cells'); });
+  formulas.forEach(function (cell) { add(cell, 'formulas'); });
+  var ids = Object.keys(groups), limit = 10000;
+  for (var g = 0; g < ids.length; g++) {
+    var group = groups[ids[g]], sheet = book.getSheetById(group.sheetId);
+    if (!sheet) return false;
+    for (var col = group.minCol; col <= group.maxCol; col += limit) {
+      var width = Math.min(limit, group.maxCol - col + 1), maxHeight = Math.floor(limit / width);
+      for (var row = group.minRow; row <= group.maxRow; row += maxHeight) {
+        var height = Math.min(maxHeight, group.maxRow - row + 1);
+        function inRange(cell) { return cell.row >= row && cell.row < row + height && cell.col >= col && cell.col < col + width; }
+        var valuesToCheck = group.cells.filter(inRange), formulasToCheck = group.formulas.filter(inRange);
+        // Sparse targets must not cause reads of untouched bands between them.
+        if (!valuesToCheck.length && !formulasToCheck.length) continue;
+        var range = sheet.getRange(row, col, height, width);
+        var values = valuesToCheck.length ? range.getValues() : null;
+        var savedFormulas = formulasToCheck.length ? range.getFormulas() : null;
+        for (var v = 0; v < valuesToCheck.length; v++) {
+          var cell = valuesToCheck[v], actual = values[cell.row - row][cell.col - col];
+          if ((actual === '' ? null : actual) !== (cell.value === '' ? null : cell.value)) return false;
+        }
+        for (var f = 0; f < formulasToCheck.length; f++) {
+          var formula = formulasToCheck[f];
+          if (savedFormulas[formula.row - row][formula.col - col] !== formula.formula) return false;
+        }
+      }
     }
   }
   return true;

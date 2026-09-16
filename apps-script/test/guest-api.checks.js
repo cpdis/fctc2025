@@ -417,3 +417,13 @@ test('getState reads the enabled flag and fence only after acquiring its lock', 
   assert.equal(result.capabilities.sharedGuests, true);
   assert.equal(result.pendingOperationId, operationId);
 });
+
+test('shared state lists supported seasons for explicit historical recovery', () => {
+  const env = createEnvironment({ grid: fixture(), sheetName: '2026',
+    extraSheets: [{ name: '2025', sheetId: 25, grid: fixture() }],
+    properties: { SHARED_GUESTS_SETUP_ALLOWED: 'true' } });
+  assert.equal(env.post(mutation('setupSharedGuests', { spreadsheetId: env.spreadsheet.getId(), seasonSheetIds: [25, 26] })).status, 'completed');
+  env.properties.SHARED_GUESTS_ENABLED = 'true';
+  const state = env.post({ action: 'getState', apiVersion: 2 });
+  assert.deepEqual(state.supportedSeasons, [{ seasonSheetId: 25, seasonYear: 2025 }, { seasonSheetId: 26, seasonYear: 2026 }]);
+});

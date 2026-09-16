@@ -29,8 +29,8 @@ Vitest + Testing Library. No backend; everything runs client-side off committed 
 
 Each season is one CSV in `public/data/<year>.csv`, exported from the source Google Sheet.
 
-- `public/data/2025.csv` — frozen historical season.
-- `public/data/2026.csv` — current season, refreshed weekly by the sync workflow (below).
+- `public/data/2025.csv` — earlier season, refreshed when historical attendance changes.
+- `public/data/2026.csv` — current season. Both seasons refresh in one weekly snapshot.
 
 Years are registered in **`src/config/years.js`**:
 
@@ -44,9 +44,10 @@ export const LATEST_YEAR = 2026   // the default view
 1. Drop the new export at `public/data/<year>.csv`.
 2. Add one line to `YEARS` in `src/config/years.js` (and it becomes the new `LATEST_YEAR`
    automatically since that is derived from the max key).
-3. Point the sync workflow at the new season (see below): bump `CURRENT_YEAR` and `SHEET_GID`.
+3. Add the year to `ATTENDANCE_EXPORT_YEARS` in `apps-script/AttendanceExport.gs`.
+4. Register its sheet ID with shared guest setup, then verify the complete snapshot on a copy.
 
-No other code changes are required — the parser and metrics are schema-tolerant.
+The parser and metrics discover member columns from each season header.
 
 ### The parser (`src/utils/dataParser.js`)
 
@@ -96,35 +97,52 @@ data regardless of the dashboard's selected year.
 
 ## Weekly data sync
 
-`.github/workflows/weekly-data-sync.yml` fetches the current season's published CSV from
-Google Sheets every **Sunday at 17:17 Australia/Perth** and commits it to
-`public/data/<CURRENT_YEAR>.csv` only if it changed. The off-minute start reduces common
-schedule congestion. GitHub can still delay a scheduled run during high load. It can also
-disable a public repository's schedule after 60 days without repository activity. See the
-[GitHub schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
-The workflow uses one ordered concurrency group with `queue: max`. GitHub can hold up to 100
-pending runs in that group without replacing an earlier pending run. See the
-[GitHub concurrency guide](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
+`.github/workflows/weekly-data-sync.yml` captures every supported season through the
+Apps Script endpoint each **Sunday at 17:17 Australia/Perth**. The endpoint holds the
+writer lock while it reads the seasons. A pending write blocks the export. This
+keeps a promotion's earlier and current season changes in the same snapshot.
 
-Vercel's GitHub integration deploys on push. `workflow_dispatch` is also enabled for
-manual/on-demand runs and as the schedule fallback. `scripts/fetch-sheet.sh` fetches and
-validates the download. It rejects login/HTML pages, empty bodies, and truncated responses,
-so a bad fetch never overwrites good data.
+`scripts/sync-attendance-snapshot.js` validates the complete response, its content
+digest, supported years, sheet geometry, and size before replacing CSV files.
+Quoted fields and embedded newlines remain intact. Changed CSVs and their timestamp
+are committed together. Unchanged data creates no timestamp change or commit.
+Vercel's existing GitHub integration deploys changed commits.
 
-### One-time setup (required before the sync works)
+The snapshot read makes at most four attempts for network interruptions, HTTP
+429/5xx responses, or a busy workbook. It waits about one, two, then four seconds.
+Authentication and invalid data fail immediately. An exhausted retry leaves the
+CSV files unchanged and prevents milestone processing from using stale data.
 
-Configure these at the top of `.github/workflows/weekly-data-sync.yml`:
+The workflow retains the ordered concurrency group and manual trigger. Notification
+processing runs only after a successful sync. The snapshot does not include guest
+registry, attendance ledger, or operation tabs.
 
-1. **Share the sheet** so the export URL is reachable without auth: either "Anyone with the
-   link = Viewer" or "Publish to web". A private sheet returns an HTML login page, which the
-   workflow rejects loudly instead of committing garbage.
-2. **`SHEET_GID`** — the current-season tab's gid (the number after `gid=` in that tab's
-   browser URL). It ships as a `REPLACE_ME` placeholder and the run fails on purpose until set.
-3. **`CURRENT_YEAR`** — the season to refresh (e.g. `2026`); bump it (and `SHEET_GID`) each new season.
+### One-time setup for shared guest exports
 
-`SHEET_ID` is already set to the FCTC spreadsheet. The export endpoint used is
-`https://docs.google.com/spreadsheets/d/<SHEET_ID>/export?format=csv&gid=<SHEET_GID>`
-(a Publish-to-web `/pub?...output=csv` alternative is commented in the workflow).
+Complete the approved Apps Script upgrade before merging this workflow change.
+Follow the [shared guest setup procedure](docs/operators/shared-guest-setup.md)
+and its durable request helper. It verifies the deployed v2 reads before setup
+and checks saved receipts after an interrupted setup.
+Set repository variable **`FCTC_ATTENDANCE_ENDPOINT`** to the stable HTTPS `/exec`
+URL. Set repository secret **`FCTC_ATTENDANCE_SECRET`** to the app's shared secret.
+The sync step alone receives these values; notification steps do not receive them.
+Missing settings fail the sync and prevent notification processing.
+
+Keep the source workbook restricted to authorised organisers. Stop publishing its
+auxiliary tabs, and test anonymous access to the workbook before enabling shared
+guests. Hiding tabs does not restrict access. The dashboard remains public through
+its committed season CSVs; it no longer requires a public source workbook.
+
+For a local check, supply the two settings in your shell environment and run:
+
+```bash
+node scripts/sync-attendance-snapshot.js
+```
+
+The command changes local CSVs when their contents change. Use a temporary checkout
+or pass `root` to the exported function for copy-sheet testing. Keep copy data and
+secrets out of commits. `scripts/fetch-sheet.sh` remains available for manual legacy
+CSV imports; the weekly workflow does not use it.
 
 ## Weekly milestone emails
 
