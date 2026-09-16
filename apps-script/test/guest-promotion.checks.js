@@ -51,6 +51,51 @@ function promotion(guestId, result) {
 }
 function seasonState(env, id) { return env.post({ action: 'getState', apiVersion: 2, seasonSheetId: id }); }
 
+test('formula shape follows open ranges without masking text, functions or names', () => {
+  const shape = createEnvironment({ grid: grid(1), sheetName: '2026' }).context.guestFormulaShape_;
+  for (const [before, after] of [
+    ['=COUNTIF(AJ11:AJ,"x")', '=COUNTIF(AK11:AK,"x")'],
+    ['=SUM($AJ:$AJ11)', '=SUM($AK:$AK11)'],
+    ['=SUM(AJ:AK)', '=SUM(AK:AL)'],
+    ['=SUM($11:$20)', '=SUM($12:$21)'],
+    ['=SUM(AJ11:AK20)+$A$1', '=SUM(AK11:AL20)+$B$1'],
+  ]) assert.equal(shape(before), shape(after), before);
+  assert.equal(shape('=LOG10(A1)+RateA1'), '=LOG10(@)+RateA1');
+  assert.equal(shape("='Tab A1'!A1+A1!B2"), "='Tab A1'!@+A1!@");
+  assert.equal(shape('=INDIRECT("A1:A")'), '=INDIRECT("A1:A")');
+  assert.notEqual(shape('=SUM(A1:A)+B1'), shape('=SUM(B1:B)-C1'));
+  assert.notEqual(shape('=COUNTIF(A1:A,"A1")'), shape('=COUNTIF(B1:B,"B1")'));
+});
+
+test('a wrong-column summary cannot erase existing member credit during promotion', () => {
+  for (const name of ['Aaron', 'Sam', 'Zoe', 'Toby']) {
+    const env = createEnvironment({ grid: grid(1), sheetName: '2026' });
+    env.sheet.values[0][5] = '=COUNTIF(F4:F,"x")';
+    const ctx = env.context.readContext_(env.sheet, '2026'); ctx.sheetId = 26;
+    ctx.runs = env.context.SheetOps.listRuns(ctx.grid, ctx.headerRow);
+    // Supply an observed calculated value; the fake does not evaluate formulas.
+    ctx.grid[0][5] = 1;
+    ctx.grid[0][6] = 0;
+    const member = name === 'Toby' ? { column: 7 }
+      : env.context.guestPlanMember_(env.context.guestPlan_(), ctx, name);
+    const snapshot = env.context.guestPromotionSnapshot_(ctx, member, name);
+    const values = snapshot.values.map(row => row.slice());
+    const formulas = snapshot.formulas.map(row => row.slice());
+    const target = { sheetId: 26, height: values.length, width: values[0].length,
+      digest: env.context.guestPreservationDigest_(values, formulas, snapshot.notes), derived: snapshot.derived };
+    const book = { getSheetById: () => ({ getRange: () => ({ getValues: () => values,
+      getFormulas: () => formulas, getNotes: () => snapshot.notes }) }) };
+    assert.equal(env.context.guestVerifyPromotion_(book, [target]), true, name);
+    if (name === 'Toby') {
+      values[0][6] = 11; // The explicitly linked member is allowed to gain credit.
+      assert.equal(env.context.guestVerifyPromotion_(book, [target]), true, name);
+    }
+    const col = env.context.guestProjectedColumn_(6, member) - 1;
+    formulas[0][col] = '=COUNTIF(Z4:Z,"x")'; values[0][col] = 0;
+    assert.equal(env.context.guestVerifyPromotion_(book, [target]), false, name);
+  }
+});
+
 test('eleven runs across two seasons transfer into ordinary member cells exactly once', () => {
   const { env, guestId } = seeded();
   const before = [25, 26].map(id => seasonState(env, id));

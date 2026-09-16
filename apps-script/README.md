@@ -68,6 +68,11 @@ checks after restart. Existing uncertain records cannot infer non-delivery later
 Reviewed promotion may convert original historical run cells inside the normal member band
 and decrement their `+1's` cells. Each run's headcount, distance, and formulas must remain unchanged.
 Member-column insertion retains the existing right-edge formula protection.
+The preservation digest allows A1 references and open range endpoints to move.
+It retains formula operators, quoted text, sheet names, and named ranges.
+Numeric run totals, existing members' calculated summaries, and direct historical
+formulas are checked separately. A linked member's totals may gain the transferred runs.
+Use the Google copy for formula verification: XLSX exports expand open ranges.
 New member summaries copy recognised formulas. Direct earlier-season references are
 relocated by member identity when columns move. Unrecognised historical formulas stop
 the operation before mutation. This permits no arbitrary changes to unrelated tabs.

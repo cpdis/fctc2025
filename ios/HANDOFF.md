@@ -27,14 +27,14 @@ An absent receipt never permits a structural replay. The
 [setup helper](../docs/operators/shared-guest-setup.md) follows this same rule
 after its durable dispatch marker exists.
 
-Before release, finish the copy-sheet and two-phone checks, inspect the local
+Before release, finish the endpoint and two-phone checks, inspect the local
 visual review page, and follow the shared guest section of
 `docs/plans/packets/U8-release-runbook.md`. Production credentials and sharing
 settings are release inputs, not evidence that a local branch has shipped.
 
 ### Local verification on 16 September
 
-- Apps Script: 255 tests passed. Dashboard and operator tools: 300 tests passed.
+- Apps Script: 258 tests passed. Dashboard and operator tools: 300 tests passed.
 - iOS Kit: 266 tests in 40 suites passed. All 22 UI cases passed across the broad
   run and final rerun. The final 13-case run covers every legacy UI case and the
   final guest correction label.
@@ -44,14 +44,40 @@ settings are release inputs, not evidence that a local branch has shipped.
   build passes with its existing large-chunk advisory.
 - Small and large iPhone screenshots include largest Dynamic Type. The local
   comparison is `review/shared-guests/index.html` and uses synthetic records.
-- All ten accepted code-review findings are fixed. The review and test receipts
+- All accepted code-review findings are fixed. The review and test receipts
   are listed in `review/shared-guests/evidence.md`.
 
-**Remaining verification:** Google Sheets scope approval for the private test
-script is still pending. Real formula recalculation, metadata movement, atomic
-batches, receipt recovery, and the complete two-client flow remain unverified.
-Do not enable production shared guests until those copy checks pass. Retain both
-installed phone backups and reconcile their candidates before any real promotion.
+### Google copy verification on 16 September
+
+Google access is approved for the separate private test script. Both seasons
+retain unique run UUIDs. Setup preserved all season cells. An invalid atomic
+batch changed no cells. Row insertion retained the original run UUID.
+First and middle member insertion preserved original credit, notes and totals.
+
+A fresh promotion converted three 2025 runs and eight 2026 runs into eleven
+member marks and eleven lifetime runs. Existing credit, notes, headcounts and
+distances stayed unchanged. Saved receipts resolved each interrupted response
+without repeating structural writes.
+Two independent drafts from the same old revision retained both named guests.
+Each guest had one confirmed run after receipt recovery. Two overlapping Google
+executions also proved that a held script lock returns `busy` without a partial
+operation. Missing and invalid secrets returned no snapshot data.
+The real before/after snapshots passed the CSV serializer, dashboard parser,
+and milestone loader. All original member totals, run headcounts and distances
+matched. Three synthetic promoted members each retained eleven runs. Repeating
+the snapshot changed no CSV or timestamp.
+
+Copy testing fixed the journal size, row metadata search, omitted sheet ID zero,
+and open-ended formula range handling. The promotion guard also checks each
+existing member's calculated summaries at their new column positions. XLSX exports expand those ranges, so
+formula verification must also inspect Google's original formula text.
+
+**Remaining release checks:** Verify the deployed endpoint and both physical
+phones with their preserved installed stores. Retain both phone backups and
+reconcile their candidates before any real promotion. Production migration,
+endpoint deployment, workflow cutover, push and TestFlight remain unapproved.
+The browser helper checks server behavior; it does not prove phone transport
+or installed-data recovery.
 
 The sections below are historical handoff records, not current test results.
 

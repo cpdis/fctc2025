@@ -2,6 +2,17 @@
 function guestPromotionSnapshot_(ctx, member, name) {
   var range = ctx.sheet.getDataRange(), formulas = range.getFormulas(), notes = range.getNotes();
   var values = ctx.grid.map(function (r) { return r.slice(); }), derived = [];
+  // Reference shape alone cannot prove that a moved summary still credits its
+  // original member. Preserve calculated counts/km at their projected columns.
+  ctx.band.forEach(function (entry) {
+    if (!member.insertion && entry.colIndex === member.column) return; // Linked member gains the transferred runs.
+    for (var row = 0; row < ctx.headerRow - 1; row++) {
+      var value = values[row][entry.colIndex - 1];
+      if (formulas[row][entry.colIndex - 1] && typeof value === 'number') {
+        derived.push({ row: row + 1, col: guestProjectedColumn_(entry.colIndex, member), value: value });
+      }
+    }
+  });
   ctx.runs.forEach(function (run) {
     for (var col = ctx.bounds.plusOnesCol + 1; col <= values[run.rowIndex - 1].length; col++) {
       var value = values[run.rowIndex - 1][col - 1];
@@ -103,8 +114,15 @@ function guestPlanMemberHistory_(plan, store, ctx, member, members, snapshot) {
  * verified on a real workbook copy, not inferred from this structural digest.
  */
 function guestFormulaShape_(formula) {
-  return formula.replace(/"(?:[^"]|"")*"|\$?[A-Z]{1,3}\$?\d+/gi, function (part) {
-    return part[0] === '"' ? part : '@';
+  // Sheets retains open endpoints (A11:A), unlike an XLSX export which expands
+  // them to a finite row. Consume the whole range so both endpoints can move.
+  var tokens = /"(?:[^"]|"")*"|'(?:[^']|'')*'|\$?[A-Z]{1,3}(?:\$?\d+)?\s*:\s*\$?[A-Z]{1,3}(?:\$?\d+)?|\$?\d+\s*:\s*\$?\d+|\$?[A-Z]{1,3}\$?\d+/gi;
+  return formula.replace(tokens, function (part, offset) {
+    if (part[0] === '"' || part[0] === "'") return part;
+    // Keep named ranges, unquoted sheet names and functions such as LOG10.
+    var before = formula[offset - 1] || '', after = formula.slice(offset + part.length);
+    if (/[\w.$\u0080-\uFFFF]/.test(before) || /^[\w.$\u0080-\uFFFF]/.test(after) || /^\s*[!(]/.test(after)) return part;
+    return part.replace(/\$?[A-Z]{1,3}(?:\$?\d+)?|\$?\d+/gi, '@');
   });
 }
 function guestPreservationDigest_(values, formulas, notes) {
