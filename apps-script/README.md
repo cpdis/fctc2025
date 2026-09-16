@@ -11,6 +11,36 @@ Status: **release candidate (U8)** — all four actions are covered by
 formulas, concurrency, date handling, and sheet-safety carve-out against a copy.
 Run `test/smoke.md` again after a write-layer change.
 
+## Shared guest contract (v2)
+
+The [September plan](../docs/plans/2026-09-16-1450-feat-shared-guest-attendance-plan.md)
+replaces the original phone-local guest decision. The pure contract is implemented in
+`GuestOps.js`, with [shared JSON fixtures and field documentation](../fixtures/attendance/guests/README.md).
+The contract does not imply a deployed v2 endpoint. The server must advertise only usable capabilities.
+
+Guests have UUIDs and editable labels. Member keys remain exact canonical sheet names.
+Run identity is workbook ID + season sheet ID + row-associated run UUID; row indices are locators.
+Attendance is one logical record per guest/run, with explicit present/removed and guest/transferred states.
+Named IDs plus the explicit unnamed remainder determine `+1's`. Same-name guests require selection.
+Promotion preserves historical attendance and rejects later writes that still treat the person as a guest.
+
+Every v2 mutation has an operation UUID and a verified canonical-request SHA-256 digest.
+Receipts distinguish pending, completed, rejected, and reconciled non-application (`not_applied`).
+Pending outcomes fence workbook writes until verified; a repeated UUID returns its saved outcome.
+The pure module validates contracts. The adapter must recompute digests, enforce revisions,
+bound stored recovery data, and make related sheet changes atomically.
+
+**Narrow sheet-safety extension:** the v2 adapter may maintain `_FCTC_Guests`,
+`_FCTC_GuestAttendance`, `_FCTC_Operations`, and run-row developer metadata.
+Reviewed promotion may convert original historical run cells inside the normal member band
+and decrement their `+1's` cells. Each run's headcount, distance, and formulas must remain unchanged.
+Member-column insertion retains the existing right-edge formula protection.
+This extension permits no arbitrary writes to formulas, summary rows, or unrelated tabs.
+Hidden tabs organise data; workbook sharing and publication settings control access.
+
+Focused contract checks: `node --test apps-script/test/guestops.checks.js`.
+The legacy contract below remains the compatibility baseline; v2 responses keep its readable fields.
+
 ## API contract (frozen — changes require a plan PR first)
 
 Request: `POST` a JSON body `{ secret, action, ...payload }`.
@@ -54,6 +84,7 @@ and writes nothing. Three operational codes round it out: `sheet_unreadable` (th
 |---|---|
 | `Code.gs` | Web app entry (`doPost` router, auth, LockService). All `SpreadsheetApp` I/O lives here. |
 | `SheetOps.js` | Pure sheet geometry (header detection, member band, revision hash, insert positions). No I/O, no `require` — see the dual-environment note below. |
+| `GuestOps.js` | Pure shared UUID, history, allocation, revision, and operation-request contracts. No Apps Script services. |
 | `appsscript.json` | Manifest: V8, web app `ANYONE_ANONYMOUS` / execute as `USER_DEPLOYING`. |
 | `.clasp.json.example` | Template for the (gitignored) `.clasp.json`. |
 | `.claspignore` | Keeps `test/`, `package.json` and this README out of the pushed project. |
