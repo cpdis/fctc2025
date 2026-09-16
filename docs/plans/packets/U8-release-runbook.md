@@ -122,8 +122,10 @@ ASC API, installed locally). The ASC API key `NJDJN4V5L3` (Downloads and
    Write the notes from the user-facing commits since the last upload, as a
    short Dr. Seuss-style rhyme (Colin's standing preference; the beta app
    description sets the tone). The club's full name is the Filament Coffee
-   Track Club. Internal testers get the build immediately; external testers
-   get it when Apple's (first-build-only) beta review clears.
+   Track Club. Check the exact build's processing state and group assignments.
+   External testing can require Apple's beta review for later builds too.
+   Submit that build when required, enable automatic notification, and verify
+   its external state. Group assignment alone does not prove availability.
 4. Install that same build on the phones.
 5. The distribution certificate expires 2027-08-14; renew via the ASC API
    (certificates endpoint) with a fresh CSR and recreate both profiles.

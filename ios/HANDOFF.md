@@ -3,8 +3,9 @@
 ## Shared guests (September 2026)
 
 Work is on `codex/shared-guest-attendance`. The September plan supersedes the old
-phone-local guest counter and promotion behavior described below. Deployment,
-production migration, push, and TestFlight distribution require separate approval.
+phone-local guest counter and promotion behavior described below. Colin approved
+the private test endpoint and TestFlight distribution to all three testers on
+16 September. Production migration and git push remain separate steps.
 
 The server stores shared UUID identities and dated attendance. Promotion converts
 the original season rows and keeps all prior run credit. The iOS store preserves
@@ -72,12 +73,38 @@ and open-ended formula range handling. The promotion guard also checks each
 existing member's calculated summaries at their new column positions. XLSX exports expand those ranges, so
 formula verification must also inspect Google's original formula text.
 
-**Remaining release checks:** Verify the deployed endpoint and both physical
-phones with their preserved installed stores. Retain both phone backups and
-reconcile their candidates before any real promotion. Production migration,
-endpoint deployment, workflow cutover, push and TestFlight remain unapproved.
-The browser helper checks server behavior; it does not prove phone transport
-or installed-data recovery.
+**Remaining release checks:** Verify the physical phones with their preserved
+installed stores. Retain phone backups and reconcile their candidates before
+any real promotion. Production migration, workflow cutover and push remain
+outside the private TestFlight release. Server checks do not prove installed
+phone recovery.
+
+### Private TestFlight release on 16 September
+
+- Prepared version 0.1.0 build 4 for Colin, Aaron and Grant. The existing internal
+  group also contains Colin's second account; its membership stays unchanged.
+- Apple approved build `139369ad-1850-4c5f-8c7c-2521d4f1d6d7`. Both internal
+  and external states report `IN_BETA_TESTING`. Verified build 4 belongs to
+  FCTC Internal and FCTC Friends; automatic tester notification is enabled.
+  The saved en-AU test notes match `ios/testflight-build-4.txt` exactly.
+- Deployed version 1 of the private copy script. Its web endpoint executes as
+  the owner and requires the shared secret. The workbook stays private.
+  The published version contains the twelve runtime modules and manifest;
+  it omits the verification helper and contains no embedded secret.
+- Verified actual HTTP GET refusal, missing/invalid-secret refusal, shared API
+  v2 state with no pending operation, and authenticated export of both seasons.
+  The production snapshot consumer passed against that deployed HTTP endpoint.
+- Archive and upload succeeded. App, share extension and framework signatures
+  passed; all three report 0.1.0 (4). Existing compiler warnings remain in voice
+  error handling and the share extension's existential spelling.
+- The build preserves each installed phone's existing endpoint. Private setup
+  requires scanning its code. Codes for all three testers passed Vision decode
+  and device-name checks. The private handoff is
+  `review/shared-guests/testflight-build4/setup.html` (ignored, never upload).
+- What to Test was written before the archive: `ios/testflight-build-4.txt`.
+- Code review: skipped (mechanical diff). This release changes the build number
+  and release documentation only. Completed feature review receipts and fixes
+  are recorded in `review/shared-guests/evidence.md`.
 
 The sections below are historical handoff records, not current test results.
 
