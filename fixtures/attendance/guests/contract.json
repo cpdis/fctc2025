@@ -1,0 +1,237 @@
+{
+  "description": "Synthetic shared-guest API v2 contract. No private guest data. UUIDs and workbook IDs are illustrative.",
+  "guests": [
+    {"guestId": "00000001-1111-4111-8111-111111111111", "displayName": "Rene", "status": "active", "memberName": null, "revision": 1},
+    {"guestId": "00000002-1111-4111-8111-111111111111", "displayName": "Rene", "status": "active", "memberName": null, "revision": 1},
+    {"guestId": "00000003-1111-4111-8111-111111111111", "displayName": "Sam", "status": "promoted", "memberName": "Sam", "revision": 2}
+  ],
+  "runs": [
+    {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 25, "runId": "00000064-2222-4222-8222-222222222222", "rowIndex": 20, "date": "Fri, 3-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2025},
+    {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 25, "runId": "00000065-2222-4222-8222-222222222222", "rowIndex": 21, "date": "Fri, 3-Jan", "meet": "Example beach", "run": "Trail", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2025},
+    {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 25, "runId": "00000066-2222-4222-8222-222222222222", "rowIndex": 22, "date": "Fri, 5-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2025},
+    {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000067-2222-4222-8222-222222222222", "rowIndex": 23, "date": "Fri, 6-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+    {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000068-2222-4222-8222-222222222222", "rowIndex": 24, "date": "Fri, 7-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+    {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000069-2222-4222-8222-222222222222", "rowIndex": 25, "date": "Fri, 8-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+    {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006a-2222-4222-8222-222222222222", "rowIndex": 26, "date": "Fri, 9-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+    {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006b-2222-4222-8222-222222222222", "rowIndex": 27, "date": "Fri, 10-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+    {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006c-2222-4222-8222-222222222222", "rowIndex": 28, "date": "Fri, 11-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+    {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006d-2222-4222-8222-222222222222", "rowIndex": 29, "date": "Fri, 12-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+    {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006e-2222-4222-8222-222222222222", "rowIndex": 30, "date": "Fri, 13-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026}
+  ],
+  "attendance": [
+    {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 25, "runId": "00000064-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1},
+    {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 25, "runId": "00000065-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1},
+    {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 25, "runId": "00000066-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1},
+    {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000067-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1},
+    {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000068-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1},
+    {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000069-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1},
+    {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006a-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1},
+    {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006b-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1},
+    {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006c-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1},
+    {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006d-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1},
+    {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006e-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1}
+  ],
+  "requests": {
+    "createGuest": {"apiVersion": 2, "operationId": "00000001-3333-4333-8333-333333333333", "action": "createGuest", "guestId": "00000001-1111-4111-8111-111111111111", "displayName": "Rene", "confirmDistinct": true, "requestDigest": "e1137c14756233e3cdaebda8be0b611b138e61742b7db80c43b9440483ceb2b4"},
+    "renameGuest": {"apiVersion": 2, "operationId": "00000002-3333-4333-8333-333333333333", "action": "renameGuest", "guestId": "00000001-1111-4111-8111-111111111111", "displayName": "René", "baseGuestRevision": 1, "requestDigest": "5e0a619e4f23cc24ce0ab64faa6ff4a3d3c9db687fab00bc57b4ada590545b1e"},
+    "submitAttendance": {"apiVersion": 2, "operationId": "00000003-3333-4333-8333-333333333333", "action": "submitAttendance", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006e-2222-4222-8222-222222222222", "rowIndex": 30, "expectedDate": "Fri, 13-Jan", "expectedRun": "Soft Sand", "attendees": ["Col", "Toby"], "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "actualKm": 7.2, "mode": "overwrite", "baseRevision": "sheet-before", "requestDigest": "7f7eec2a093d57922aef6b6b2cec04d3311959fb12d63bf2f6f0f0216b636725"},
+    "importGuestHistory": {
+      "apiVersion": 2,
+      "operationId": "00000004-3333-4333-8333-333333333333",
+      "action": "importGuestHistory",
+      "guestId": "00000001-1111-4111-8111-111111111111",
+      "baseGuestRevision": 1,
+      "baseRevision": "history-before",
+      "entries": [
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 25, "runId": "00000064-2222-4222-8222-222222222222", "expectedDate": "Fri, 3-Jan", "expectedRun": "Soft Sand", "assignment": "existing_unnamed_slot"}
+      ],
+      "requestDigest": "999698eea15107980525dd400005ecba5fed7537fff5f37ec1736ac0dc32e06a"
+    },
+    "commitPromotion": {"apiVersion": 2, "operationId": "00000005-3333-4333-8333-333333333333", "action": "commitPromotion", "guestId": "00000001-1111-4111-8111-111111111111", "memberName": "Rene", "previewToken": "promotion-history-and-season-revision", "requestDigest": "d53108d8ebf5459f28c77923c445189b7daab676480c6c8973a65436b303d48a", "targetMode": "create"},
+    "getGuestHistory": {"action": "getGuestHistory", "guestId": "00000001-1111-4111-8111-111111111111"},
+    "previewPromotion": {"action": "previewPromotion", "guestId": "00000001-1111-4111-8111-111111111111", "memberName": "Rene", "targetMode": "create"},
+    "getOperationStatus": {"action": "getOperationStatus", "operationId": "00000001-3333-4333-8333-333333333333"}
+  },
+  "canonicalCreateRequest": "{\"action\":\"createGuest\",\"apiVersion\":2,\"confirmDistinct\":true,\"displayName\":\"Rene\",\"guestId\":\"00000001-1111-4111-8111-111111111111\",\"operationId\":\"00000001-3333-4333-8333-333333333333\"}",
+  "operation": {
+    "operationId": "00000001-3333-4333-8333-333333333333",
+    "requestDigest": "e1137c14756233e3cdaebda8be0b611b138e61742b7db80c43b9440483ceb2b4",
+    "status": "completed",
+    "response": {
+      "ok": true,
+      "guest": {"guestId": "00000001-1111-4111-8111-111111111111", "displayName": "Rene", "status": "active", "memberName": null, "revision": 1},
+      "guestRevision": "guest-registry-before"
+    },
+    "canonicalRequest": "{\"action\":\"createGuest\",\"apiVersion\":2,\"confirmDistinct\":true,\"displayName\":\"Rene\",\"guestId\":\"00000001-1111-4111-8111-111111111111\",\"operationId\":\"00000001-3333-4333-8333-333333333333\"}",
+    "sourceRevisions": {"guests": "guest-registry-empty"},
+    "targetState": {
+      "guest": {"guestId": "00000001-1111-4111-8111-111111111111", "displayName": "Rene", "status": "active", "memberName": null, "revision": 1}
+    },
+    "receiptLocation": {"sheetId": 9003, "rowIndex": 2}
+  },
+  "responses": {
+    "getState": {
+      "ok": true,
+      "roster": [
+        {"name": "Col", "colIndex": 6},
+        {"name": "Toby", "colIndex": 7}
+      ],
+      "runs": [
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000067-2222-4222-8222-222222222222", "rowIndex": 23, "date": "Fri, 6-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000068-2222-4222-8222-222222222222", "rowIndex": 24, "date": "Fri, 7-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000069-2222-4222-8222-222222222222", "rowIndex": 25, "date": "Fri, 8-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006a-2222-4222-8222-222222222222", "rowIndex": 26, "date": "Fri, 9-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006b-2222-4222-8222-222222222222", "rowIndex": 27, "date": "Fri, 10-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006c-2222-4222-8222-222222222222", "rowIndex": 28, "date": "Fri, 11-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006d-2222-4222-8222-222222222222", "rowIndex": 29, "date": "Fri, 12-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006e-2222-4222-8222-222222222222", "rowIndex": 30, "date": "Fri, 13-Jan", "meet": "Example beach", "run": "Soft Sand", "approxKm": 7.5, "actualKm": 7.2, "attendees": ["Col", "Toby"], "plusOnes": 1, "namedGuestIds": ["00000001-1111-4111-8111-111111111111"], "unnamedGuests": 0, "seasonYear": 2026}
+      ],
+      "seasonYear": 2026,
+      "sheetRevision": "sheet-before",
+      "lifetimeTotals": [
+        {"name": "Col", "runs": 11},
+        {"name": "Toby", "runs": 11}
+      ],
+      "apiVersion": 2,
+      "capabilities": {"apiVersion": 2, "sharedGuests": true, "stableRunIdentity": true, "guestHistory": true, "guestPromotion": true, "operationReceipts": true},
+      "spreadsheetId": "illustrative-workbook",
+      "seasonSheetId": 26,
+      "guests": [
+        {
+          "guestId": "00000001-1111-4111-8111-111111111111",
+          "displayName": "Rene",
+          "status": "active",
+          "memberName": null,
+          "revision": 1,
+          "confirmedRuns": 11,
+          "lastAttendance": {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006e-2222-4222-8222-222222222222", "date": "Fri, 13-Jan", "seasonYear": 2026}
+        },
+        {"guestId": "00000002-1111-4111-8111-111111111111", "displayName": "Rene", "status": "active", "memberName": null, "revision": 1, "confirmedRuns": 0, "lastAttendance": null},
+        {"guestId": "00000003-1111-4111-8111-111111111111", "displayName": "Sam", "status": "promoted", "memberName": "Sam", "revision": 2, "confirmedRuns": 0, "lastAttendance": null}
+      ],
+      "guestRevision": "guest-registry-before",
+      "pendingOperationId": null
+    },
+    "getGuestHistory": {
+      "ok": true,
+      "guest": {
+        "guestId": "00000001-1111-4111-8111-111111111111",
+        "displayName": "Rene",
+        "status": "active",
+        "memberName": null,
+        "revision": 1,
+        "confirmedRuns": 11,
+        "lastAttendance": {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006e-2222-4222-8222-222222222222", "date": "Fri, 13-Jan", "seasonYear": 2026}
+      },
+      "guestRevision": "guest-history-before",
+      "attendance": [
+        {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 25, "runId": "00000064-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1, "seasonYear": 2025, "date": "Fri, 3-Jan", "run": "Soft Sand", "rowIndex": 20},
+        {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 25, "runId": "00000065-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1, "seasonYear": 2025, "date": "Fri, 3-Jan", "run": "Trail", "rowIndex": 21},
+        {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 25, "runId": "00000066-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1, "seasonYear": 2025, "date": "Fri, 5-Jan", "run": "Soft Sand", "rowIndex": 22},
+        {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000067-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1, "seasonYear": 2026, "date": "Fri, 6-Jan", "run": "Soft Sand", "rowIndex": 23},
+        {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000068-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1, "seasonYear": 2026, "date": "Fri, 7-Jan", "run": "Soft Sand", "rowIndex": 24},
+        {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000069-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1, "seasonYear": 2026, "date": "Fri, 8-Jan", "run": "Soft Sand", "rowIndex": 25},
+        {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006a-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1, "seasonYear": 2026, "date": "Fri, 9-Jan", "run": "Soft Sand", "rowIndex": 26},
+        {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006b-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1, "seasonYear": 2026, "date": "Fri, 10-Jan", "run": "Soft Sand", "rowIndex": 27},
+        {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006c-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1, "seasonYear": 2026, "date": "Fri, 11-Jan", "run": "Soft Sand", "rowIndex": 28},
+        {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006d-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1, "seasonYear": 2026, "date": "Fri, 12-Jan", "run": "Soft Sand", "rowIndex": 29},
+        {"guestId": "00000001-1111-4111-8111-111111111111", "spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006e-2222-4222-8222-222222222222", "state": "present", "classification": "guest", "revision": 1, "seasonYear": 2026, "date": "Fri, 13-Jan", "run": "Soft Sand", "rowIndex": 30}
+      ]
+    },
+    "previewPromotion": {
+      "ok": true,
+      "guestId": "00000001-1111-4111-8111-111111111111",
+      "memberName": "Rene",
+      "confirmedRuns": 11,
+      "previewToken": "promotion-history-and-season-revision",
+      "seasons": [
+        {"seasonYear": 2025, "seasonSheetId": 25, "runs": 3},
+        {"seasonYear": 2026, "seasonSheetId": 26, "runs": 8}
+      ],
+      "changes": [
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 25, "runId": "00000064-2222-4222-8222-222222222222", "rowIndex": 20, "date": "Fri, 3-Jan", "run": "Soft Sand", "plusOnesBefore": 1, "plusOnesAfter": 0, "totalBefore": 3, "totalAfter": 3, "actualKmBefore": 7.2, "actualKmAfter": 7.2},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 25, "runId": "00000065-2222-4222-8222-222222222222", "rowIndex": 21, "date": "Fri, 3-Jan", "run": "Trail", "plusOnesBefore": 1, "plusOnesAfter": 0, "totalBefore": 3, "totalAfter": 3, "actualKmBefore": 7.2, "actualKmAfter": 7.2},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 25, "runId": "00000066-2222-4222-8222-222222222222", "rowIndex": 22, "date": "Fri, 5-Jan", "run": "Soft Sand", "plusOnesBefore": 1, "plusOnesAfter": 0, "totalBefore": 3, "totalAfter": 3, "actualKmBefore": 7.2, "actualKmAfter": 7.2},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000067-2222-4222-8222-222222222222", "rowIndex": 23, "date": "Fri, 6-Jan", "run": "Soft Sand", "plusOnesBefore": 1, "plusOnesAfter": 0, "totalBefore": 3, "totalAfter": 3, "actualKmBefore": 7.2, "actualKmAfter": 7.2},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000068-2222-4222-8222-222222222222", "rowIndex": 24, "date": "Fri, 7-Jan", "run": "Soft Sand", "plusOnesBefore": 1, "plusOnesAfter": 0, "totalBefore": 3, "totalAfter": 3, "actualKmBefore": 7.2, "actualKmAfter": 7.2},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "00000069-2222-4222-8222-222222222222", "rowIndex": 25, "date": "Fri, 8-Jan", "run": "Soft Sand", "plusOnesBefore": 1, "plusOnesAfter": 0, "totalBefore": 3, "totalAfter": 3, "actualKmBefore": 7.2, "actualKmAfter": 7.2},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006a-2222-4222-8222-222222222222", "rowIndex": 26, "date": "Fri, 9-Jan", "run": "Soft Sand", "plusOnesBefore": 1, "plusOnesAfter": 0, "totalBefore": 3, "totalAfter": 3, "actualKmBefore": 7.2, "actualKmAfter": 7.2},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006b-2222-4222-8222-222222222222", "rowIndex": 27, "date": "Fri, 10-Jan", "run": "Soft Sand", "plusOnesBefore": 1, "plusOnesAfter": 0, "totalBefore": 3, "totalAfter": 3, "actualKmBefore": 7.2, "actualKmAfter": 7.2},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006c-2222-4222-8222-222222222222", "rowIndex": 28, "date": "Fri, 11-Jan", "run": "Soft Sand", "plusOnesBefore": 1, "plusOnesAfter": 0, "totalBefore": 3, "totalAfter": 3, "actualKmBefore": 7.2, "actualKmAfter": 7.2},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006d-2222-4222-8222-222222222222", "rowIndex": 29, "date": "Fri, 12-Jan", "run": "Soft Sand", "plusOnesBefore": 1, "plusOnesAfter": 0, "totalBefore": 3, "totalAfter": 3, "actualKmBefore": 7.2, "actualKmAfter": 7.2},
+        {"spreadsheetId": "illustrative-workbook", "seasonSheetId": 26, "runId": "0000006e-2222-4222-8222-222222222222", "rowIndex": 30, "date": "Fri, 13-Jan", "run": "Soft Sand", "plusOnesBefore": 1, "plusOnesAfter": 0, "totalBefore": 3, "totalAfter": 3, "actualKmBefore": 7.2, "actualKmAfter": 7.2}
+      ],
+      "targetMode": "create"
+    },
+    "commitPromotion": {
+      "ok": true,
+      "operationId": "00000005-3333-4333-8333-333333333333",
+      "status": "completed",
+      "guest": {"guestId": "00000001-1111-4111-8111-111111111111", "displayName": "Rene", "status": "promoted", "memberName": "Rene", "revision": 2},
+      "memberName": "Rene",
+      "confirmedRuns": 11,
+      "sheetRevision": "sheet-after",
+      "guestRevision": "guest-registry-after",
+      "targetMode": "create"
+    },
+    "getOperationStatus": {
+      "ok": true,
+      "operation": {
+        "operationId": "00000001-3333-4333-8333-333333333333",
+        "requestDigest": "e1137c14756233e3cdaebda8be0b611b138e61742b7db80c43b9440483ceb2b4",
+        "status": "completed",
+        "response": {
+          "ok": true,
+          "guest": {"guestId": "00000001-1111-4111-8111-111111111111", "displayName": "Rene", "status": "active", "memberName": null, "revision": 1},
+          "guestRevision": "guest-registry-before"
+        }
+      }
+    }
+  },
+  "conflicts": [
+    {
+      "ok": true,
+      "conflict": {"reason": "guest_missing", "message": "Refresh and select a guest.", "guestIds": ["00000001-1111-4111-8111-111111111111"]}
+    },
+    {
+      "ok": true,
+      "conflict": {"reason": "duplicate_guest_identity", "message": "Repair duplicate registry rows.", "guestIds": ["00000001-1111-4111-8111-111111111111"]}
+    },
+    {
+      "ok": true,
+      "conflict": {"reason": "identity_ambiguous", "message": "Select a person or confirm a different person.", "guestIds": ["00000001-1111-4111-8111-111111111111"]}
+    },
+    {
+      "ok": true,
+      "conflict": {"reason": "guest_promoted", "message": "Review the mapped member attendance.", "guestIds": ["00000001-1111-4111-8111-111111111111"], "memberName": "Rene"}
+    },
+    {
+      "ok": true,
+      "conflict": {"reason": "stale_guest_revision", "message": "Refresh and review the name change.", "guestIds": ["00000001-1111-4111-8111-111111111111"]}
+    },
+    {
+      "ok": true,
+      "conflict": {"reason": "run_missing", "message": "Review the missing run.", "guestIds": ["00000001-1111-4111-8111-111111111111"]}
+    },
+    {
+      "ok": true,
+      "conflict": {"reason": "duplicate_run_identity", "message": "Repair duplicate metadata.", "guestIds": ["00000001-1111-4111-8111-111111111111"]}
+    },
+    {
+      "ok": true,
+      "conflict": {"reason": "invalid_allocation", "message": "Review the available unnamed guest slots.", "guestIds": ["00000001-1111-4111-8111-111111111111"]}
+    },
+    {
+      "ok": true,
+      "conflict": {"reason": "duplicate_attendance_identity", "message": "Repair conflicting guest history.", "guestIds": ["00000001-1111-4111-8111-111111111111"]}
+    },
+    {
+      "ok": true,
+      "conflict": {"reason": "operation_id_reused", "message": "Review the saved operation.", "guestIds": ["00000001-1111-4111-8111-111111111111"]}
+    },
+    {
+      "ok": true,
+      "conflict": {"reason": "pending_operation", "message": "Wait for the earlier operation to be verified.", "guestIds": ["00000001-1111-4111-8111-111111111111"]}
+    }
+  ]
+}

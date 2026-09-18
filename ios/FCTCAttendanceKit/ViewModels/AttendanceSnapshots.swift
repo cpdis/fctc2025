@@ -9,7 +9,7 @@
 import Foundation
 
 public struct RunSnapshot: Hashable, Sendable, Identifiable {
-    public var id: Int { rowIndex }
+    public var id: String { runIdentity?.cacheKey ?? "legacy:\(rowIndex)" }
     public var rowIndex: Int
     public var date: String
     public var scheduledAt: Date?
@@ -20,6 +20,11 @@ public struct RunSnapshot: Hashable, Sendable, Identifiable {
     public var attendees: [String]
     public var plusOnes: Int
     public var cachedRevision: String?
+    public var runIdentity: RunIdentity?
+    public var endpointIdentity: String?
+    public var namedGuestIds: [String]
+    public var unnamedGuests: Int
+    public var seasonYear: Int?
 
     public init(
         rowIndex: Int,
@@ -31,7 +36,9 @@ public struct RunSnapshot: Hashable, Sendable, Identifiable {
         actualKm: Double? = nil,
         attendees: [String] = [],
         plusOnes: Int = 0,
-        cachedRevision: String? = nil
+        cachedRevision: String? = nil,
+        runIdentity: RunIdentity? = nil, endpointIdentity: String? = nil,
+        namedGuestIds: [String] = [], unnamedGuests: Int? = nil, seasonYear: Int? = nil
     ) {
         self.rowIndex = rowIndex
         self.date = date
@@ -43,6 +50,9 @@ public struct RunSnapshot: Hashable, Sendable, Identifiable {
         self.attendees = attendees
         self.plusOnes = plusOnes
         self.cachedRevision = cachedRevision
+        self.runIdentity = runIdentity; self.endpointIdentity = endpointIdentity
+        self.namedGuestIds = namedGuestIds; self.unnamedGuests = unnamedGuests ?? plusOnes
+        self.seasonYear = seasonYear
     }
 
     @MainActor
@@ -57,7 +67,9 @@ public struct RunSnapshot: Hashable, Sendable, Identifiable {
             actualKm: run.actualKm,
             attendees: run.attendees,
             plusOnes: run.plusOnes,
-            cachedRevision: run.cachedRevision
+            cachedRevision: run.cachedRevision,
+            runIdentity: run.identity, endpointIdentity: run.endpointIdentity,
+            namedGuestIds: run.namedGuestIds ?? [], unnamedGuests: run.unnamedGuests, seasonYear: run.seasonYear
         )
     }
 
@@ -93,6 +105,11 @@ public struct PendingSubmissionSnapshot: Hashable, Sendable, Identifiable {
     public var conflictReason: String?
     public var conflictMessage: String?
     public var conflictState: SheetState?
+    public var outcome: SubmissionDisposition?
+    public var runIdentity: RunIdentity?
+    public var namedGuestIds: [String]?
+    public var unnamedGuests: Int?
+    public var verificationPending: Bool
 
     public init(
         id: UUID,
@@ -109,7 +126,9 @@ public struct PendingSubmissionSnapshot: Hashable, Sendable, Identifiable {
         lastError: String? = nil,
         conflictReason: String? = nil,
         conflictMessage: String? = nil,
-        conflictState: SheetState? = nil
+        conflictState: SheetState? = nil, outcome: SubmissionDisposition? = nil,
+        runIdentity: RunIdentity? = nil, namedGuestIds: [String]? = nil,
+        unnamedGuests: Int? = nil, verificationPending: Bool = false
     ) {
         self.id = id
         self.rowIndex = rowIndex
@@ -126,6 +145,8 @@ public struct PendingSubmissionSnapshot: Hashable, Sendable, Identifiable {
         self.conflictReason = conflictReason
         self.conflictMessage = conflictMessage
         self.conflictState = conflictState
+        self.outcome = outcome; self.runIdentity = runIdentity; self.namedGuestIds = namedGuestIds
+        self.unnamedGuests = unnamedGuests; self.verificationPending = verificationPending
     }
 
     @MainActor
@@ -145,7 +166,9 @@ public struct PendingSubmissionSnapshot: Hashable, Sendable, Identifiable {
             lastError: pending.lastError,
             conflictReason: pending.conflictReason,
             conflictMessage: pending.conflictMessage,
-            conflictState: pending.conflictState
+            conflictState: pending.conflictState, outcome: pending.outcome,
+            runIdentity: pending.runIdentity, namedGuestIds: pending.namedGuestIds,
+            unnamedGuests: pending.unnamedGuests, verificationPending: pending.verificationPending == true
         )
     }
 

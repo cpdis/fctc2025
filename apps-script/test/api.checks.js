@@ -81,7 +81,7 @@ function assertError(response, code) {
 function assertStateShape(state, year) {
   assert.deepEqual(
     Object.keys(state).filter((key) => key !== 'ok').sort(),
-    ['lifetimeTotals', 'roster', 'runs', 'seasonYear', 'sheetRevision'],
+    ['birthdays', 'lifetimeTotals', 'roster', 'runs', 'seasonYear', 'sheetRevision'],
     'getState body must carry exactly the documented keys'
   );
   assert.equal(state.seasonYear, year);
@@ -93,6 +93,15 @@ function assertStateShape(state, year) {
     assert.deepEqual(Object.keys(total).sort(), ['name', 'runs']);
     assert.equal(typeof total.name, 'string');
     assert.ok(Number.isInteger(total.runs) && total.runs >= 0);
+  }
+
+  // Additive 2026-09-18: month/day only; older clients ignore this field.
+  assert.ok(Array.isArray(state.birthdays));
+  for (const birthday of state.birthdays) {
+    assert.deepEqual(Object.keys(birthday).sort(), ['day', 'month', 'name']);
+    assert.equal(typeof birthday.name, 'string');
+    assert.ok(Number.isInteger(birthday.month) && birthday.month >= 1 && birthday.month <= 12);
+    assert.ok(Number.isInteger(birthday.day) && birthday.day >= 1 && birthday.day <= 31);
   }
 
   assert.ok(Array.isArray(state.roster));
@@ -872,10 +881,10 @@ test.describe('serialization (LockService)', () => {
     assert.deepEqual(env.lockLog.map((e) => e.kind), ['waitLock', 'releaseLock']);
   });
 
-  test.it('does not lock for a read', () => {
+  test.it('locks state reads for a consistent snapshot across shared mutations', () => {
     const env = api(2026);
     assertOk(env.post({ action: 'getState' }));
-    assert.deepEqual(env.lockLog, []);
+    assert.deepEqual(env.lockLog.map((entry) => entry.kind), ['waitLock', 'releaseLock']);
   });
 
   test.it('reports busy rather than writing when another writer holds the lock', () => {

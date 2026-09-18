@@ -20,6 +20,7 @@ struct ScreenshotImportView: View {
     let roster: [String]
     let parser: PollScreenshotParser
     let onInitialFilesConsumed: () -> Void
+    let onGuestNames: (([String]) -> Void)?
     let onApply: (DraftProposalSet, [String]) -> Void
     let onAddPerson: (String) async throws -> Void
     let onCancel: () -> Void
@@ -49,6 +50,7 @@ struct ScreenshotImportView: View {
         initialFileURLs: [URL] = [],
         skipCoach: Bool = false,
         onInitialFilesConsumed: @escaping () -> Void = {},
+        onGuestNames: (([String]) -> Void)? = nil,
         onApply: @escaping (DraftProposalSet, [String]) -> Void,
         onAddPerson: @escaping (String) async throws -> Void,
         onCancel: @escaping () -> Void
@@ -56,6 +58,7 @@ struct ScreenshotImportView: View {
         self.roster = roster
         self.parser = parser
         self.onInitialFilesConsumed = onInitialFilesConsumed
+        self.onGuestNames = onGuestNames
         self.onApply = onApply
         self.onAddPerson = onAddPerson
         self.onCancel = onCancel
@@ -78,6 +81,7 @@ struct ScreenshotImportView: View {
                 ProposalTriageView(
                     set: proposalSet,
                     roster: roster,
+                    onGuestNames: onGuestNames,
                     onApply: { checks in onApply(proposalSet, checks) },
                     onAddPerson: onAddPerson,
                     onCancel: onCancel

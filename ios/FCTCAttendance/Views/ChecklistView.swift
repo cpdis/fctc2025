@@ -21,6 +21,8 @@ struct ChecklistView: View {
         order: .reverse
     ) private var cachedSubmissions: [PendingSubmission]
     @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
+    @Query private var cachedGuests: [CachedGuest]
+    @Query private var sheetCaches: [SharedSheetCache]
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ChecklistViewModel
     @State private var searchText = ""
@@ -56,7 +58,7 @@ struct ChecklistView: View {
 
     var body: some View {
         @Bindable var viewModel = viewModel
-        let runSnapshots = cachedRuns.map(RunSnapshot.init)
+        let runSnapshots = scopedRuns
         let statsByMember = MemberStats.calculateAll(
             members: viewModel.roster,
             runs: runSnapshots
@@ -108,7 +110,7 @@ struct ChecklistView: View {
                 }
 
                 NavigationLink {
-                    GuestEditorView(viewModel: viewModel)
+                    GuestEditorView(runtime: runtime, viewModel: viewModel)
                 } label: {
                     HStack {
                         Label("Guests", systemImage: "person.2")
@@ -122,7 +124,7 @@ struct ChecklistView: View {
                 .accessibilityIdentifier("guest-editor")
             }
 
-            Section("Attendance") {
+            Section {
                 ForEach(filteredRoster, id: \.self) { name in
                     MemberCheckRow(
                         name: name,
@@ -146,27 +148,17 @@ struct ChecklistView: View {
                     }
                 }
 
-                ForEach(viewModel.matchingGuests) { guest in
-                    Button {
-                        viewModel.quickAddName = guest.name
-                        Task { try? await viewModel.commitQuickAdd() }
-                    } label: {
-                        HStack {
-                            Label("Add \(guest.name) as member", systemImage: "person.crop.circle.badge.plus")
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            if viewModel.isFrequentGuest(guest.name) {
-                                FrequentGuestBadge()
-                            }
-                        }
-                    }
-                    .disabled(viewModel.isAddingPerson)
-                    .accessibilityIdentifier("promote-guest-\(guest.id)")
-                }
-
                 QuickAddPersonRow(viewModel: viewModel)
+            } header: {
+                AttendanceCountHeader(draft: viewModel.draft)
             }
 
+            if !viewModel.unresolvedGuestNames.isEmpty {
+                Section {
+                    NavigationLink("Review suggested guest names") { GuestEditorView(runtime: runtime, viewModel: viewModel) }
+                    Text("Select each suggested guest before confirming attendance.").font(.footnote).foregroundStyle(.secondary)
+                }
+            }
             if let message = viewModel.errorMessage {
                 Section {
                     Label(message, systemImage: "exclamationmark.triangle")
@@ -208,13 +200,19 @@ struct ChecklistView: View {
             isPresented: $showingRecordedChoice,
             titleVisibility: .visible
         ) {
-            Button("Merge — \(mergeSummary)") { submit(mode: .merge) }
-                .accessibilityIdentifier("confirm-merge")
-            Button("Overwrite — \(overwriteSummary)") { submit(mode: .overwrite) }
+            if !viewModel.requiresGuestOverwrite {
+                Button("Merge — \(mergeSummary)") { submit(mode: .merge) }
+                    .accessibilityIdentifier("confirm-merge")
+            }
+            Button(viewModel.requiresGuestOverwrite ? "Overwrite — save guest correction" : "Overwrite — \(overwriteSummary)") { submit(mode: .overwrite) }
                 .accessibilityIdentifier("confirm-overwrite")
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Merge keeps sheet checks. Overwrite can remove them.")
+            if viewModel.requiresGuestOverwrite {
+                Text("This guest correction needs an overwrite. \(viewModel.guestDiff(for: .overwrite).summary). Overwrite uses this checklist exactly.")
+            } else {
+                Text("Merge keeps sheet attendance. Merge: \(viewModel.guestDiff(for: .merge).summary). Overwrite: \(viewModel.guestDiff(for: .overwrite).summary).")
+            }
         }
         .sheet(
             isPresented: $showingScreenshotImport,
@@ -227,6 +225,7 @@ struct ChecklistView: View {
                 initialFileURLs: sharedImportURLs,
                 skipCoach: UITestSupport.shouldSkipScreenshotCoach || !sharedImportURLs.isEmpty,
                 onInitialFilesConsumed: clearSharedScreenshotInbox,
+                onGuestNames: guestReview,
                 onApply: { set, checks in
                     viewModel.applyProposals(checks: checks, from: set)
                     showingScreenshotImport = false
@@ -276,6 +275,20 @@ struct ChecklistView: View {
         }
     }
 
+    private var guestReview: (([String]) -> Void)? {
+        guard viewModel.supportsSharedGuests else { return nil }
+        return { names in viewModel.requireGuestReview(names) }
+    }
+
+    private var exactState: SheetState? {
+        guard let identity = viewModel.run.runIdentity else { return nil }
+        return sheetCaches.first { $0.endpointIdentity == runtime.config.endpoint?.absoluteString
+            && $0.spreadsheetId == identity.spreadsheetId && $0.seasonSheetId == identity.seasonSheetId }?.state
+    }
+    private var scopedRuns: [RunSnapshot] {
+        RunCacheScope.runs(cachedRuns.map(RunSnapshot.init), endpoint: runtime.config.endpoint?.absoluteString, state: exactState)
+    }
+
     private var filteredRoster: [String] {
         guard !searchText.isEmpty else { return viewModel.roster }
         return viewModel.roster.filter {
@@ -285,9 +298,7 @@ struct ChecklistView: View {
 
     private var cacheFingerprint: String {
         let roster = cachedMembers.map { "\($0.name):\($0.colIndex):\($0.isNew)" }
-        let guests = cachedSubmissions.map { submission in
-            "\(submission.id):\(submission.guestNames.joined(separator: ","))"
-        }
+        let guests = cachedGuests.compactMap(\.guest).map { "\($0.guestId):\($0.displayName):\($0.revision)" }
         return (roster + guests).joined(separator: "|")
     }
 
@@ -302,8 +313,8 @@ struct ChecklistView: View {
     }
 
     private func updateCachedValues() {
-        viewModel.updateRoster(cachedMembers.map(\.name))
-        viewModel.updateGuestSubmissionHistory(cachedSubmissions.map(\.guestNames))
+        viewModel.updateRoster(exactState?.roster.map(\.name) ?? cachedMembers.map(\.name))
+        viewModel.updateSharedGuests(cachedGuests.filter { $0.spreadsheetId == viewModel.run.runIdentity?.spreadsheetId }.compactMap(\.guest))
     }
 
     private func submit(mode: SubmissionMode) {
@@ -311,7 +322,7 @@ struct ChecklistView: View {
             do {
                 _ = try await viewModel.confirm(mode: mode)
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
-                let snapshots = cachedRuns.map(RunSnapshot.init)
+                let snapshots = scopedRuns
                 if let next = CatchUpPlanner.nextOlderUnrecorded(
                     after: viewModel.run,
                     among: snapshots
@@ -340,7 +351,7 @@ struct ChecklistView: View {
         }
         let following = CatchUpPlanner.nextOlderUnrecorded(
             after: skipped,
-            among: cachedRuns.map(RunSnapshot.init)
+            among: scopedRuns
         )
         finishConfirmation(with: following)
     }
@@ -377,200 +388,5 @@ struct ChecklistView: View {
         // Quick-add is normally a manual checklist action. This name came from an
         // explicit proposal choice, so the frozen apply seam supplies provenance.
         viewModel.uncheckMember(name)
-    }
-}
-
-private struct MemberCheckRow: View {
-    let name: String
-    let provenance: CheckProvenance?
-    let isSuggested: Bool
-    let stats: MemberStats
-    let action: () -> Void
-
-    private var isChecked: Bool { provenance != nil }
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                CircularCheck(isChecked: isChecked)
-
-                MemberAvatarView(name: name)
-
-                Text(name)
-                    .foregroundStyle(.primary)
-
-                Spacer(minLength: 8)
-
-                if let provenance, provenance != .manual {
-                    ProvenanceBadge(kind: ProvenanceBadgeKind(provenance))
-                } else if isSuggested {
-                    ProvenanceBadge(kind: .suggested)
-                }
-            }
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(name)
-        .accessibilityValue(isChecked ? "Checked" : "Not checked")
-        .accessibilityHint("Double-tap to \(isChecked ? "uncheck" : "check").")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityIdentifier("member-\(name)")
-        .contextMenu {
-            Button(action: {}) {
-                Label("\(stats.attendanceCount) season attendances", systemImage: "calendar")
-            }
-            .disabled(true)
-            Button(action: {}) {
-                Label(lastAttendedLabel, systemImage: "clock")
-            }
-            .disabled(true)
-            Button(action: {}) {
-                Label("\(stats.currentStreak) run streak", systemImage: "flame")
-            }
-            .disabled(true)
-        }
-    }
-
-    private var lastAttendedLabel: String {
-        guard let date = stats.lastAttendedAt else { return "No recorded attendance" }
-        return "Last attended \(date.formatted(date: .abbreviated, time: .omitted))"
-    }
-}
-
-/// The prominent capture-modality tile pair above the detail rows.
-private struct ModalityButtonLabel: View {
-    let title: String
-    let systemImage: String
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Image(systemName: systemImage)
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.tint)
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 14))
-        .contentShape(.rect)
-    }
-}
-
-private struct CircularCheck: View {
-    let isChecked: Bool
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(isChecked ? Color.accentColor : .clear)
-            Circle()
-                .stroke(isChecked ? Color.accentColor : Color.secondary.opacity(0.45), lineWidth: 1.5)
-            if isChecked {
-                Image(systemName: "checkmark")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
-            }
-        }
-        .frame(width: 24, height: 24)
-        .accessibilityHidden(true)
-    }
-}
-
-private struct QuickAddPersonRow: View {
-    @Bindable var viewModel: ChecklistViewModel
-    @FocusState private var isFocused: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "plus.circle.fill")
-                .font(.title3)
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
-
-            TextField("Add person…", text: $viewModel.quickAddName)
-                .textInputAutocapitalization(.words)
-                .submitLabel(.done)
-                .focused($isFocused)
-                .onSubmit {
-                    Task { try? await viewModel.commitQuickAdd() }
-                }
-                .accessibilityLabel("Add person")
-                .accessibilityHint("Enter a name, then press Return.")
-                .accessibilityIdentifier("add-person-field")
-
-            if viewModel.isAddingPerson {
-                ProgressView()
-                    .controlSize(.small)
-                    .accessibilityLabel("Adding person")
-            }
-        }
-    }
-}
-
-private struct GuestEditorView: View {
-    @Bindable var viewModel: ChecklistViewModel
-    @State private var newGuestName = ""
-
-    var body: some View {
-        List {
-            Section {
-                ForEach(Array(viewModel.draft.guests.indices), id: \.self) { index in
-                    HStack {
-                        TextField(
-                            "Guest name",
-                            text: Binding(
-                                get: { viewModel.draft.guests[index].name },
-                                set: { viewModel.draft.guests[index].name = $0 }
-                            )
-                        )
-                        .textInputAutocapitalization(.words)
-                        .accessibilityLabel("Guest \(index + 1) name")
-                        if viewModel.isFrequentGuest(viewModel.draft.guests[index].name) {
-                            FrequentGuestBadge()
-                            Button("Add as member") {
-                                promote(viewModel.draft.guests[index].name)
-                            }
-                            .font(.caption)
-                            .buttonStyle(.borderless)
-                        }
-                    }
-                }
-                .onDelete(perform: viewModel.removeGuests)
-
-                HStack {
-                    TextField("Add guest…", text: $newGuestName)
-                        .textInputAutocapitalization(.words)
-                        .submitLabel(.done)
-                        .onSubmit(addGuest)
-                        .accessibilityLabel("Add guest name")
-                        .accessibilityIdentifier("add-guest-field")
-                    Button("Add", action: addGuest)
-                        .disabled(newGuestName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            } header: {
-                Text("Guest names")
-            } footer: {
-                Text("The sheet receives only the total guest count. Names stay on this device.")
-            }
-
-            Section("Sheet value") {
-                LabeledContent("+1's", value: viewModel.draft.plusOnes.formatted())
-            }
-        }
-        .navigationTitle("Guests")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func addGuest() {
-        viewModel.addGuest(name: newGuestName)
-        newGuestName = ""
-    }
-
-    private func promote(_ name: String) {
-        viewModel.quickAddName = name
-        Task { try? await viewModel.commitQuickAdd() }
     }
 }

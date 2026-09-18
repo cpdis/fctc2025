@@ -104,6 +104,24 @@ public enum ConflictResolutionAction: String, Hashable, Sendable, CaseIterable {
 }
 
 public protocol SyncEngineClient: Sendable {
+    func refreshState(seasonSheetId: Int?) async throws -> SheetState
+    func sharedGuests() async throws -> [SharedGuest]
+    func guestHistory(id: String) async throws -> GuestHistory
+    func createGuest(name: String, confirmDistinct: Bool) async throws -> Guest
+    func resolveGuestIdentity(provisionalId: String, existingGuestId: String?, confirmDistinct: Bool) async throws
+    func renameGuest(_ guest: SharedGuest, name: String) async throws -> UUID
+    func replaceGuestRename(id: UUID, guest: SharedGuest, name: String) async throws -> UUID
+    func discardGuestRename(id: UUID) async throws
+    func previewPromotion(guestId: String, memberName: String, targetMode: PromotionTargetMode) async throws -> PromotionPreview
+    func commitPromotion(_ preview: PromotionPreview) async throws -> UUID
+    func recoveryCandidates(includeDismissed: Bool) async throws -> [GuestRecoverySnapshot]
+    func updateRecoveryCandidate(id: String, guestId: String?, run: GuestImportEntry?, status: GuestRecoveryStatus) async throws
+    func previewGuestImport(guestId: String, entries: [GuestImportEntry]) async throws -> GuestImportPreview
+    func importGuestHistory(_ preview: GuestImportPreview, candidateIds: [String]) async throws -> UUID
+    func guestOperation(id: UUID) async throws -> GuestOperationSnapshot?
+    func pendingSubmission(id: UUID) async throws -> PendingSubmissionSnapshot?
+    func replacePromotedGuestSubmission(id: UUID, reviewedDraft: AttendanceDraft) async throws -> UUID
+
     func refreshState() async throws -> SheetState
     func enqueue(_ submission: AttendanceSubmission) async throws -> UUID
     func enqueue(

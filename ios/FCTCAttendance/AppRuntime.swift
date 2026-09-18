@@ -19,6 +19,7 @@ final class AppRuntime {
     private(set) var config: AppConfig
     private(set) var engine: any SyncEngineClient
     private(set) var generation = 0
+    var activeState: SheetState?
     private(set) var accent: AccentChoice
     private(set) var runRemindersEnabled: Bool
     private(set) var reminderMessage: String?
@@ -61,6 +62,17 @@ final class AppRuntime {
         )
     }
 
+    /// Historic navigation refreshes another season without changing Home's scope.
+    var activeSheetState: SheetState? {
+        let caches = (try? modelContainer.mainContext.fetch(FetchDescriptor<SharedSheetCache>())) ?? []
+        if let activeState {
+            return caches.first { $0.endpointIdentity == config.endpoint?.absoluteString
+                && $0.spreadsheetId == activeState.spreadsheetId && $0.seasonSheetId == activeState.seasonSheetId }?.state ?? activeState
+        }
+        return caches.filter { $0.endpointIdentity == config.endpoint?.absoluteString }
+            .sorted { ($0.state?.seasonYear ?? 0) > ($1.state?.seasonYear ?? 0) }.first?.state
+    }
+
     func setAccent(_ choice: AccentChoice) {
         accent = choice
         appearanceStore.saveAccent(choice)
@@ -73,6 +85,7 @@ final class AppRuntime {
             api: SheetAPI(config: config),
             runReminderScheduler: reminderService
         )
+        activeState = nil
         generation += 1
     }
 

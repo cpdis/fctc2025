@@ -79,20 +79,13 @@ struct RoundTwoHelperTests {
         )
     }
 
-    @Test("Guest frequency counts at most once per submission")
-    func frequentGuests() {
-        let counts = GuestPromotionCounter.counts(
-            in: [
-                ["Priya", "PRIYA"],
-                [" Priya "],
-                ["Toby", "Priya"],
-                ["Toby"],
-            ]
-        )
-
-        #expect(counts[GuestPromotionCounter.canonical("Priya")] == 3)
-        #expect(GuestPromotionCounter.isFrequent("priya", counts: counts))
-        #expect(!GuestPromotionCounter.isFrequent("Toby", counts: counts))
+    @Test("Promotion is suggested at ten confirmed distinct runs")
+    func promotionThreshold() {
+        for count in [9, 10, 11] {
+            let guest = SharedGuest(guestId: UUID().uuidString, displayName: "Rene", confirmedRuns: count)
+            #expect(guest.canSuggestPromotion == (count >= 10))
+            #expect(guest.status == "active")
+        }
     }
 
     @Test("Avatar initials and palette indexes are stable")

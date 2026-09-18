@@ -51,6 +51,7 @@ describe('weekly notification workflow contract', () => {
 
     expect(actionRefs).toEqual([
       'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd',
+      'actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e',
       'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd',
       'actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e',
     ])
@@ -129,5 +130,24 @@ describe('weekly notification workflow contract', () => {
     expect(smoke).toMatch(/env:\n\s+RESEND_API_KEY:.*\n\s+MILESTONE_SMOKE_RECIPIENT:.*\n\s+MILESTONE_FROM:/)
     expect(smoke).not.toContain('MILESTONE_RECIPIENTS:')
     expect(smoke).not.toContain('continue-on-error')
+  })
+})
+
+// Historical promotion changes require every supported season in one capture.
+describe('authenticated attendance snapshot workflow', () => {
+  it('keeps the snapshot secret on the fetch step and preserves no-op syncs', () => {
+    const sync = between('  sync:', '  notify:')
+    const fetch = between('      - name: Fetch + validate all supported seasons', '      - name: Commit + push if changed')
+    const commit = between('      - name: Commit + push if changed', '  notify:')
+    expect(fetch).toContain('node scripts/sync-attendance-snapshot.js')
+    expect(fetch).toContain('FCTC_ATTENDANCE_ENDPOINT: ${{ vars.FCTC_ATTENDANCE_ENDPOINT }}')
+    expect(fetch).toContain('FCTC_ATTENDANCE_SECRET: ${{ secrets.FCTC_ATTENDANCE_SECRET }}')
+    expect(sync).not.toMatch(/fetch-sheet|SHEET_GID|CURRENT_YEAR|export\?format=csv/)
+    expect(commit).toContain('git diff --quiet -- public/data')
+    expect(commit.indexOf('git diff --quiet')).toBeLessThan(commit.indexOf('git commit'))
+    expect(commit).not.toContain('FCTC_ATTENDANCE_SECRET')
+    expect(commit).not.toContain('date -u')
+    expect(commit).toContain("'public/data/*.csv' public/data/last-updated.json")
+    expect(fetch).not.toContain('continue-on-error')
   })
 })

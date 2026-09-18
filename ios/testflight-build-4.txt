@@ -1,0 +1,19 @@
+A guest joins once, then joins again;
+Their name stays shared through sun and rain.
+Eleven runs before they join?
+Eleven still — each run counts in!
+
+Filament Coffee Track Club — shared guest testing
+
+Update the existing app. Do not delete it: saved guest names and pending attendance are kept for review.
+
+Use Colin's private test setup code before testing shared guests. This build keeps your existing connection until you change it. Test entries belong in the private copy, not the live attendance sheet.
+
+Please check:
+• Add a named guest on one phone. Refresh another phone and confirm the same name and count.
+• Record further runs and confirm the total increases on both phones.
+• Review old guest history before importing it. Match the original person, season and run.
+• Promote a test guest with 11 recorded runs. Confirm the member still has 11, including prior seasons.
+• Correct a saved guest and try an offline save followed by Retry. Confirm attendance appears once.
+
+Share feedback through TestFlight. Colin will coordinate the return to the live sheet after testing.

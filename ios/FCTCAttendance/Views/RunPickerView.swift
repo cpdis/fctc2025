@@ -142,18 +142,22 @@ struct RunPickerView: View {
         }
     }
 
+    private var activeRunSnapshots: [RunSnapshot] {
+        RunCacheScope.runs(cachedRuns.map(RunSnapshot.init), endpoint: runtime.config.endpoint?.absoluteString, state: runtime.activeSheetState)
+    }
+
     private var cacheFingerprint: [RunSnapshot] {
-        cachedRuns.map(RunSnapshot.init)
+        activeRunSnapshots
     }
 
     private var catchUpRuns: [RunSnapshot] {
-        CatchUpPlanner.unrecordedPastRuns(among: cachedRuns.map(RunSnapshot.init))
+        CatchUpPlanner.unrecordedPastRuns(among: activeRunSnapshots)
     }
 
     private func updateFromCache() {
         let now = Date.now
         let calendar = Calendar.current
-        let snapshots = cachedRuns.map(RunSnapshot.init).filter { run in
+        let snapshots = activeRunSnapshots.filter { run in
             guard let date = run.scheduledAt else { return scope == .all }
             switch scope {
             case .all:

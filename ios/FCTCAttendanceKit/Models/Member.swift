@@ -35,6 +35,13 @@ public final class Member {
     /// server has not reported a total for, including an optimistic local add.
     public var lifetimeRuns: Int = 0
 
+    /// Optional fields allow existing stores to migrate without changing attendance.
+    public var birthdayMonth: Int?
+    public var birthdayDay: Int?
+    /// Member names alone cannot distinguish a private test sheet from the real one.
+    public var birthdayEndpointIdentity: String?
+    public var birthdaySeasonYear: Int?
+
     public init(
         name: String,
         colIndex: Int,
@@ -51,6 +58,15 @@ public final class Member {
 }
 
 extension Member {
+    /// Use only dates learned from the currently configured endpoint.
+    public func birthday(for endpointIdentity: String?, seasonYear: Int? = nil) -> MemberBirthday? {
+        guard let endpointIdentity, birthdayEndpointIdentity == endpointIdentity,
+              let birthdayMonth, let birthdayDay else { return nil }
+        if let seasonYear, birthdaySeasonYear != seasonYear { return nil }
+        let birthday = MemberBirthday(name: name, month: birthdayMonth, day: birthdayDay)
+        return birthday.isValid ? birthday : nil
+    }
+
     /// Alphabetical ordering matching the sheet's member-band convention, so an
     /// optimistically-inserted new member lands where `addMember` will put it.
     public static func sheetOrder(_ lhs: String, _ rhs: String) -> Bool {

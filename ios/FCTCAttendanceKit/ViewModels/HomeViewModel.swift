@@ -9,6 +9,7 @@ import Observation
 @MainActor
 @Observable
 public final class HomeViewModel {
+    public private(set) var activeState: SheetState?
     public private(set) var thisWeekCount = 0
     public private(set) var unsyncedCount = 0
     public private(set) var conflictCount = 0
@@ -21,6 +22,8 @@ public final class HomeViewModel {
 
     @ObservationIgnored private var engine: any SyncEngineClient
     @ObservationIgnored private let eventMonitor = SyncEventMonitor()
+    @ObservationIgnored private var engineGeneration = 0
+    @ObservationIgnored private var refreshGeneration = 0
 
     public init(engine: any SyncEngineClient) {
         self.engine = engine
@@ -28,13 +31,23 @@ public final class HomeViewModel {
     }
 
     public func replaceEngine(_ engine: any SyncEngineClient) {
+        // Invalidate suspended work before publishing the replacement connection.
+        // Its workbook and banners must never inherit the old engine's state.
+        engineGeneration += 1
+        refreshGeneration += 1
         self.engine = engine
+        activeState = nil
+        syncBanner = nil
+        isInitialLoading = false
+        initialLoadFailed = false
         observeEvents()
     }
 
     public func update(
         runs: [RunSnapshot],
         submissions: [PendingSubmissionSnapshot],
+        pendingGuestChanges: Int = 0,
+        guestConflicts: Int = 0,
         now: Date = .now,
         calendar: Calendar = .current
     ) {
@@ -51,24 +64,34 @@ public final class HomeViewModel {
             }
         }
         thisWeekCount = weekCount
-        unsyncedCount = submissions.filter(\.isOutstanding).count
-        conflictCount = submissions.filter { $0.status == .conflict }.count
+        unsyncedCount = submissions.filter(\.isOutstanding).count + pendingGuestChanges
+        conflictCount = submissions.filter { $0.status == .conflict }.count + guestConflicts
         todayRun = earliestToday
     }
 
     public func refresh(hasCachedState: Bool = true) async {
+        refreshGeneration += 1
+        let requestGeneration = refreshGeneration
+        let connectionGeneration = engineGeneration
+        let engine = self.engine
+        // The newest request owns both the result and its loading indicator.
+        isInitialLoading = !hasCachedState
         if !hasCachedState {
-            isInitialLoading = true
             initialLoadFailed = false
         }
         defer {
-            if isInitialLoading { isInitialLoading = false }
+            if requestGeneration == refreshGeneration && connectionGeneration == engineGeneration {
+                isInitialLoading = false
+            }
         }
         do {
-            _ = try await engine.refreshState()
+            let state = try await engine.refreshState()
+            guard requestGeneration == refreshGeneration, connectionGeneration == engineGeneration else { return }
+            activeState = state
             initialLoadFailed = false
             if syncBanner != nil { syncBanner = nil }
         } catch {
+            guard requestGeneration == refreshGeneration, connectionGeneration == engineGeneration else { return }
             if !hasCachedState { initialLoadFailed = true }
             syncBanner = Self.banner(for: error)
         }
@@ -84,8 +107,9 @@ public final class HomeViewModel {
     }
 
     private func observeEvents() {
+        let generation = engineGeneration
         eventMonitor.start(engine: engine) { [weak self] event in
-            guard let self else { return }
+            guard let self, generation == engineGeneration else { return }
             switch event {
             case .written:
                 syncBanner = SyncBanner(kind: .success, message: "Attendance synced.")
@@ -110,7 +134,7 @@ public final class HomeViewModel {
         let message = UserFacingError.sync(error)
         if let sheetError = error as? SheetAPIError {
             switch sheetError {
-            case .network:
+            case .network, .requestNotSent:
                 return SyncBanner(kind: .offline, message: message)
             case .busy:
                 return SyncBanner(kind: .parked, message: message)

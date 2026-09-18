@@ -112,6 +112,6 @@ struct ModelTests {
 
     @Test("Every persistent model is registered in the schema")
     func schemaRegistration() {
-        #expect(AttendanceSchema.models.count == 3)
+        #expect(AttendanceSchema.models.count == 8)
     }
 }

@@ -24,6 +24,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const crypto = require('node:crypto');
+const { makeSheetsService } = require('./fakeSheetsV4');
 
 const APPS_SCRIPT_DIR = path.join(__dirname, '..', '..');
 
@@ -51,11 +53,42 @@ class FakeSheet {
    * @param {string} name Tab name.
    * @param {!Array<!Array<*>>} grid Initial values (ragged is fine).
    */
-  constructor(name, grid) {
+  constructor(name, grid, sheetId = 1) {
     this.name = name;
+    this.sheetId = sheetId;
+    this.maxRows = Math.max(1000, grid.length);
+    this.maxColumns = Math.max(100, ...grid.map(row => row.length));
+    this.hidden = false;
+    this.metadata = [];
+    this.notes = {};
+    this.formats = {};
     this.values = rectangular(grid);
     /** Every write and structural change, in order, for assertions. */
     this.writes = [];
+  }
+
+  getSheetId() { return this.sheetId; }
+  getMaxRows() { return this.maxRows; }
+  getMaxColumns() { return this.maxColumns; }
+  isSheetHidden() { return this.hidden; }
+
+  // Row locators move with their row; deleted rows remove their locators.
+  shiftRows_(index, count, deleting = false) {
+    this.metadata = this.metadata.filter(meta => {
+      const range = meta.location?.dimensionRange;
+      if (!range || range.dimension !== 'ROWS') return true;
+      if (deleting && range.startIndex >= index && range.startIndex < index + count) return false;
+      if (range.startIndex >= index + (deleting ? count : 0)) {
+        range.startIndex += deleting ? -count : count;
+        range.endIndex += deleting ? -count : count;
+      }
+      return true;
+    });
+    this.maxRows += deleting ? -count : count;
+  }
+  deleteRows(row, count = 1) {
+    this.values.splice(row - 1, count);
+    this.shiftRows_(row - 1, count, true);
   }
 
   getName() {
@@ -76,7 +109,7 @@ class FakeSheet {
   }
 
   getDataRange() {
-    return this.getRange(1, 1, this.values.length, this.getLastColumn());
+    return this.getRange(1, 1, Math.max(1, this.values.length), Math.max(1, this.getLastColumn()));
   }
 
   /**
@@ -113,18 +146,21 @@ class FakeSheet {
   /** @param {number} col 1-based column to insert before. */
   insertColumnBefore(col) {
     for (const row of this.values) row.splice(col - 1, 0, '');
+    this.maxColumns++;
     this.writes.push({ kind: 'insertColumnBefore', col });
   }
 
   /** @param {number} row 1-based row to insert before. */
   insertRowBefore(row) {
     this.values.splice(row - 1, 0, new Array(this.getLastColumn()).fill(''));
+    this.shiftRows_(row - 1, 1);
     this.writes.push({ kind: 'insertRowBefore', row });
   }
 
   /** @param {number} row 1-based row to insert after. */
   insertRowAfter(row) {
     this.values.splice(row, 0, new Array(this.getLastColumn()).fill(''));
+    this.shiftRows_(row, 1);
     this.writes.push({ kind: 'insertRowAfter', row });
   }
 }
@@ -146,6 +182,20 @@ class FakeRange {
     this.col = col;
     this.numRows = numRows;
     this.numCols = numCols;
+  }
+
+  getDisplayValues() {
+    const SheetOps = require('../../SheetOps');
+    return this.getValues().map(row => row.map(value => value instanceof Date
+      ? SheetOps.dateCellText(value) : value == null ? '' : String(value)));
+  }
+  getFormulas() {
+    return this.getValues().map(row => row.map(value =>
+      typeof value === 'string' && value.startsWith('=') ? value : ''));
+  }
+  getNotes() {
+    return Array.from({ length: this.numRows }, (_, r) =>
+      Array.from({ length: this.numCols }, (_, c) => this.sheet.notes[`${this.row + r - 1},${this.col + c - 1}`] || ''));
   }
 
   getValues() {
@@ -224,17 +274,36 @@ class FakeRange {
 function createEnvironment(options) {
   const sheetName = options.sheetName || '2026';
   const secret = options.secret === undefined ? 'test-secret' : options.secret;
-  const sheet = new FakeSheet(sheetName, options.grid);
-  // Lifetime totals read every season tab, so the fake spreadsheet has to be able
-  // to hold more than the one writable season.
-  const extraSheets = (options.extraSheets || []).map(
-    (extra) => new FakeSheet(extra.name, extra.grid)
+  const sheet = options.persisted?.sheet || new FakeSheet(sheetName, options.grid, options.sheetId ?? 26);
+  const allSheets = options.persisted?.allSheets || [sheet].concat(
+    (options.extraSheets || []).map((extra, index) => new FakeSheet(extra.name, extra.grid, extra.sheetId ?? index + 100))
   );
-  const allSheets = [sheet].concat(extraSheets);
-  const properties = Object.assign(
-    { SHARED_SECRET: secret, SEASON_SHEET_NAME: sheetName },
-    options.properties || {}
+  const properties = options.persisted?.properties || Object.assign(
+    { SHARED_SECRET: secret, SEASON_SHEET_NAME: sheetName }, options.properties || {}
   );
+  const spreadsheetId = options.spreadsheetId || 'test-workbook';
+  const spreadsheet = {
+    getId: () => spreadsheetId,
+    getSpreadsheetTimeZone: () => options.timeZone || 'Australia/Perth',
+    getSheetByName: name => allSheets.find(s => s.name === name) || null,
+    getSheetById: id => allSheets.find(s => s.sheetId === id) || null,
+    getSheets: () => allSheets.slice(),
+  };
+  const sheetsService = makeSheetsService({ allSheets, spreadsheetId, FakeSheet });
+  const propertyStore = {
+    getProperty: key => Object.hasOwn(properties, key) ? properties[key] : null,
+    getProperties: () => ({ ...properties }),
+    setProperty: (key, value) => {
+      if (Buffer.byteLength(String(value)) > 9000) throw new Error('Property exceeds 9 KB');
+      properties[key] = String(value); return propertyStore;
+    },
+    setProperties: (values, deleteAllOthers = false) => {
+      if (deleteAllOthers) Object.keys(properties).forEach(key => delete properties[key]);
+      Object.entries(values).forEach(([key, value]) => propertyStore.setProperty(key, value));
+      return propertyStore;
+    },
+    deleteProperty: key => { delete properties[key]; return propertyStore; }
+  };
 
   let lockHeld = Boolean(options.lockHeld);
   const lockLog = [];
@@ -242,18 +311,24 @@ function createEnvironment(options) {
   const sandbox = {
     console,
     SpreadsheetApp: {
-      getActiveSpreadsheet: () => ({
-        getSheetByName: (name) => allSheets.find((s) => s.name === name) || null,
-        getSheets: () => allSheets.slice(),
-      }),
+      getActiveSpreadsheet: () => spreadsheet,
       flush: () => {},
     },
-    PropertiesService: {
-      getScriptProperties: () => ({
-        getProperty: (key) =>
-          Object.prototype.hasOwnProperty.call(properties, key) ? properties[key] : null,
-      }),
+    Sheets: sheetsService.api,
+    Utilities: {
+      getUuid: () => crypto.randomUUID(),
+      formatDate: (date, timeZone, format) => {
+        if (format !== 'd-MMM') throw new Error('Unsupported date format: ' + format);
+        const parts = new Intl.DateTimeFormat('en-GB', { timeZone, day: 'numeric', month: 'numeric' }).formatToParts(date);
+        const month = Number(parts.find(part => part.type === 'month').value);
+        return parts.find(part => part.type === 'day').value + '-' +
+          ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month - 1];
+      },
+      DigestAlgorithm: { SHA_256: 'sha256' },
+      Charset: { UTF_8: 'utf8' },
+      computeDigest: (algorithm, value) => Array.from(crypto.createHash('sha256').update(value).digest(), n => n > 127 ? n - 256 : n),
     },
+    PropertiesService: { getScriptProperties: () => propertyStore },
     LockService: {
       getScriptLock: () => ({
         waitLock: (timeout) => {
@@ -280,7 +355,8 @@ function createEnvironment(options) {
   };
 
   const context = vm.createContext(sandbox);
-  for (const file of ['SheetOps.js', 'Code.gs']) {
+  const sources = ['SheetOps.js', 'GuestOps.js'].concat(fs.readdirSync(APPS_SCRIPT_DIR).filter(file => file.endsWith('.gs')).sort());
+  for (const file of sources) {
     vm.runInContext(fs.readFileSync(path.join(APPS_SCRIPT_DIR, file), 'utf8'), context, {
       filename: file,
     });
@@ -302,6 +378,10 @@ function createEnvironment(options) {
     context,
     secret,
     lockLog,
+    spreadsheet, allSheets, properties,
+    batches: sheetsService.batches,
+    failNextBatch: sheetsService.failNextBatch,
+    restart: () => createEnvironment({ ...options, persisted: { sheet, allSheets, properties } }),
     /** @param {boolean} held Simulate another writer holding the script lock. */
     setLockHeld: (held) => {
       lockHeld = held;

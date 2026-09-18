@@ -222,3 +222,74 @@ Note against each **FORMULA CHECK** what actually happened; those are the only s
 whose answer isn't already known. Anything surprising goes in
 `apps-script/HANDOFF.md` under "Needs verification", and any contract change goes
 through a plan PR — the API contract is frozen.
+
+## Shared guest promotion (API v2)
+
+The accepted 16 September shared-guest plan supersedes the legacy contract above.
+Run these checks on a private workbook copy. Keep the original workbook and its
+bound script unchanged. Record the copy ID before every upload or mutation.
+Use a new operation UUID for each independent test. A retry uses the saved UUID
+and exact canonical payload. Never reissue an unknown structural batch.
+
+### Baseline and formulas
+
+- [ ] Before uploading the promotion code, record first, middle and last member
+      insertion plans and their real formula results. The U2 baseline inserts a
+      first name at the left boundary; middle and last use the inside-band rule.
+- [ ] Record both season headers, run totals, distances, member marks, notes,
+      formatting and above-header formulas. Run this during an edit-free window.
+- [ ] After the update, insert first, middle and last names in separate test
+      cases. Each insertion must occur strictly inside the old member range.
+      The first insertion moves the old first member right; the last insertion
+      moves the old last member left. Their notes and absence marks must follow.
+- [ ] **FORMULA CHECK:** Existing run COUNTIF ranges include the new column.
+      Existing members keep their counts and kilometres. New member summary
+      COUNTIF/SUMIF formulas use the new member column and preserve the distance
+      column references. No formula reports `#REF!` or copies another person's
+      historical opening value.
+- [ ] **FORMULA CHECK:** Use different member positions in 2025 and 2026. The
+      2026 historical summary must reference the new member's actual 2025 column,
+      not the adjacent template member. In the current layout, the expected
+      2026 history cell is `='2025'!<historical-member-column>9`; the cumulative
+      cell adds that history cell and the current season count. If the person
+      has no member column in the historical season, the historical value is 0.
+      An unsupported historical formula must stop before any mutation.
+- [ ] **FORMULA CHECK:** Existing first/last members keep their historical links
+      when the roster positions differ. Check both the moved formula cell and
+      other seasons which reference the relocated member. Those references must
+      still identify the original person. An unaffected season must receive no
+      unnecessary new member column.
+
+### Historical transfer and recovery
+
+- [ ] Seed one synthetic shared guest with three named allocations in 2025 and
+      eight in 2026. Retain a second guest or unnamed slot on at least one run.
+      Save all eleven runs before requesting the promotion preview.
+- [ ] Compare the preview against all eleven real run IDs, dates and seasons.
+      Confirm that each headcount and distance stays unchanged. Choose create
+      or link explicitly; a matching name must never select link automatically.
+- [ ] Commit promotion and inspect the workbook. It has eleven ordinary member
+      `x` marks, eleven transferred audit records, one promoted guest mapping
+      and one completed operation receipt. Each original guest count decreased
+      once. Other guests, marks, notes, formulas and formatting remain correct.
+- [ ] **FORMULA CHECK:** Read both season totals, the 2026 cumulative summary
+      and `getState.lifetimeTotals`. All credit the same eleven runs. Compare
+      kilometres and dates with the original rows; no synthetic balance exists.
+- [ ] Run a separate ten-run promotion case. The next saved member attendance
+      raises the total to eleven. A guest with only 2025 history still receives
+      a 2026 roster entry with no new 2026 attendance mark.
+- [ ] Drop the commit response after application, close the originating client
+      and reopen from another client. Check operation status, then resend the
+      exact operation. There is one column, one transfer and one guest decrement.
+      A second organiser's different operation cannot promote the guest again.
+- [ ] Change a previewed mark, note, distance or formula. Commit returns
+      `promotion_changed` without creating a column or changing attendance.
+      Missing metadata, insufficient allocations and an already-attended link
+      target also stop without changing attendance.
+- [ ] Change an original mark or formula after an applied batch but before
+      verification. The completed receipt must remain fenced as pending until
+      the discrepancy is reviewed. Do not clear the fence to force a retry.
+
+The Node fake proves atomic request intent, reference-independent formula
+structure and recovery behaviour. It does not calculate formulas or prove
+Google's reference adjustment. Record the real copy results separately.

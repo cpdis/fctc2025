@@ -174,6 +174,7 @@ final class FCTCAttendanceUITests: XCTestCase {
         XCTAssertEqual(app.buttons["member-Col"].value as? String, "Not checked")
         XCTAssertEqual(app.buttons["member-Dan B"].value as? String, "Not checked")
         XCTAssertFalse(app.buttons["member-Priya B"].exists)
+        XCTAssertEqual(app.staticTexts["attendance-count"].label, "0 checked")
 
         importPoll = app.buttons["import-poll"]
         importPoll.tap()
@@ -189,6 +190,7 @@ final class FCTCAttendanceUITests: XCTestCase {
         XCTAssertEqual(app.buttons["member-Aaron"].value as? String, "Checked")
         XCTAssertEqual(app.buttons["member-Dan B"].value as? String, "Checked")
         XCTAssertEqual(app.buttons["member-Priya B"].value as? String, "Checked")
+        XCTAssertEqual(app.staticTexts["attendance-count"].label, "3 checked")
         // Applying proposals only changes the draft. The sheet write still needs the
         // existing explicit Confirm action.
         XCTAssertTrue(app.buttons["confirm-attendance"].exists)

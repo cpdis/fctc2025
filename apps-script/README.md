@@ -5,11 +5,81 @@ project living inside the FCTC spreadsheet, deployed as a Web App that speaks JS
 over POST. The iOS app therefore needs no Google OAuth at all — just a URL and a
 shared secret.
 
-Plan: `docs/plans/2026-08-14-001-feat-fctc-attendance-ios-app-plan.md`.
-Status: **release candidate (U8)** — all four actions are covered by
-`node --test apps-script/test`. The 2026-08-14 smoke run verified the deployment,
-formulas, concurrency, date handling, and sheet-safety carve-out against a copy.
-Run `test/smoke.md` again after a write-layer change.
+The original app follows `docs/plans/2026-08-14-001-feat-fctc-attendance-ios-app-plan.md`.
+Shared guest work follows the September plan below. New capabilities stay disabled
+until copy verification and an explicitly approved production upgrade are complete.
+The August smoke result covers the original writer only. Run `test/smoke.md` again
+after a write-layer change.
+
+## Shared guest contract (v2)
+
+The [September plan](../docs/plans/2026-09-16-1450-feat-shared-guest-attendance-plan.md)
+replaces the original phone-local guest decision. The pure contract is implemented in
+`GuestOps.js`, with [shared JSON fixtures and field documentation](../fixtures/attendance/guests/README.md).
+The contract does not imply a deployed v2 endpoint. The server must advertise only usable capabilities.
+
+Guests have UUIDs and editable labels. Member keys remain exact canonical sheet names.
+Run identity is workbook ID + season sheet ID + row-associated run UUID; row indices are locators.
+Attendance is one logical record per guest/run, with explicit present/removed and guest/transferred states.
+Named IDs plus the explicit unnamed remainder determine `+1's`. Same-name guests require selection.
+Promotion preserves historical attendance and rejects later writes that still treat the person as a guest.
+
+Every v2 mutation has an operation UUID and a verified canonical-request SHA-256 digest.
+Receipts distinguish pending, completed, rejected, and reconciled non-application (`not_applied`).
+Pending outcomes fence workbook writes until verified; a repeated UUID returns its saved outcome.
+The pure module validates contracts. The adapter recomputes digests, enforces revisions,
+bounds stored recovery data, and makes related sheet changes atomically.
+
+`setupSharedGuests` requires `SHARED_GUESTS_SETUP_ALLOWED=true`, the exact workbook ID,
+and explicit season sheet IDs. It creates hidden tables and run metadata without enabling
+writes. `SHARED_GUESTS_ENABLED=true` enables available shared actions after setup.
+Setup leaves a durable format marker: setting the enable flag back to false pauses shared
+writes but does not permit older apps to overwrite named allocations.
+Use the [operator setup procedure](../docs/operators/shared-guest-setup.md) to
+prepare and retain the canonical request. After dispatch starts, the helper only
+checks status; an absent receipt does not permit another setup attempt.
+
+`getState` accepts an optional `seasonSheetId` for historical navigation. Shared state includes
+guest summaries, stable run IDs, named selections, unnamed counts, pending operation IDs,
+and `supportedSeasons: [{seasonSheetId, seasonYear}]` for explicit recovery selection.
+`getGuestHistory` returns dated entries across configured seasons. Name-only edits use
+`renameGuest`; they do not need an attendance or distance change.
+
+Every writer checks the workbook fence while holding the script lock. A pending journal
+stores the canonical request, source revisions, exact targets, and receipt location
+before dispatch. The final batch includes its completed receipt. `getOperationStatus` verifies
+the saved targets before it clears an uncertain operation. A missing receipt after dispatch
+is not permission to repeat a batch. A bootstrap interruption before the ledger exists
+retains its fence for operator recovery, even if dispatch never started.
+
+The journal does not duplicate the write batch: reconciliation uses its exact targets,
+and never executes stored requests. This keeps a two-season setup within the bounded
+property store. Row locators use `DeveloperMetadata.search`; sheet-level metadata
+reads omit them. Normalize omitted numeric defaults, including historical sheet ID `0`,
+before validating the returned locations.
+
+The iOS outbox may resend the same saved UUID and digest only when completed
+transport metrics prove that its request never started. Missing metrics, a sent
+request, or a redirect leave delivery uncertain. Those operations continue receipt
+checks after restart. Existing uncertain records cannot infer non-delivery later.
+
+**Narrow sheet-safety extension:** the v2 adapter may maintain `_FCTC_Guests`,
+`_FCTC_GuestAttendance`, `_FCTC_Operations`, and run-row developer metadata.
+Reviewed promotion may convert original historical run cells inside the normal member band
+and decrement their `+1's` cells. Each run's headcount, distance, and formulas must remain unchanged.
+Member-column insertion retains the existing right-edge formula protection.
+The preservation digest allows A1 references and open range endpoints to move.
+It retains formula operators, quoted text, sheet names, and named ranges.
+Numeric run totals, existing members' calculated summaries, and direct historical
+formulas are checked separately. A linked member's totals may gain the transferred runs.
+Use the Google copy for formula verification: XLSX exports expand open ranges.
+New member summaries copy recognised formulas. Direct earlier-season references are
+relocated by member identity when columns move. Unrecognised historical formulas stop
+the operation before mutation. This permits no arbitrary changes to unrelated tabs.
+Hidden tabs organise data; workbook sharing and publication settings control access.
+
+Focused contract checks: `node --test apps-script/test/guestops.checks.js`.
+The legacy contract below remains the compatibility baseline; v2 responses keep its readable fields.
 
 ## API contract (frozen — changes require a plan PR first)
 
@@ -18,7 +88,7 @@ Response: `{ ok: true, ... }` or `{ ok: false, error: "code", message: "..." }`.
 
 | Action | Payload → Response |
 |---|---|
-| `getState` | `{}` → `{ roster: [{name, colIndex}], runs: [{rowIndex, date, meet, run, approxKm, actualKm, attendees, plusOnes}], seasonYear, sheetRevision, lifetimeTotals: [{name, runs}] }` |
+| `getState` | `{}` → `{ roster: [{name, colIndex}], runs: [{rowIndex, date, meet, run, approxKm, actualKm, attendees, plusOnes}], seasonYear, sheetRevision, lifetimeTotals: [{name, runs}], birthdays: [{name, month, day}] }` |
 | `submitAttendance` | `{ rowIndex, expectedDate, expectedRun, attendees, plusOnes, actualKm, mode: "merge"\|"overwrite", baseRevision }` → `{ ok, written }` or `{ ok, conflict: { reason, state } }` |
 | `addMember` | `{ name }` → `{ roster }` |
 | `addRun` | `{ date, meet, run, approxKm }` → `{ runs }` |
@@ -26,6 +96,15 @@ Response: `{ ok: true, ... }` or `{ ok: false, error: "code", message: "..." }`.
 `sheetRevision` is a stable hash of the header row + run-band cell values, used for
 optimistic concurrency. `submitAttendance` writes **absolute** values (not deltas), so
 retrying a queued submission is idempotent — that is what makes the offline outbox safe.
+
+`birthdays` is an additive field on legacy and shared state, including conflict state.
+It reads the requested season's `BIRTHDAY` metadata row between the discovered header
+and first run. Member columns supply the names. Valid date cells use the spreadsheet's
+timezone; text cells accept `1-Sep` or `1 September` (case-insensitive, with `-`, `/`, or
+space separators). Numeric-only text dates are excluded because their order is ambiguous.
+The response contains only month and day, never a birth year or age. Blank or invalid
+cells are skipped; a missing row returns `[]`. The app chooses the upcoming date window.
+This read does not write sheet cells or change the public dashboard export contract.
 
 **Sheet-safety invariant:** nothing is ever written outside a run row's member band +
 `Actual kms` + `+1's` cells, the member-band header row, or an inserted run row.
@@ -52,8 +131,15 @@ and writes nothing. Three operational codes round it out: `sheet_unreadable` (th
 
 | File | Role |
 |---|---|
-| `Code.gs` | Web app entry (`doPost` router, auth, LockService). All `SpreadsheetApp` I/O lives here. |
+| `Code.gs` | Web app entry, authentication, lock helper, and legacy sheet operations. |
 | `SheetOps.js` | Pure sheet geometry (header detection, member band, revision hash, insert positions). No I/O, no `require` — see the dual-environment note below. |
+| `GuestOps.js` | Pure shared UUID, history, allocation, revision, and operation-request contracts. No Apps Script services. |
+| `GuestStore.gs`, `GuestActions.gs` | Shared snapshots, authenticated routes, identity edits, and attendance plans. |
+| `GuestSetup.gs`, `SheetBatch.gs` | Explicit setup and precise Sheets v4 request builders. |
+| `GuestOperations.gs` | Durable pending journals, atomic receipts, and restart reconciliation. |
+| `GuestPromotion.gs`, `GuestPromotionSafety.gs` | Reviewed historical conversion and formula preservation. |
+| `GuestImport.gs` | Explicit local-history review and unnamed-slot assignment. |
+| `AttendanceExport.gs` | Locked, authenticated snapshot of every supported season. |
 | `appsscript.json` | Manifest: V8, web app `ANYONE_ANONYMOUS` / execute as `USER_DEPLOYING`. |
 | `.clasp.json.example` | Template for the (gitignored) `.clasp.json`. |
 | `.claspignore` | Keeps `test/`, `package.json` and this README out of the pushed project. |
@@ -199,3 +285,31 @@ near-canonical twin doesn't linger.
 
 Change `SHARED_SECRET` in Script Properties, then update the secret in the app's
 Settings screen on both phones. No redeploy needed.
+
+### Reviewed guest recovery
+
+`previewGuestImport` accepts a shared `guestId` and explicit `entries`. Each entry
+contains the workbook, season sheet ID, stable run ID, displayed date and run label,
+and `assignment: "existing_unnamed_slot"`. The response includes the reviewed entries,
+allocation changes, `baseGuestRevision` and an opaque `baseRevision`.
+`importGuestHistory` submits those fields through the v2 operation protocol. It
+names an existing guest slot; it does not change a run's total or distance.
+Duplicate guest/run imports return a completed no-op. Missing slots need review.
+
+### Consistent attendance export
+
+`exportAttendanceSnapshot` requires the shared secret and holds the script lock
+while reading all supported seasons (currently 2025 and 2026). It returns displayed
+cell strings, workbook and sheet IDs, `capturedAt`, and a SHA-256 `snapshotRevision`.
+It excludes the auxiliary guest and operation tabs. A pending operation returns
+`busy`; a missing season returns `snapshot_invalid`. A pause in guest writes does
+not disable this read-only export.
+
+Run `node scripts/sync-attendance-snapshot.js` from the repository root with
+`FCTC_ATTENDANCE_ENDPOINT` and `FCTC_ATTENDANCE_SECRET` in the environment. The client
+validates the entire snapshot before replacing any supported-year CSV. Unchanged
+CSV files leave `last-updated.json` unchanged. Configure the endpoint and secret in
+private deployment settings; never put them in a URL or a public artifact.
+The client retries transient network errors, HTTP 429/5xx, and `busy` at most four
+times. Authentication and invalid snapshots fail without retry. Local replacement
+failure restores the previous files; a failed restoration requires local recovery.

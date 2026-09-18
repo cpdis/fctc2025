@@ -16,12 +16,12 @@ import SwiftUI
 
 struct MilestonesSection: View {
     /// Cached roster with lifetime totals. Filtering lives in MilestoneBoard.
-    let members: [Member]
+    let totals: [MemberTotal]
     /// This launch's empty-state line, held by the runtime.
     let emptyPhrase: String
 
     private var candidates: [MilestoneCandidate] {
-        MilestoneBoard.shortlist(from: members.map { ($0.name, $0.lifetimeRuns) })
+        MilestoneBoard.shortlist(from: totals.map { ($0.name, $0.runs) })
     }
 
     var body: some View {

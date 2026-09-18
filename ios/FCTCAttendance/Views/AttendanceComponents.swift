@@ -71,14 +71,3 @@ struct ProvenanceBadge: View {
         }
     }
 }
-
-struct FrequentGuestBadge: View {
-    var body: some View {
-        Text("Frequent guest")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(Color.secondary.opacity(0.09), in: .capsule)
-    }
-}

@@ -1,0 +1,21 @@
+Tick a name and count the crew;
+Guests now share their totals too.
+Birthdays coming? See them here,
+For thirty days of birthday cheer.
+
+Filament Coffee Track Club — shared guests, headcounts and birthdays
+
+Update the existing app. Do not delete it: saved names, history and pending attendance stay on your phone.
+
+This build includes the guest-sync fixes tested in build 5, a live checked-attendee count, a total including guests, and birthdays for today and the next 30 days.
+
+Use Colin's real-sheet setup code when he confirms the connection is ready. Installing this build keeps your current connection. Check that any private-test submissions have synced before changing it. Test-copy guests are not imported into the real spreadsheet.
+
+Please check:
+• Tick or untick attendees. The count updates immediately and stays correct during search.
+• Add named or unnamed guests. The total includes each person once.
+• Refresh Home. Upcoming birthdays appear below Milestones using the sheet's birthday row.
+• Record a real run, then refresh another phone. Confirm the same guests and attendance appear.
+• When promoting a guest, review their history first. Their previous runs still count.
+
+Share feedback through TestFlight.

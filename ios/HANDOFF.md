@@ -1,5 +1,113 @@
 # iOS handoff
 
+## Shared guests (September 2026)
+
+Work is on `codex/shared-guest-attendance`. The September plan supersedes the old
+phone-local guest counter and promotion behavior described below. Colin approved
+the private test endpoint and TestFlight distribution to all three testers on
+16 September. Production migration and git push remain separate steps.
+
+The server stores shared UUID identities and dated attendance. Promotion converts
+the original season rows and keeps all prior run credit. The iOS store preserves
+legacy names and queues as recovery evidence. Unknown operation outcomes check
+receipts after restart; they do not repeat structural writes.
+
+The shared schema adds caches, provisional identities, operation receipts, and
+recovery candidates. A synthetic installed v1 SQLite fixture tests migration.
+Guest recovery requires an explicit person, season, run, and existing unnamed slot.
+Old `done` records remain ambiguous. Never uninstall the app to fix recovery.
+
+Naming, replacing, or removing a saved guest requires a reviewed overwrite.
+Promoted-guest conflict review shows the refreshed attendance and distance before
+replacement. An original merge keeps concurrent member and guest attendance.
+The Home screen ignores refresh results from a replaced connection.
+
+Offline retry retains the original UUID and digest when completed transport
+metrics prove that no request was sent. Missing evidence remains uncertain.
+An absent receipt never permits a structural replay. The
+[setup helper](../docs/operators/shared-guest-setup.md) follows this same rule
+after its durable dispatch marker exists.
+
+Before release, finish the endpoint and two-phone checks, inspect the local
+visual review page, and follow the shared guest section of
+`docs/plans/packets/U8-release-runbook.md`. Production credentials and sharing
+settings are release inputs, not evidence that a local branch has shipped.
+
+### Local verification on 16 September
+
+- Apps Script: 258 tests passed. Dashboard and operator tools: 300 tests passed.
+- iOS Kit: 266 tests in 40 suites passed. All 22 UI cases passed across the broad
+  run and final rerun. The final 13-case run covers every legacy UI case and the
+  final guest correction label.
+- The broad run first found two obsolete UI fixtures without endpoint identity.
+  Corrected the fake API; retained the production guard and all assertions.
+- App and share extension compile for the simulator. The dashboard production
+  build passes with its existing large-chunk advisory.
+- Small and large iPhone screenshots include largest Dynamic Type. The local
+  comparison is `review/shared-guests/index.html` and uses synthetic records.
+- All accepted code-review findings are fixed. The review and test receipts
+  are listed in `review/shared-guests/evidence.md`.
+
+### Google copy verification on 16 September
+
+Google access is approved for the separate private test script. Both seasons
+retain unique run UUIDs. Setup preserved all season cells. An invalid atomic
+batch changed no cells. Row insertion retained the original run UUID.
+First and middle member insertion preserved original credit, notes and totals.
+
+A fresh promotion converted three 2025 runs and eight 2026 runs into eleven
+member marks and eleven lifetime runs. Existing credit, notes, headcounts and
+distances stayed unchanged. Saved receipts resolved each interrupted response
+without repeating structural writes.
+Two independent drafts from the same old revision retained both named guests.
+Each guest had one confirmed run after receipt recovery. Two overlapping Google
+executions also proved that a held script lock returns `busy` without a partial
+operation. Missing and invalid secrets returned no snapshot data.
+The real before/after snapshots passed the CSV serializer, dashboard parser,
+and milestone loader. All original member totals, run headcounts and distances
+matched. Three synthetic promoted members each retained eleven runs. Repeating
+the snapshot changed no CSV or timestamp.
+
+Copy testing fixed the journal size, row metadata search, omitted sheet ID zero,
+and open-ended formula range handling. The promotion guard also checks each
+existing member's calculated summaries at their new column positions. XLSX exports expand those ranges, so
+formula verification must also inspect Google's original formula text.
+
+**Remaining release checks:** Verify the physical phones with their preserved
+installed stores. Retain phone backups and reconcile their candidates before
+any real promotion. Production migration, workflow cutover and push remain
+outside the private TestFlight release. Server checks do not prove installed
+phone recovery.
+
+### Private TestFlight release on 16 September
+
+- Prepared version 0.1.0 build 4 for Colin, Aaron and Grant. The existing internal
+  group also contains Colin's second account; its membership stays unchanged.
+- Apple approved build `139369ad-1850-4c5f-8c7c-2521d4f1d6d7`. Both internal
+  and external states report `IN_BETA_TESTING`. Verified build 4 belongs to
+  FCTC Internal and FCTC Friends; automatic tester notification is enabled.
+  The saved en-AU test notes match `ios/testflight-build-4.txt` exactly.
+- Deployed version 1 of the private copy script. Its web endpoint executes as
+  the owner and requires the shared secret. The workbook stays private.
+  The published version contains the twelve runtime modules and manifest;
+  it omits the verification helper and contains no embedded secret.
+- Verified actual HTTP GET refusal, missing/invalid-secret refusal, shared API
+  v2 state with no pending operation, and authenticated export of both seasons.
+  The production snapshot consumer passed against that deployed HTTP endpoint.
+- Archive and upload succeeded. App, share extension and framework signatures
+  passed; all three report 0.1.0 (4). Existing compiler warnings remain in voice
+  error handling and the share extension's existential spelling.
+- The build preserves each installed phone's existing endpoint. Private setup
+  requires scanning its code. Codes for all three testers passed Vision decode
+  and device-name checks. The private handoff is
+  `review/shared-guests/testflight-build4/setup.html` (ignored, never upload).
+- What to Test was written before the archive: `ios/testflight-build-4.txt`.
+- Code review: skipped (mechanical diff). This release changes the build number
+  and release documentation only. Completed feature review receipts and fixes
+  are recorded in `review/shared-guests/evidence.md`.
+
+The sections below are historical handoff records, not current test results.
+
 ## Review round 2
 
 ### Delivered

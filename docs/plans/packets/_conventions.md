@@ -1,5 +1,25 @@
 # Work-packet conventions (read first, applies to every unit)
 
+## September 2026 shared guest addendum
+
+The [shared guest attendance plan](../2026-09-16-1450-feat-shared-guest-attendance-plan.md)
+governs its U1-U6 units. The original August packets below remain historical context.
+For the September work, the plan and assigned ownership replace the original branch,
+frozen-contract, local-only guest, and blanket file-exclusion rules where they conflict.
+
+- Member names remain canonical member keys. Guests use stable UUIDs; labels may change.
+- New run references use workbook ID + season sheet ID + run UUID. Row indices remain coordinates.
+- The shared contract and fixtures live in [`fixtures/attendance/guests/`](../../../fixtures/attendance/guests/README.md).
+- Extend writes only for the three reserved guest/attendance/operation tabs, run-row metadata,
+  and reviewed historical conversion inside original run member/guest cells.
+  Preserve run headcounts, distances, formulas, and the existing member-column insertion protection.
+- Retain removed and transferred records. Reject stale guest identities after promotion.
+- A known write operation returns its receipt; an unresolved operation fences other workbook writes.
+- Hidden tabs provide no access control. Verify actual workbook sharing before storing private guest history.
+- Follow the current environment and assigned branch; do not assume Linux or missing Xcode.
+
+The original baseline follows.
+
 You are a solo coding agent building one unit of the FCTC Attendance iOS app.
 Master plan: `docs/plans/2026-08-14-001-feat-fctc-attendance-ios-app-plan.md` — read it
 before starting; your packet's contract wins on any conflict, the plan wins on anything

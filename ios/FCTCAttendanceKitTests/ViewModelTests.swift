@@ -246,7 +246,7 @@ struct ViewModelTests {
         #expect(viewModel.diffSummary(for: .overwrite).summary == "Will add 2, remove 1")
     }
 
-    @Test("Checklist quick-add promotes a guest and checks the new member")
+    @Test("Quick-add creates a member without erasing guest evidence")
     func quickAddPromotesGuest() async throws {
         let client = ViewModelSyncClient()
         let baseline = run(row: 42, dayOffset: 0)
@@ -268,7 +268,7 @@ struct ViewModelTests {
         try await viewModel.commitQuickAdd()
 
         #expect(viewModel.roster == ["Aaron", "Priya"])
-        #expect(viewModel.draft.guestNames.isEmpty)
+        #expect(viewModel.draft.guestNames == ["Priya"])
         #expect(viewModel.draft.isChecked("Priya"))
         #expect(viewModel.draft.baseRevision == "rev-2")
         #expect(await client.addedMembers == ["Priya"])
@@ -306,19 +306,15 @@ struct ViewModelTests {
         #expect(await client.addedMembers == ["Priya", "Priya"])
     }
 
-    @Test("Quick-add searches retained guest history")
-    func quickAddSearchesGuestHistory() {
+    @Test("Shared guest labels refresh without replacing stable identities")
+    func sharedGuestLabels() {
+        let guest = Guest(name: "Rene")
         let baseline = run(row: 42, dayOffset: 0)
-        let viewModel = ChecklistViewModel(
-            run: baseline,
-            roster: ["Aaron"],
-            guestHistory: ["Priya", "priya", "Toby"],
-            engine: ViewModelSyncClient()
-        )
-
-        viewModel.quickAddName = "pri"
-
-        #expect(viewModel.matchingGuests.map(\.name) == ["Priya"])
+        let draft = AttendanceDraft(rowIndex: 42, expectedDate: baseline.date, expectedRun: baseline.run, guests: [guest])
+        let model = ChecklistViewModel(run: baseline, roster: [], draft: draft, engine: ViewModelSyncClient())
+        model.updateSharedGuests([SharedGuest(guestId: guest.id.uuidString, displayName: "René", confirmedRuns: 11)])
+        #expect(model.draft.guests.first?.id == guest.id)
+        #expect(model.draft.guests.first?.name == "René")
     }
 
     @Test("Outbox filters retained history on isOutstanding")

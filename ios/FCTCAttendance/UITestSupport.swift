@@ -64,8 +64,56 @@ enum UITestSupport {
         return nil
     }
 
+    static var storeName: String {
+        let args = ProcessInfo.processInfo.arguments
+        guard let index = args.firstIndex(of: "-ui-store-name"), args.indices.contains(index + 1),
+              UUID(uuidString: args[index + 1]) != nil else { return UUID().uuidString }
+        return args[index + 1]
+    }
+
+    @MainActor
+    static func seedSharedEvidence(_ container: ModelContainer) {
+        let context = container.mainContext
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-ui-recovery"), (try? context.fetch(FetchDescriptor<PendingSubmission>()).isEmpty) == true {
+            context.insert(PendingSubmission(rowIndex: 42, expectedDate: "Fri, 11-Sep", expectedRun: "Soft Sand", attendees: ["Col"], guestNames: ["Rene"], plusOnes: 1, status: .done))
+        }
+        if args.contains("-ui-pending-promotion"), (try? context.fetch(FetchDescriptor<PendingGuestOperation>()).isEmpty) == true,
+           let operation = try? SharedGuestOperation(action: "commitPromotion", fields: [
+                "guestId": .string(UITestSharedGuestAPI.rene), "memberName": .string("Rene"),
+                "targetMode": .string("create"), "previewToken": .string("lost-response")]),
+           let row = try? PendingGuestOperation(operation: operation, endpointIdentity: "https://ui-test.invalid/exec", spreadsheetId: "ui-book") {
+            row.phase = .checking
+            row.lastError = "Checking saved promotion."
+            context.insert(row)
+        }
+        if args.contains("-ui-rename-conflict"), (try? context.fetch(FetchDescriptor<PendingGuestOperation>()).isEmpty) == true,
+           let operation = try? SharedGuestOperation(action: "renameGuest", fields: [
+                "guestId": .string(UITestSharedGuestAPI.rene), "displayName": .string("Adam X"),
+                "baseGuestRevision": .number(0)]),
+           let row = try? PendingGuestOperation(operation: operation, endpointIdentity: "https://ui-test.invalid/exec", spreadsheetId: "ui-book") {
+            row.phase = .conflict
+            row.lastError = "The saved guest name changed. Review your correction."
+            row.conflictData = try? JSONEncoder().encode(SharedGuestConflict(reason: "guest_changed", message: row.lastError!))
+            context.insert(row)
+        }
+        if args.contains("-ui-promoted-conflict"), (try? context.fetch(FetchDescriptor<PendingSubmission>()).isEmpty) == true {
+            let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "EEE, d-MMM"
+            let draft = AttendanceDraft(rowIndex: 42, expectedDate: formatter.string(from: .now), expectedRun: "Soft Sand",
+                checks: ["Col": .manual], guests: [Guest(id: UUID(uuidString: UITestSharedGuestAPI.rene)!, name: "Rene")], actualKm: 7.1,
+                baseRevision: "ui-old", runIdentity: RunIdentity(spreadsheetId: "ui-book", seasonSheetId: 26, runId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+                endpointIdentity: "https://ui-test.invalid/exec", unnamedGuests: 1)
+            let row = PendingSubmission.from(draft: draft, mode: args.contains("-ui-promoted-overwrite") ? .overwrite : .merge, deviceName: "UI Test iPhone", createdAt: .now)
+            row.status = .conflict; row.conflictReason = "guest_promoted"
+            row.conflictMessage = "Rene became a member while this run was offline."
+            context.insert(row)
+        }
+        try? context.save()
+    }
+
     @MainActor
     static func makeRuntime(modelContainer: ModelContainer) -> AppRuntime {
+        seedSharedEvidence(modelContainer)
         let config = AppConfig(
             endpoint: URL(string: "https://ui-test.invalid/exec"),
             secret: "ui-test-secret",
@@ -79,7 +127,7 @@ enum UITestSupport {
         let offline = ProcessInfo.processInfo.arguments.contains("-ui-offline")
         let engine = SyncEngine(
             modelContainer: modelContainer,
-            api: UITestSheetAPI(),
+            api: ProcessInfo.processInfo.arguments.contains("-ui-shared-guests") ? UITestSharedGuestAPI() : UITestSheetAPI(),
             retryPolicy: RetryPolicy(maxAttempts: 1),
             automaticallyDrains: !offline
         )
@@ -127,6 +175,8 @@ private final class UITestConfigPersistence: AppConfigPersisting, @unchecked Sen
 }
 
 private actor UITestSheetAPI: SheetAPIClient {
+    // Match the configured endpoint so fresh legacy-protocol drafts stay scoped.
+    nonisolated let endpointIdentity: String? = "https://ui-test.invalid/exec"
     private var state: SheetState
     private var writeAttempts = 0
 

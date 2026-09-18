@@ -5,6 +5,11 @@ Shared, language-neutral fixtures for the FCTC Attendance app (plan:
 (`ios/FCTCAttendanceKitTests`) and Node tests (`apps-script/test`) both read from
 here, so an expectation is written down exactly once.
 
+Shared guest identities and history now have a v2 contract in
+[`guests/README.md`](guests/README.md) and [`guests/contract.json`](guests/contract.json).
+The September shared guest plan supersedes the old local-only guest behaviour below.
+Legacy voice fixtures remain unchanged: they describe parser output before identity resolution.
+
 Ground rule from `docs/plans/packets/_conventions.md`: **add fixtures freely; never
 edit another unit's `*.expected.json` to make your code pass.** If an expectation is
 wrong, say so in the PR and let the orchestrator adjudicate.
@@ -17,6 +22,7 @@ wrong, say so in the PR and let the orchestrator adjudicate.
 | `poll-*.ocr.txt` | The text LINES Vision emits for a WhatsApp poll screenshot, one line per recognized region, in screen order. Input to `PollScreenshotParser` (U6). |
 | `voice-*.transcript.txt` | On-device speech transcripts, one utterance per file. Input to `VoiceEntryParser` (U7). |
 | `*.expected.json` | The expected parse result for the same-stem input file. |
+| `guests/contract.json` | Synthetic shared guest identities, eleven-run history, v2 requests/responses, canonical digests, and conflicts. |
 
 Roster names in every expectation are the **real 2026 sheet header names** (`Alex 👑`,
 `Alex Kr`, `Dan B`, `Laura K`, …). `apps-script/test` asserts this mechanically against
@@ -55,8 +61,9 @@ Common keys:
 
 - `plusOnes` — guest count; `0` means explicitly stated as none, `null` means unstated.
 - `distanceKm` — parsed `Actual kms`, or `null` when unstated.
-- `guestNames` — guest names when the speaker gave them (resolved Q2). The sheet's
-  `+1's` column still receives only the count; names stay on-device.
+- `guestNames` — guest names when the speaker gave them (historical Q2 parser output).
+  The v2 app resolves these labels to shared guest UUIDs before submitting attendance.
+  The sheet's `+1's` cell still receives an aggregate count; shared auxiliary tabs retain identities.
 
 ## Adding a fixture
 
