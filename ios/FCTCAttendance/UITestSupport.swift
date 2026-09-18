@@ -87,6 +87,16 @@ enum UITestSupport {
             row.lastError = "Checking saved promotion."
             context.insert(row)
         }
+        if args.contains("-ui-rename-conflict"), (try? context.fetch(FetchDescriptor<PendingGuestOperation>()).isEmpty) == true,
+           let operation = try? SharedGuestOperation(action: "renameGuest", fields: [
+                "guestId": .string(UITestSharedGuestAPI.rene), "displayName": .string("Adam X"),
+                "baseGuestRevision": .number(0)]),
+           let row = try? PendingGuestOperation(operation: operation, endpointIdentity: "https://ui-test.invalid/exec", spreadsheetId: "ui-book") {
+            row.phase = .conflict
+            row.lastError = "The saved guest name changed. Review your correction."
+            row.conflictData = try? JSONEncoder().encode(SharedGuestConflict(reason: "guest_changed", message: row.lastError!))
+            context.insert(row)
+        }
         if args.contains("-ui-promoted-conflict"), (try? context.fetch(FetchDescriptor<PendingSubmission>()).isEmpty) == true {
             let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "EEE, d-MMM"
             let draft = AttendanceDraft(rowIndex: 42, expectedDate: formatter.string(from: .now), expectedRun: "Soft Sand",

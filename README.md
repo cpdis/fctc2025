@@ -316,6 +316,19 @@ no forecast. The app reads live from the sheet through `getState`, so it reflect
 attendance recorded seconds ago; the email reads the weekly CSV export.
 See `docs/plans/2026-08-16-001-feat-milestones-ahead-section-plan.md`.
 
+On a run's **Guests** screen, **Name a guest** assigns a saved person or a new
+name to one unnamed guest. The total stays the same. Swipe a selected guest to
+replace the person. Both search fields support keyboard dismissal while scrolling.
+Use **Correct name** in the guest history to save a shared name without syncing the
+run. A name change that needs review opens the saved name beside the proposed
+correction. Choose **Save name** or **Keep saved name**. Pending changes stay in
+Outbox until their original save is confirmed. A queued change shows its saved
+error. Delayed reads cannot replace a newer confirmed guest name.
+
+A birthday row below the attendance header does not count as a run. Keep its Date
+cell blank. Shared run IDs follow row insertions; older connections ask for a
+refresh if their saved row coordinate no longer matches the run.
+
 Release operations live in `docs/plans/packets/U8-release-runbook.md`. Keep one
 production Apps Script deployment ID and update it with `clasp deploy -i`; a plain
 deploy changes the phone endpoint. Generate private setup pages with

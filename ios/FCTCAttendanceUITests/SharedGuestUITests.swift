@@ -172,7 +172,7 @@ final class SharedGuestUITests: XCTestCase {
         openRun(42)
         app.buttons["guest-editor"].tap()
         app.buttons["name-unnamed-guest"].tap()
-        tap(app.buttons["select-guest-Toby"])
+        tap(app.buttons["guest-picker-select-Toby"])
         XCTAssertTrue(app.staticTexts["selected-guest-Toby"].exists)
         app.navigationBars.buttons.element(boundBy: 0).tap()
         app.buttons["confirm-attendance"].tap()

@@ -8,29 +8,39 @@ struct GuestDetailView: View {
     let checklist: ChecklistViewModel?
     @Query private var guestOperations: [PendingGuestOperation]
     @Query private var submissions: [PendingSubmission]
+    @Query private var cachedGuests: [CachedGuest]
+    @Query private var sharedCaches: [SharedSheetCache]
     @State private var history: GuestHistory?
-    @State private var editedName = ""
     @State private var error: String?
     @State private var message: String?
-    @State private var renameOperation: UUID?
     @State private var isWorking = false
     @State private var historicalRun: RunSnapshot?
     @State private var showingRename = false
 
-    private var currentGuest: SharedGuest { history?.guest ?? guest }
+    // A confirmed name mutation updates the cache before history is fetched again.
+    private var currentGuest: SharedGuest {
+        let loaded = history?.guest ?? guest
+        let book = checklist?.run.runIdentity?.spreadsheetId ?? sharedCaches
+            .filter { $0.endpointIdentity == runtime.config.endpoint?.absoluteString }
+            .max(by: { $0.refreshedAt < $1.refreshedAt })?.state?.spreadsheetId
+        let cached = cachedGuests.first { $0.spreadsheetId == book && $0.guestId == guest.guestId }?.guest
+        return cached.map { $0.revision >= loaded.revision ? $0 : loaded } ?? loaded
+    }
 
     var body: some View {
+        let displayGuest = currentGuest
+        let pendingNameChange = nameChange
         List {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("\(currentGuest.confirmedRuns ?? 0)")
+                    Text("\(displayGuest.confirmedRuns ?? 0)")
                         .font(.largeTitle.bold()).monospacedDigit()
-                    Text(currentGuest.isActive ? "confirmed runs" : "guest runs credited to member").foregroundStyle(.secondary)
-                    if currentGuest.canSuggestPromotion {
+                    Text(displayGuest.isActive ? "confirmed runs" : "guest runs credited to member").foregroundStyle(.secondary)
+                    if displayGuest.canSuggestPromotion {
                         Label("Ready to add as a member", systemImage: "person.crop.circle.badge.checkmark")
                             .font(.subheadline).foregroundStyle(.tint)
                     }
-                    if let last = currentGuest.lastAttendance {
+                    if let last = displayGuest.lastAttendance {
                         Text("Last attended \(last.date), \(last.seasonYear)").font(.footnote).foregroundStyle(.secondary)
                     }
                 }.padding(.vertical, 8).accessibilityIdentifier("guest-confirmed-count")
@@ -43,21 +53,21 @@ struct GuestDetailView: View {
                         Label("Run pending — open Outbox", systemImage: "clock")
                     }.accessibilityIdentifier("guest-pending-attendance")
                     Text("Promotion waits for this person's pending attendance to be confirmed.").font(.footnote).foregroundStyle(.secondary)
-                } else if currentGuest.isActive {
+                } else if displayGuest.isActive {
                     NavigationLink {
-                        GuestPromotionView(runtime: runtime, guest: currentGuest, checklist: checklist)
+                        GuestPromotionView(runtime: runtime, guest: displayGuest, checklist: checklist)
                     } label: { Label("Add as member", systemImage: "person.crop.circle.badge.plus") }
                     .accessibilityIdentifier("guest-promote")
-                    Button("Correct name", systemImage: "pencil") { editedName = currentGuest.displayName; showingRename = true }
-                        .accessibilityIdentifier("guest-correct-name")
                 } else {
-                    LabeledContent("Member", value: currentGuest.memberName ?? currentGuest.displayName)
+                    LabeledContent("Member", value: displayGuest.memberName ?? displayGuest.displayName)
+                }
+                if displayGuest.isActive {
+                    Button(pendingNameChange == nil ? "Correct name" : "Review name change", systemImage: "pencil") {
+                        showingRename = true
+                    }.accessibilityIdentifier("guest-correct-name")
                 }
             } footer: {
                 Text("All saved runs stay with this person when they become a member. Promotion is your choice.")
-            }
-            if renameOperation != nil {
-                Section { Button("Check name change") { Task { await checkRename() } } }
             }
             ForEach(years, id: \.self) { year in
                 Section(String(year)) {
@@ -79,14 +89,29 @@ struct GuestDetailView: View {
             if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
         }
-        .navigationTitle(currentGuest.displayName).navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(displayGuest.displayName).navigationBarTitleDisplayMode(.inline)
         .task { await load() }.refreshable { await load() }
         .navigationDestination(item: $historicalRun) { run in ChecklistView(runtime: runtime, run: run) }
-        .alert("Correct shared name", isPresented: $showingRename) {
-            TextField("Name", text: $editedName)
-            Button("Save name") { Task { await rename() } }
-            Button("Cancel", role: .cancel) {}
-        } message: { Text("This changes the name for every organiser. To correct who attended one run, replace the guest on that run.") }
+        .sheet(isPresented: $showingRename) {
+            NavigationStack {
+                GuestNameEditorView(runtime: runtime, guest: displayGuest, operationId: pendingNameChange?.id) { saved in
+                    history?.guest = saved
+                    message = "Name saved for every organiser."
+                    Task { await checklist?.loadSharedGuests() }
+                }
+            }
+        }
+    }
+
+    private var nameChange: PendingGuestOperation? {
+        let rows = guestOperations.filter {
+            $0.endpointIdentity == runtime.config.endpoint?.absoluteString &&
+            $0.operation?.action == "renameGuest" && $0.operation?.request["guestId"]?.string == guest.guestId &&
+            $0.phase != .completed && $0.phase != .superseded
+        }
+        // Unknown outcomes must be checked before offering another correction.
+        return rows.first { $0.phase == .queued || $0.phase == .checking }
+            ?? rows.max { $0.createdAt < $1.createdAt }
     }
 
     private var pendingPromotion: PendingGuestOperation? {
@@ -115,26 +140,7 @@ struct GuestDetailView: View {
             historicalRun = RunSnapshot(record: run, state: state, endpointIdentity: runtime.config.endpoint?.absoluteString)
         } catch { self.error = UserFacingError.sync(error) }
     }
-    private func rename() async {
-        guard renameOperation == nil else { await checkRename(); return }
-        do { renameOperation = try await runtime.engine.renameGuest(currentGuest, name: editedName); await checkRename() }
-        catch { self.error = UserFacingError.sync(error) }
-    }
-    private func checkRename() async {
-        guard let renameOperation else { return }
-        await runtime.engine.drain()
-        do {
-            let operation = try await runtime.engine.guestOperation(id: renameOperation)
-            switch operation?.phase {
-            case .completed:
-                self.renameOperation = nil; message = "Name saved for every organiser."; await load()
-                await checklist?.loadSharedGuests()
-            case .conflict, .rejected, .superseded:
-                error = operation?.message ?? "Review the name again."; self.renameOperation = nil
-            default: message = "Name change pending. Check again when connected."
-            }
-        } catch { self.error = UserFacingError.sync(error) }
-    }
+
 }
 
 struct GuestPromotionView: View {

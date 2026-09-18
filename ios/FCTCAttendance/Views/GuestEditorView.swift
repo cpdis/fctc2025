@@ -10,10 +10,10 @@ struct GuestEditorView: View {
     @Query private var cachedGuests: [CachedGuest]
     @Query private var provisionalGuests: [ProvisionalGuest]
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @FocusState private var nameIsFocused: Bool
     @State private var name = ""
     @State private var proposedName: String?
-    @State private var assigningUnnamed = false
-    @State private var replacing: Guest?
+    @State private var guestPicker: GuestPickerPurpose?
     @State private var showingDistinctChoice = false
     @State private var isCreating = false
     @State private var error: String?
@@ -60,7 +60,7 @@ struct GuestEditorView: View {
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button("Remove", role: .destructive) { viewModel.removeGuest(id: guest.id) }
-                            Button("Replace") { replacing = guest; assigningUnnamed = false }.tint(.blue)
+                            Button("Replace") { showPicker(.replace(guest)) }.tint(.blue)
                         }
                     }
                 }
@@ -72,22 +72,19 @@ struct GuestEditorView: View {
                 ), in: 0...999)
                 .accessibilityIdentifier("unnamed-guests")
                 if (viewModel.draft.unnamedGuests ?? 0) > 0 {
-                    Button("Name an existing guest", systemImage: "person.crop.circle.badge.questionmark") {
-                        assigningUnnamed = true; replacing = nil
+                    Button("Name a guest", systemImage: "person.crop.circle.badge.questionmark") {
+                        showPicker(.nameUnnamed)
                     }.accessibilityIdentifier("name-unnamed-guest")
                 }
             } footer: {
-                Text("Naming an existing guest keeps the headcount unchanged.")
-            }
-            if assigningUnnamed || replacing != nil {
-                Section {
-                    Label(replacing.map { "Replace \($0.name)" } ?? "Name one unnamed guest", systemImage: "arrow.triangle.2.circlepath")
-                    Button("Cancel selection", role: .cancel) { assigningUnnamed = false; replacing = nil }
-                }
+                Text("Name an unnamed guest without changing the total.")
             }
             Section {
                 TextField("Find or add a guest", text: $name)
                     .textInputAutocapitalization(.words)
+                    .focused($nameIsFocused)
+                    .submitLabel(.done)
+                    .onSubmit { nameIsFocused = false }
                     .accessibilityIdentifier("add-guest-field")
                 ForEach(availableGuests) { guest in
                     HStack {
@@ -128,8 +125,21 @@ struct GuestEditorView: View {
                 Section { Text(error).foregroundStyle(.red).font(.footnote) }
             }
         }
+        .scrollDismissesKeyboard(.immediately)
         .navigationTitle("Guests").navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $historyGuest) { GuestDetailView(runtime: runtime, guest: $0, checklist: viewModel) }
+        .sheet(item: $guestPicker) { purpose in
+            GuestPickerView(viewModel: viewModel, purpose: purpose)
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                if nameIsFocused {
+                    Spacer()
+                    Button("Done") { nameIsFocused = false }
+                        .accessibilityIdentifier("guest-keyboard-done")
+                }
+            }
+        }
         .disabled(!viewModel.supportsSharedGuests)
         .confirmationDialog("Is this a different person?", isPresented: $showingDistinctChoice, titleVisibility: .visible) {
             Button("Create a different person with this name") { create(confirmDistinct: true) }
@@ -170,20 +180,25 @@ struct GuestEditorView: View {
         return "\(guest.confirmedRuns ?? 0) confirmed runs\(last)"
     }
     private func select(_ guest: SharedGuest) {
-        viewModel.selectGuest(guest, namingUnnamed: assigningUnnamed, replacing: replacing?.id)
+        nameIsFocused = false
+        viewModel.selectGuest(guest)
         viewModel.resolveProposedName(proposedName ?? name)
-        name = ""; proposedName = nil; assigningUnnamed = false; replacing = nil
+        name = ""; proposedName = nil
+    }
+    private func showPicker(_ purpose: GuestPickerPurpose) {
+        nameIsFocused = false
+        guestPicker = purpose
     }
     private func create(confirmDistinct: Bool) {
         let requestedName = cleanName
+        nameIsFocused = false
         isCreating = true
         Task {
             defer { isCreating = false }
             do {
-                try await viewModel.createSharedGuest(name: requestedName, confirmDistinct: confirmDistinct,
-                    namingUnnamed: assigningUnnamed, replacing: replacing?.id)
+                try await viewModel.createSharedGuest(name: requestedName, confirmDistinct: confirmDistinct)
                 viewModel.resolveProposedName(proposedName ?? requestedName)
-                name = ""; proposedName = nil; assigningUnnamed = false; replacing = nil
+                name = ""; proposedName = nil
             } catch { self.error = UserFacingError.sync(error) }
         }
     }

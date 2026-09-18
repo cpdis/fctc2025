@@ -108,6 +108,10 @@ actor UITestSharedGuestAPI: SheetAPIClient {
     }
     func perform(_ operation: SharedGuestOperation) async throws -> GuestJSON {
         if let receipt = receipts[operation.id], let response = receipt.response { return response }
+        // Authentication refusal proves this rename was not applied; reads stay available.
+        if operation.action == "renameGuest", ProcessInfo.processInfo.arguments.contains("-ui-rename-auth-failure") {
+            throw SheetAPIError.badSecret(message: "The setup code was rejected.")
+        }
         if ProcessInfo.processInfo.arguments.contains("-ui-shared-offline") { throw SheetAPIError.network("Offline") }
         let request = operation.request
         var response: [String: GuestJSON] = ["ok": .bool(true)]
@@ -122,6 +126,10 @@ actor UITestSharedGuestAPI: SheetAPIClient {
             guests.append(guest); response["guest"] = try .value(guest)
         case "renameGuest":
             let index = guests.firstIndex { $0.guestId == request["guestId"]?.string }!
+            let base: Int = try request["baseGuestRevision"]!.decoded()
+            guard base == guests[index].revision else {
+                throw SharedGuestConflict(reason: "guest_changed", message: "The saved guest name changed. Review your correction.")
+            }
             guests[index].displayName = request["displayName"]!.string!; guests[index].revision += 1
             response["guest"] = try .value(guests[index])
         case "submitAttendance":

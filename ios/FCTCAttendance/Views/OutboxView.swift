@@ -61,7 +61,12 @@ struct OutboxView: View {
             if !pendingGuestOperations.isEmpty {
                 Section("Guest changes") {
                     ForEach(pendingGuestOperations) { operation in
-                        if operation.conflict?.reason == "identity_ambiguous",
+                        if operation.operation?.action == "renameGuest" {
+                            NavigationLink {
+                                GuestNameEditorView(runtime: runtime, operationId: operation.id)
+                            } label: { guestOperationLabel(operation) }
+                            .accessibilityIdentifier("outbox-rename-\(operation.id)")
+                        } else if operation.conflict?.reason == "identity_ambiguous",
                            let provisionalId = operation.operation?.request["guestId"]?.string {
                             NavigationLink {
                                 GuestIdentityReviewView(runtime: runtime, provisionalId: provisionalId,
@@ -143,12 +148,30 @@ struct OutboxView: View {
     private var pendingGuestOperations: [PendingGuestOperation] {
         guestOperations.filter { $0.endpointIdentity == runtime.config.endpoint?.absoluteString && $0.phase != .completed && $0.phase != .superseded }
     }
+    private func guestOperationTitle(_ operation: PendingGuestOperation) -> String {
+        switch operation.operation?.action {
+        case "renameGuest": "Name change"
+        case "commitPromotion": "Member promotion"
+        case "importGuestHistory": "Guest history import"
+        default: "Guest identity"
+        }
+    }
     private func guestOperationLabel(_ operation: PendingGuestOperation) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(operation.operation?.action == "commitPromotion" ? "Member promotion" : operation.operation?.action == "importGuestHistory" ? "Guest history import" : "Guest identity")
+            Text(guestOperationTitle(operation))
                 .font(.headline)
-            Text(operation.lastError ?? "Waiting to sync").font(.footnote).foregroundStyle(.secondary)
-            if operation.phase == .rejected || (operation.phase == .conflict && operation.conflict?.reason != "identity_ambiguous") {
+            if operation.operation?.action == "renameGuest" {
+                Text(operation.operation?.request["displayName"]?.string ?? "Guest")
+                Text(operation.phase == .conflict || operation.phase == .rejected ? "Review name" : "Name change pending")
+                    .font(.footnote).foregroundStyle(.secondary)
+                if let reason = operation.lastError {
+                    Text(reason).font(.footnote).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("outbox-rename-reason-\(operation.id)")
+                }
+            } else {
+                Text(operation.lastError ?? "Waiting to sync").font(.footnote).foregroundStyle(.secondary)
+            }
+            if operation.operation?.action != "renameGuest" && (operation.phase == .rejected || (operation.phase == .conflict && operation.conflict?.reason != "identity_ambiguous")) {
                 Text("Open the guest history to review this change again.").font(.footnote).foregroundStyle(.secondary)
             }
         }

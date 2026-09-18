@@ -188,3 +188,13 @@ describe('reconciliation sanity check (report-only)', () => {
     expect(computed.totalClubKm).toBeGreaterThan(0)
   })
 })
+
+describe('birthday metadata below the attendance header', () => {
+  it('does not count birthday dates as attendance or change dashboard totals', () => {
+    const rows = csv2026.split(/\r?\n/)
+    const header = rows.findIndex(row => row.startsWith('Date,Meet,Run'))
+    expect(header).toBe(10)
+    rows.splice(header + 1, 0, ',,,,BIRTHDAY,10-May,,20-Jun')
+    expect(parseRunData(rows.join('\n'), 2026)).toEqual(data2026)
+  })
+})

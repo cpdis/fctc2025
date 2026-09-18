@@ -24,7 +24,7 @@ extension SyncEngine {
         let guests = try modelContext.fetch(FetchDescriptor<CachedGuest>())
         for guest in state.guests ?? [] {
             if let existing = guests.first(where: { $0.spreadsheetId == book && $0.guestId == guest.guestId }) {
-                existing.valueData = try JSONEncoder().encode(guest)
+                try existing.updateGuest(guest)
             } else { modelContext.insert(try CachedGuest(spreadsheetId: book, guest: guest)) }
         }
     }
@@ -39,10 +39,16 @@ extension SyncEngine {
     public func guestHistory(id: String) async throws -> GuestHistory {
         let state = try requireSharedState()
         guard state.capabilities?.guestHistory == true else { throw SheetAPIError.notImplemented }
-        let result: GuestHistory = try await api.sharedRead(action: "getGuestHistory", fields: ["guestId": .string(id)]).decoded()
+        var result: GuestHistory = try await api.sharedRead(action: "getGuestHistory", fields: ["guestId": .string(id)]).decoded()
         let cached = try modelContext.fetch(FetchDescriptor<CachedGuest>()).first { $0.spreadsheetId == state.spreadsheetId && $0.guestId == id }
-        cached?.historyData = try JSONEncoder().encode(result)
-        cached?.valueData = try JSONEncoder().encode(result.guest)
+        if let cached {
+            let receivedRevision = result.guest.revision
+            result.guest = try cached.updateGuest(result.guest)
+            // Do not persist old history over a newer identity's confirmed cache.
+            if result.guest.revision == receivedRevision {
+                cached.historyData = try JSONEncoder().encode(result)
+            }
+        }
         try modelContext.save()
         return result
     }
@@ -131,7 +137,9 @@ extension SyncEngine {
         guard let row = try guestOperationRecord(id: id) else { return nil }
         return GuestOperationSnapshot(id: row.id, action: row.operation?.action ?? "", phase: row.phase,
             message: row.lastError, conflict: row.conflict,
-            response: row.responseData.flatMap { try? JSONDecoder().decode(GuestJSON.self, from: $0) })
+            response: row.responseData.flatMap { try? JSONDecoder().decode(GuestJSON.self, from: $0) },
+            guestId: row.operation?.request["guestId"]?.string,
+            proposedName: row.operation?.request["displayName"]?.string)
     }
     func saveGuestOperation(_ operation: SharedGuestOperation, state: SheetState) throws -> PendingGuestOperation {
         guard let endpoint = api.endpointIdentity, let book = state.spreadsheetId, state.supportsSharedGuests else { throw SheetAPIError.notConfigured }

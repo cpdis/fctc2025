@@ -32,6 +32,21 @@ public final class CachedGuest {
     }
     public var guest: SharedGuest? { try? JSONDecoder().decode(SharedGuest.self, from: valueData) }
     public var history: GuestHistory? { historyData.flatMap { try? JSONDecoder().decode(GuestHistory.self, from: $0) } }
+
+    /// Reads and mutation receipts can arrive out of order. Identity revisions
+    /// never go backwards; equal revisions still carry refreshed attendance totals.
+    @discardableResult
+    func updateGuest(_ incoming: SharedGuest, preserveMissingTotals: Bool = false) throws -> SharedGuest {
+        let current = guest
+        if let current, current.revision > incoming.revision { return current }
+        var updated = incoming
+        if preserveMissingTotals {
+            updated.confirmedRuns = incoming.confirmedRuns ?? current?.confirmedRuns
+            updated.lastAttendance = incoming.lastAttendance ?? current?.lastAttendance
+        }
+        valueData = try JSONEncoder().encode(updated)
+        return updated
+    }
 }
 
 public enum GuestOperationPhase: String, Codable, Hashable, Sendable { case queued, checking, completed, conflict, rejected, superseded }

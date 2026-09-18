@@ -34,6 +34,8 @@ extension SyncEngineClient {
     public func createGuest(name: String, confirmDistinct: Bool = false) async throws -> Guest { throw SheetAPIError.notImplemented }
     public func resolveGuestIdentity(provisionalId: String, existingGuestId: String?, confirmDistinct: Bool) async throws { throw SheetAPIError.notImplemented }
     public func renameGuest(_ guest: SharedGuest, name: String) async throws -> UUID { throw SheetAPIError.notImplemented }
+    public func replaceGuestRename(id: UUID, guest: SharedGuest, name: String) async throws -> UUID { throw SheetAPIError.notImplemented }
+    public func discardGuestRename(id: UUID) async throws { throw SheetAPIError.notImplemented }
     public func previewPromotion(guestId: String, memberName: String, targetMode: PromotionTargetMode) async throws -> PromotionPreview { throw SheetAPIError.notImplemented }
     public func commitPromotion(_ preview: PromotionPreview) async throws -> UUID { throw SheetAPIError.notImplemented }
     public func recoveryCandidates(includeDismissed: Bool = false) async throws -> [GuestRecoverySnapshot] { [] }
@@ -52,13 +54,18 @@ public struct GuestOperationSnapshot: Hashable, Sendable, Identifiable {
     public var message: String?
     public var conflict: SharedGuestConflict?
     public var response: GuestJSON?
+    /// The name intent stays visible even when the server rejects the correction.
+    public var guestId: String?
+    public var proposedName: String?
 
-    public init(id: UUID, action: String, phase: GuestOperationPhase, message: String? = nil, conflict: SharedGuestConflict? = nil, response: GuestJSON? = nil) {
+    public init(id: UUID, action: String, phase: GuestOperationPhase, message: String? = nil, conflict: SharedGuestConflict? = nil, response: GuestJSON? = nil, guestId: String? = nil, proposedName: String? = nil) {
         self.id = id
         self.action = action
         self.phase = phase
         self.message = message
         self.conflict = conflict
         self.response = response
+        self.guestId = guestId
+        self.proposedName = proposedName
     }
 }

@@ -110,6 +110,8 @@ public protocol SyncEngineClient: Sendable {
     func createGuest(name: String, confirmDistinct: Bool) async throws -> Guest
     func resolveGuestIdentity(provisionalId: String, existingGuestId: String?, confirmDistinct: Bool) async throws
     func renameGuest(_ guest: SharedGuest, name: String) async throws -> UUID
+    func replaceGuestRename(id: UUID, guest: SharedGuest, name: String) async throws -> UUID
+    func discardGuestRename(id: UUID) async throws
     func previewPromotion(guestId: String, memberName: String, targetMode: PromotionTargetMode) async throws -> PromotionPreview
     func commitPromotion(_ preview: PromotionPreview) async throws -> UUID
     func recoveryCandidates(includeDismissed: Bool) async throws -> [GuestRecoverySnapshot]

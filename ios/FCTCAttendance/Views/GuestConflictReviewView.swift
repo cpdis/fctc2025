@@ -126,7 +126,7 @@ struct GuestOperationStatusView: View {
     var body: some View {
         List {
             Section {
-                Label(operation?.phase == .completed ? "Change confirmed" : "Checking saved changes",
+                Label(statusTitle,
                       systemImage: operation?.phase == .completed ? "checkmark.circle" : "clock.arrow.circlepath")
                 if let message = operation?.message { Text(message).font(.footnote).foregroundStyle(.secondary) }
                 if operation?.phase == .queued || operation?.phase == .checking {
@@ -138,6 +138,14 @@ struct GuestOperationStatusView: View {
             if let error { Text(error).foregroundStyle(.red) }
         }.navigationTitle("Saved guest change").navigationBarTitleDisplayMode(.inline)
             .task { await check() }
+    }
+    private var statusTitle: String {
+        switch operation?.phase {
+        case .completed: "Change confirmed"
+        case .conflict, .rejected: "Change needs review"
+        case .superseded: "Change closed"
+        default: "Checking saved changes"
+        }
     }
     private func check() async {
         working = true; defer { working = false }

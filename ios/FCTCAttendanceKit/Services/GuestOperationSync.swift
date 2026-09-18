@@ -48,9 +48,7 @@ extension SyncEngine {
                 if let cached {
                     // Mutation responses need not contain a total. Preserve the
                     // confirmed snapshot until an authoritative state refresh.
-                    var merged = guest; merged.confirmedRuns = guest.confirmedRuns ?? cached.guest?.confirmedRuns
-                    merged.lastAttendance = guest.lastAttendance ?? cached.guest?.lastAttendance
-                    cached.valueData = try JSONEncoder().encode(merged)
+                    try cached.updateGuest(guest, preserveMissingTotals: true)
                 } else { modelContext.insert(try CachedGuest(spreadsheetId: row.spreadsheetId, guest: guest)) }
                 for provisional in try modelContext.fetch(FetchDescriptor<ProvisionalGuest>()) where provisional.operationId == id {
                     provisional.resolvedGuestId = guest.guestId
