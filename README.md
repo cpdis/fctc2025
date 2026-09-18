@@ -316,6 +316,18 @@ no forecast. The app reads live from the sheet through `getState`, so it reflect
 attendance recorded seconds ago; the email reads the weekly CSV export.
 See `docs/plans/2026-08-16-001-feat-milestones-ahead-section-plan.md`.
 
+The **Attendance** heading shows the number of checked members across the full
+draft, even during a search. When guests are present, a second line shows the total
+people, including named and unnamed guests. Both counts update as the draft changes.
+
+The **Birthdays** section follows Milestones. It shows today through 30 days ahead,
+ordered by days remaining then name, using Perth calendar dates. The sheet's
+`BIRTHDAY` row supplies day and month; no birth year or age is stored. A 29 February
+birthday is shown on 28 February in non-leap years, retaining its recorded date.
+Refreshed birthdays remain available offline. Older Apps Script versions still
+work; the birthday field appears after the updated script is deployed.
+See `docs/plans/2026-09-18-attendance-count-birthdays-plan.md`.
+
 On a run's **Guests** screen, **Name a guest** assigns a saved person or a new
 name to one unnamed guest. The total stays the same. Swipe a selected guest to
 replace the person. Both search fields support keyboard dismissal while scrolling.

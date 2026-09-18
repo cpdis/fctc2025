@@ -190,6 +190,8 @@ struct HomeView: View {
                     emptyPhrase: runtime.milestoneEmptyPhrase
                 )
 
+                BirthdaysSection(birthdays: activeBirthdays)
+
                 if let banner = viewModel.syncBanner {
                     HomeSyncBanner(banner: banner, runtime: runtime) {
                         await viewModel.retry(hasCachedState: !activeRuns.isEmpty)
@@ -330,6 +332,20 @@ struct HomeView: View {
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
         }
+    }
+
+    private var activeBirthdays: [MemberBirthday]? {
+        let state = runtime.activeSheetState
+        if let birthdays = state?.birthdays { return birthdays }
+        let seasonYear = state?.seasonYear ?? activeRuns.compactMap(\.seasonYear).max()
+        let cached = cachedMembers.compactMap {
+            $0.birthday(for: runtime.config.endpoint?.absoluteString, seasonYear: seasonYear)
+        }
+        let hasBirthdayCache = cachedMembers.contains {
+            $0.birthdayEndpointIdentity != nil && $0.birthdayEndpointIdentity == runtime.config.endpoint?.absoluteString
+                && (seasonYear == nil || $0.birthdaySeasonYear == seasonYear)
+        }
+        return hasBirthdayCache ? cached : nil
     }
 
     private var activeMemberTotals: [MemberTotal] {

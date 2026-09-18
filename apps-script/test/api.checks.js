@@ -81,7 +81,7 @@ function assertError(response, code) {
 function assertStateShape(state, year) {
   assert.deepEqual(
     Object.keys(state).filter((key) => key !== 'ok').sort(),
-    ['lifetimeTotals', 'roster', 'runs', 'seasonYear', 'sheetRevision'],
+    ['birthdays', 'lifetimeTotals', 'roster', 'runs', 'seasonYear', 'sheetRevision'],
     'getState body must carry exactly the documented keys'
   );
   assert.equal(state.seasonYear, year);
@@ -93,6 +93,15 @@ function assertStateShape(state, year) {
     assert.deepEqual(Object.keys(total).sort(), ['name', 'runs']);
     assert.equal(typeof total.name, 'string');
     assert.ok(Number.isInteger(total.runs) && total.runs >= 0);
+  }
+
+  // Additive 2026-09-18: month/day only; older clients ignore this field.
+  assert.ok(Array.isArray(state.birthdays));
+  for (const birthday of state.birthdays) {
+    assert.deepEqual(Object.keys(birthday).sort(), ['day', 'month', 'name']);
+    assert.equal(typeof birthday.name, 'string');
+    assert.ok(Number.isInteger(birthday.month) && birthday.month >= 1 && birthday.month <= 12);
+    assert.ok(Number.isInteger(birthday.day) && birthday.day >= 1 && birthday.day <= 31);
   }
 
   assert.ok(Array.isArray(state.roster));

@@ -40,6 +40,15 @@ actor UITestSharedGuestAPI: SheetAPIClient {
                         capabilities: GuestCapabilities(), spreadsheetId: "ui-book", seasonSheetId: 25),
                    26: SheetState(roster: roster, runs: currentRuns, seasonYear: currentYear, sheetRevision: "ui-1", apiVersion: 2,
                         capabilities: GuestCapabilities(), spreadsheetId: "ui-book", seasonSheetId: 26)]
+        if ProcessInfo.processInfo.arguments.contains("-ui-birthdays") {
+            let calendar = BirthdayBoard.calendar
+            seasons[26]!.birthdays = [("Aaron", 0), ("Col", 7), ("Dan", 31)].map { name, days in
+                let date = calendar.date(byAdding: .day, value: days, to: .now)!
+                return MemberBirthday(name: name, month: calendar.component(.month, from: date), day: calendar.component(.day, from: date))
+            }
+            seasons[26]!.lifetimeTotals = [MemberTotal(name: "Aaron", runs: 147), MemberTotal(name: "Col", runs: 45), MemberTotal(name: "Dan", runs: 45)]
+        }
+        if ProcessInfo.processInfo.arguments.contains("-ui-no-birthdays") { seasons[26]!.birthdays = [] }
         for guest in guests {
             histories[guest.guestId] = (oldRuns + currentRuns).filter { $0.namedGuestIds?.contains(guest.guestId) == true }.map { run in
                 GuestAttendanceEntry(guestId: guest.guestId, spreadsheetId: "ui-book", seasonSheetId: run.seasonSheetId!, runId: run.runId!,
@@ -64,8 +73,11 @@ actor UITestSharedGuestAPI: SheetAPIClient {
             seasons[26]!.runs[0].actualKm = 8.1
         }
     }
-    func getState() async throws -> SheetState { state(26) }
-    func getState(seasonSheetId: Int?) async throws -> SheetState { state(seasonSheetId ?? 26) }
+    func getState() async throws -> SheetState { try await getState(seasonSheetId: nil) }
+    func getState(seasonSheetId: Int?) async throws -> SheetState {
+        if ProcessInfo.processInfo.arguments.contains("-ui-state-offline") { throw URLError(.notConnectedToInternet) }
+        return state(seasonSheetId ?? 26)
+    }
     private func state(_ season: Int) -> SheetState {
         var value = seasons[season]!
         value.guests = guests

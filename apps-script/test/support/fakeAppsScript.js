@@ -284,6 +284,7 @@ function createEnvironment(options) {
   const spreadsheetId = options.spreadsheetId || 'test-workbook';
   const spreadsheet = {
     getId: () => spreadsheetId,
+    getSpreadsheetTimeZone: () => options.timeZone || 'Australia/Perth',
     getSheetByName: name => allSheets.find(s => s.name === name) || null,
     getSheetById: id => allSheets.find(s => s.sheetId === id) || null,
     getSheets: () => allSheets.slice(),
@@ -316,6 +317,13 @@ function createEnvironment(options) {
     Sheets: sheetsService.api,
     Utilities: {
       getUuid: () => crypto.randomUUID(),
+      formatDate: (date, timeZone, format) => {
+        if (format !== 'd-MMM') throw new Error('Unsupported date format: ' + format);
+        const parts = new Intl.DateTimeFormat('en-GB', { timeZone, day: 'numeric', month: 'numeric' }).formatToParts(date);
+        const month = Number(parts.find(part => part.type === 'month').value);
+        return parts.find(part => part.type === 'day').value + '-' +
+          ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month - 1];
+      },
       DigestAlgorithm: { SHA_256: 'sha256' },
       Charset: { UTF_8: 'utf8' },
       computeDigest: (algorithm, value) => Array.from(crypto.createHash('sha256').update(value).digest(), n => n > 127 ? n - 256 : n),

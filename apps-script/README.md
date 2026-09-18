@@ -88,7 +88,7 @@ Response: `{ ok: true, ... }` or `{ ok: false, error: "code", message: "..." }`.
 
 | Action | Payload → Response |
 |---|---|
-| `getState` | `{}` → `{ roster: [{name, colIndex}], runs: [{rowIndex, date, meet, run, approxKm, actualKm, attendees, plusOnes}], seasonYear, sheetRevision, lifetimeTotals: [{name, runs}] }` |
+| `getState` | `{}` → `{ roster: [{name, colIndex}], runs: [{rowIndex, date, meet, run, approxKm, actualKm, attendees, plusOnes}], seasonYear, sheetRevision, lifetimeTotals: [{name, runs}], birthdays: [{name, month, day}] }` |
 | `submitAttendance` | `{ rowIndex, expectedDate, expectedRun, attendees, plusOnes, actualKm, mode: "merge"\|"overwrite", baseRevision }` → `{ ok, written }` or `{ ok, conflict: { reason, state } }` |
 | `addMember` | `{ name }` → `{ roster }` |
 | `addRun` | `{ date, meet, run, approxKm }` → `{ runs }` |
@@ -96,6 +96,15 @@ Response: `{ ok: true, ... }` or `{ ok: false, error: "code", message: "..." }`.
 `sheetRevision` is a stable hash of the header row + run-band cell values, used for
 optimistic concurrency. `submitAttendance` writes **absolute** values (not deltas), so
 retrying a queued submission is idempotent — that is what makes the offline outbox safe.
+
+`birthdays` is an additive field on legacy and shared state, including conflict state.
+It reads the requested season's `BIRTHDAY` metadata row between the discovered header
+and first run. Member columns supply the names. Valid date cells use the spreadsheet's
+timezone; text cells accept `1-Sep` or `1 September` (case-insensitive, with `-`, `/`, or
+space separators). Numeric-only text dates are excluded because their order is ambiguous.
+The response contains only month and day, never a birth year or age. Blank or invalid
+cells are skipped; a missing row returns `[]`. The app chooses the upcoming date window.
+This read does not write sheet cells or change the public dashboard export contract.
 
 **Sheet-safety invariant:** nothing is ever written outside a run row's member band +
 `Actual kms` + `+1's` cells, the member-band header row, or an inserted run row.

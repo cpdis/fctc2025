@@ -124,7 +124,7 @@ struct ChecklistView: View {
                 .accessibilityIdentifier("guest-editor")
             }
 
-            Section("Attendance") {
+            Section {
                 ForEach(filteredRoster, id: \.self) { name in
                     MemberCheckRow(
                         name: name,
@@ -149,6 +149,8 @@ struct ChecklistView: View {
                 }
 
                 QuickAddPersonRow(viewModel: viewModel)
+            } header: {
+                AttendanceCountHeader(draft: viewModel.draft)
             }
 
             if !viewModel.unresolvedGuestNames.isEmpty {

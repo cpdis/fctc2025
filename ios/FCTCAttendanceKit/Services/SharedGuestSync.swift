@@ -19,6 +19,14 @@ extension SyncEngine {
         let newCache = try SharedSheetCache(endpointIdentity: endpoint, state: state, refreshedAt: seenAt)
         let caches = try modelContext.fetch(FetchDescriptor<SharedSheetCache>())
         if let existing = caches.first(where: { $0.key == newCache.key }) {
+            // An older script can omit birthdays after another season was opened.
+            // Preserve only this endpoint/workbook/season's confirmed snapshot.
+            if state.birthdays == nil {
+                var preserved = state
+                let rosterNames = Set(state.roster.map(\.name))
+                preserved.birthdays = existing.state?.birthdays?.filter { rosterNames.contains($0.name) }
+                newCache.stateData = try JSONEncoder().encode(preserved)
+            }
             existing.stateData = newCache.stateData; existing.refreshedAt = seenAt
         } else { modelContext.insert(newCache) }
         let guests = try modelContext.fetch(FetchDescriptor<CachedGuest>())

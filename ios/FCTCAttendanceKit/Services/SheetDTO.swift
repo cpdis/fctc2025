@@ -101,6 +101,8 @@ public struct SheetState: Codable, Hashable, Sendable {
     /// the field, so a phone on an older build keeps working against a new script
     /// and a new build keeps working against an old one.
     public var lifetimeTotals: [MemberTotal]
+    /// Nil means an older server; an empty array explicitly clears saved birthdays.
+    public var birthdays: [MemberBirthday]?
     public var apiVersion: Int?
     public var capabilities: GuestCapabilities?
     public var spreadsheetId: String?
@@ -117,6 +119,7 @@ public struct SheetState: Codable, Hashable, Sendable {
         seasonYear: Int = 0,
         sheetRevision: String = "",
         lifetimeTotals: [MemberTotal] = [],
+        birthdays: [MemberBirthday]? = nil,
         apiVersion: Int? = nil, capabilities: GuestCapabilities? = nil,
         spreadsheetId: String? = nil, seasonSheetId: Int? = nil,
         guests: [SharedGuest]? = nil, guestRevision: String? = nil, pendingOperationId: String? = nil,
@@ -128,6 +131,7 @@ public struct SheetState: Codable, Hashable, Sendable {
         self.seasonYear = seasonYear
         self.sheetRevision = sheetRevision
         self.lifetimeTotals = lifetimeTotals
+        self.birthdays = birthdays
         self.apiVersion = apiVersion; self.capabilities = capabilities
         self.spreadsheetId = spreadsheetId; self.seasonSheetId = seasonSheetId
         self.guests = guests; self.guestRevision = guestRevision; self.pendingOperationId = pendingOperationId
@@ -143,6 +147,7 @@ public struct SheetState: Codable, Hashable, Sendable {
             [MemberTotal].self,
             forKey: .lifetimeTotals
         ) ?? []
+        birthdays = try container.decodeIfPresent([MemberBirthday].self, forKey: .birthdays)
         apiVersion = try container.decodeIfPresent(Int.self, forKey: .apiVersion)
         capabilities = try container.decodeIfPresent(GuestCapabilities.self, forKey: .capabilities)
         spreadsheetId = try container.decodeIfPresent(String.self, forKey: .spreadsheetId)
@@ -272,4 +277,3 @@ public enum SubmissionOutcome: Hashable, Sendable {
     case written(cells: Int, sheetRevision: String)
     case conflict(reason: String, message: String, state: SheetState)
 }
-

@@ -6,7 +6,8 @@ extension SyncEngine {
 
     func reconcile(_ state: SheetState, seenAt: Date) throws {
         if state.supportsSharedGuests { try reconcileSharedState(state, seenAt: seenAt) }
-        try reconcileRoster(state.roster, totals: state.lifetimeTotals, seenAt: seenAt)
+        try reconcileRoster(state.roster, totals: state.lifetimeTotals, birthdays: state.birthdays,
+                            seasonYear: state.seasonYear, seenAt: seenAt)
         try reconcileRuns(
             state.runs,
             revision: state.sheetRevision,
@@ -19,6 +20,8 @@ extension SyncEngine {
     func reconcileRoster(
         _ roster: [RosterEntry],
         totals: [MemberTotal],
+        birthdays: [MemberBirthday]? = nil,
+        seasonYear: Int? = nil,
         seenAt: Date
     ) throws {
         let local = try modelContext.fetch(FetchDescriptor<Member>())
@@ -33,10 +36,16 @@ extension SyncEngine {
         // rename between seasons still lands on the right member.
         var runsByKey: [String: Int] = [:]
         for total in totals { runsByKey[canonicalName(total.name)] = total.runs }
+        var birthdaysByKey: [String: MemberBirthday] = [:]
+        for birthday in birthdays ?? [] where birthday.isValid {
+            birthdaysByKey[canonicalName(birthday.name)] = birthday
+        }
 
         for entry in roster {
             let key = canonicalName(entry.name)
-            if let member = localByKey[key] {
+            let member: Member
+            if let existing = localByKey[key] {
+                member = existing
                 member.name = entry.name
                 member.colIndex = entry.colIndex
                 member.isNew = false
@@ -45,14 +54,24 @@ extension SyncEngine {
                 // cached number rather than blanking it.
                 if let runs = runsByKey[key] { member.lifetimeRuns = runs }
             } else {
-                modelContext.insert(
-                    Member(
-                        name: entry.name,
-                        colIndex: entry.colIndex,
-                        lastSeenAt: seenAt,
-                        lifetimeRuns: runsByKey[key] ?? 0
-                    )
+                member = Member(
+                    name: entry.name,
+                    colIndex: entry.colIndex,
+                    lastSeenAt: seenAt,
+                    lifetimeRuns: runsByKey[key] ?? 0
                 )
+                modelContext.insert(member)
+            }
+            // Older scripts preserve dates from this endpoint, but never borrow
+            // dates from another workbook's endpoint after Settings changes.
+            if birthdays != nil || member.birthdayEndpointIdentity != api.endpointIdentity {
+                let birthday = birthdaysByKey[key]
+                member.birthdayMonth = birthday?.month
+                member.birthdayDay = birthday?.day
+                // A scope also records that an empty list was confirmed. An
+                // older endpoint has not confirmed any birthday data yet.
+                member.birthdayEndpointIdentity = birthdays == nil ? nil : api.endpointIdentity
+                member.birthdaySeasonYear = birthdays == nil ? nil : seasonYear
             }
         }
         for member in local where !member.isNew && !remoteKeys.contains(canonicalName(member.name)) {

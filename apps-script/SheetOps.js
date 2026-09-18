@@ -290,6 +290,55 @@ function sheetGeometry(grid) {
 }
 
 /**
+ * Read the BIRTHDAY metadata row between the header and the first run. Names
+ * come from member columns, never from row positions or the +1's/total columns.
+ * Date cells need a formatter supplied by the shell so the spreadsheet timezone
+ * defines the day. Text cells accept d-MMM or d-Month, without a birth year.
+ *
+ * @param {!Array<!Array<*>>} grid
+ * @param {number} headerRow 1-based.
+ * @param {function(Date): string=} formatDate Formats a Date as d-MMM.
+ * @return {!Array<{name: string, month: number, day: number}>} Months are 1-based.
+ */
+function listBirthdays(grid, headerRow, formatDate) {
+  var bounds = bandBounds(grid, headerRow);
+  if (!bounds) return [];
+  for (var r = headerRow; r < grid.length; r++) {
+    var row = grid[r] || [];
+    if (isRunRow(row, bounds)) break;
+    // The label can move within the fixed leading columns as the sheet evolves.
+    var labelled = row.slice(0, bounds.firstMemberCol - 1).some(function (value) {
+      return cellText(value).toLowerCase() === 'birthday';
+    });
+    if (!labelled) continue;
+    var birthdays = [];
+    memberBand(grid, headerRow).forEach(function (member) {
+      var parts = birthdayParts(row[member.colIndex - 1], formatDate);
+      if (parts) birthdays.push({ name: member.name, month: parts.month, day: parts.day });
+    });
+    return birthdays;
+  }
+  return [];
+}
+
+/** Reject impossible dates; February 29 stays valid because birthdays recur. */
+function birthdayParts(value, formatDate) {
+  if (Object.prototype.toString.call(value) === '[object Date]') {
+    if (isNaN(value.getTime()) || !formatDate) return null;
+    value = formatDate(value);
+  }
+  var match = cellText(value).match(/^(\d{1,2})\s*[-/ ]\s*([A-Za-z]+)$/);
+  if (!match) return null;
+  var months = ['january', 'february', 'march', 'april', 'may', 'june',
+    'july', 'august', 'september', 'october', 'november', 'december'];
+  var label = match[2].toLowerCase();
+  var month = label.length === 3 ? MONTH_ABBREVS.indexOf(label) : months.indexOf(label);
+  var day = parseInt(match[1], 10);
+  if (month < 0 || day < 1 || day > [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month]) return null;
+  return { month: month + 1, day: day };
+}
+
+/**
  * Parse a season date cell ("Fri, 3-Jan", "26-Jan", or a real Date) into sortable
  * parts. The sheet carries no year — a season tab IS the year.
  *
@@ -882,6 +931,7 @@ function sheetOpsHealth() {
       'bandBounds',
       'memberBand',
       'sheetGeometry',
+      'listBirthdays',
       'parseSheetDate',
       'dateOrdinal',
       'numberOrNull',
@@ -931,6 +981,7 @@ var SheetOps = {
   bandBounds: bandBounds,
   memberBand: memberBand,
   sheetGeometry: sheetGeometry,
+  listBirthdays: listBirthdays,
   parseSheetDate: parseSheetDate,
   dateOrdinal: dateOrdinal,
   numberOrNull: numberOrNull,

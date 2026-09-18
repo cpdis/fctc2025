@@ -12,11 +12,13 @@
  *   200   { ok: true, ... } | { ok: false, error: "code", message: "..." }
  *   Actions:
  *     getState          {} -> { roster, runs, seasonYear, sheetRevision,
- *                                lifetimeTotals }
+ *                                lifetimeTotals, birthdays }
  *                       `lifetimeTotals` (additive, 2026-08-16) is
  *                       [{ name, runs }] summed over EVERY four-digit tab, for
  *                       the app's milestone list. It rides on every state
  *                       payload, conflicts included.
+ *                       `birthdays` (additive, 2026-09-18) contains the selected
+ *                       season's [{ name, month, day }], with no birth year.
  *     submitAttendance  { rowIndex, expectedDate, expectedRun, attendees, plusOnes,
  *                         actualKm, mode, baseRevision }
  *                       -> { ok, written } | { ok, conflict: { reason, state } }
@@ -326,9 +328,10 @@ function seasonYearOf_(sheetName) {
  *
  * @param {!Object} ctx
  * @return {{roster: !Array<!Object>, runs: !Array<!Object>, seasonYear: number,
- *     sheetRevision: string}}
+ *     sheetRevision: string, lifetimeTotals: !Array<!Object>, birthdays: !Array<!Object>}}
  */
 function stateOf_(ctx) {
+  var timeZone = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
   return {
     roster: ctx.band,
     runs: SheetOps.listRuns(ctx.grid, ctx.headerRow),
@@ -338,6 +341,10 @@ function stateOf_(ctx) {
     // is what the app's diff screen applies to its cache, so omitting them there
     // would blank the cached totals on the next conflict.
     lifetimeTotals: lifetimeTotals_(),
+    // Calendar-only values: do not expose birth years or use the script timezone.
+    birthdays: SheetOps.listBirthdays(ctx.grid, ctx.headerRow, function (date) {
+      return Utilities.formatDate(date, timeZone, 'd-MMM');
+    }),
   };
 }
 
