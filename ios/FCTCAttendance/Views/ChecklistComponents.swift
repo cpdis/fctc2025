@@ -131,4 +131,3 @@ struct QuickAddPersonRow: View {
         }
     }
 }
-

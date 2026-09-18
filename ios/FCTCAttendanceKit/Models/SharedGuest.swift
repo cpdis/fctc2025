@@ -115,7 +115,7 @@ public struct PromotionPreview: Codable, Hashable, Sendable {
         public var seasonYear: Int
         public var seasonSheetId: Int
         public var runs: Int
-    
+
         public init(seasonYear: Int, seasonSheetId: Int, runs: Int) {
             self.seasonYear = seasonYear
             self.seasonSheetId = seasonSheetId
@@ -135,7 +135,7 @@ public struct PromotionPreview: Codable, Hashable, Sendable {
         public var totalAfter: Int
         public var actualKmBefore: Double?
         public var actualKmAfter: Double?
-    
+
         public init(spreadsheetId: String, seasonSheetId: Int, runId: String, rowIndex: Int, date: String, run: String, plusOnesBefore: Int, plusOnesAfter: Int, totalBefore: Int, totalAfter: Int, actualKmBefore: Double? = nil, actualKmAfter: Double? = nil) {
             self.spreadsheetId = spreadsheetId
             self.seasonSheetId = seasonSheetId
@@ -213,7 +213,7 @@ public struct GuestImportPreview: Codable, Hashable, Sendable {
         public var alreadyAssigned: Bool
         public var unnamedBefore: Int
         public var unnamedAfter: Int
-    
+
         public init(spreadsheetId: String, seasonSheetId: Int, runId: String, expectedDate: String, expectedRun: String, assignment: String, alreadyAssigned: Bool, unnamedBefore: Int, unnamedAfter: Int) {
             self.spreadsheetId = spreadsheetId
             self.seasonSheetId = seasonSheetId
