@@ -4,15 +4,14 @@ Build 0.1.0 (6) includes shared guests, attendance counts and upcoming birthdays
 Installing it preserves the connection already saved on each phone. It does not
 switch a phone from the private test copy to the real spreadsheet.
 
-## Current state
+## Before switching
 
-The real spreadsheet still needs the server upgrade and shared-guest setup below.
-Do not use an old real-sheet code as a shortcut around that setup. The old endpoint
-can load attendance without supporting shared guests or birthdays.
+Complete the server setup below before scanning a real-sheet code. An old endpoint
+can load attendance without supporting shared guests or birthdays. Keep each phone
+on its test connection until Colin confirms the real server checks have passed.
 
-The code is on `codex/shared-guest-attendance`. Keep its PR unmerged until the new
-authenticated dashboard export is configured and verified. The old dashboard
-workflow still depends on public spreadsheet access.
+Configure and verify the authenticated dashboard export before restricting source
+workbook access. The setup checks cover both 2025 and 2026.
 
 ## Everyone — before changing the connection
 
@@ -31,9 +30,10 @@ there. Test names and test runs must not be imported into real attendance.
 
 ## Colin — one-time server setup
 
-These steps are for the spreadsheet owner. Aaron and Grant do not need access to
-Apps Script, GitHub, or the shared secret. Codex can carry out the technical steps
-after the edit-free window is confirmed; Google consent stays with Colin.
+Colin operates the app deployment. Aaron owns the workbook; Colin and Grant retain
+their existing editor access. Aaron and Grant do not need Apps Script or GitHub
+access for phone setup. Codex can carry out the technical steps after the edit-free
+window is confirmed; Google consent stays with the deploying account, Colin.
 
 1. Confirm all three phones have finished pending test submissions. Confirm that
    nobody will edit the real sheet during setup.
