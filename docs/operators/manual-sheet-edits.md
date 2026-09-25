@@ -7,7 +7,8 @@ Deleting a member column also removes its visible attendance; retain the history
 
 ## Promote a guest through the app
 
-Use the shared guest's promotion flow to create a member or link an existing member.
+Open the shared guest and choose **Add as member**. Select **Create new member**
+or **Link existing member**.
 It updates the member marks, guest totals and hidden guest records together.
 Review the person and their history before confirming the promotion.
 
@@ -58,8 +59,24 @@ The guest registry and guest attendance record still held the original guest cla
 The server calculated an unnamed remainder of `0 - 1` and rejected both season reads.
 The original message incorrectly described a bad request from the phone.
 
-The prepared repair changes only the two hidden records and adds its operation receipt.
-René's existing member history and the run's headcount of eleven stay intact.
+Colin approved the live repair and server update on 25 September 2026.
+The repair changed only the two hidden records and added its operation receipt.
+René's existing member history and the run's headcount of eleven stayed intact.
 The local snapshot check verifies both seasons, repeat safety and fourteen refusal conditions.
 The server regression tests cover the diagnostic and the existing stale-phone review flow.
-Live repair and deployment require Colin's production approval.
+
+The repair receipt is `completed`. The initial response required verification;
+the saved receipt confirmed completion without repeating the batch.
+Fresh workbook comparison preserved every visible value, formula, format, comment,
+sheet dimension, merge, hidden state and all four previous operation receipts.
+Both live seasons load: 111 runs in 2025 and 163 in 2026. All 274 run IDs and row
+bindings remain unchanged. René retains one transferred run and no pending operation remains.
+
+Apps Script version **4** is live at the existing deployment URL. All 13 deployed
+source files match the approved release. The temporary editor repair helper is removed.
+Authentication, guest history and attendance export passed live checks.
+The phone still needs a refresh; physical-phone recovery was not tested here.
+
+The same manual conversion can cause this again. The server now identifies the
+affected run, but it does not prevent conflicting direct sheet edits. Use the app's
+promotion flow to keep member marks, guest totals and guest records consistent.
