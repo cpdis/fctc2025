@@ -451,3 +451,60 @@ test('shared state lists supported seasons for explicit historical recovery', ()
   const state = env.post({ action: 'getState', apiVersion: 2 });
   assert.deepEqual(state.supportedSeasons, [{ seasonSheetId: 25, seasonYear: 2025 }, { seasonSheetId: 26, seasonYear: 2026 }]);
 });
+
+test('manual roster edits remain readable but a guest count mismatch names the affected run', () => {
+  const env = environment(); setup(env);
+  const rene = guest(env, 'René');
+  assert.equal(env.post(attendance(env, [rene.guestId])).status, 'completed');
+  // Deleting two member columns and inserting one moves +1's left. Geometry
+  // follows its header; this edit still does not promote a shared guest.
+  env.sheet.values.forEach((row, index) => row.splice(5, 2, index === 0 ? 'René' : index === 1 ? 'x' : ''));
+  const state = env.post({ action: 'getState', apiVersion: 2 });
+  assert.deepEqual(state.roster.map(member => member.name), ['René']);
+  assert.equal(state.runs[0].plusOnes, 1);
+  assert.equal(state.runs[0].unnamedGuests, 0);
+
+  // Moving the guest into a member cell without updating the ledger makes
+  // the implicit unnamed remainder negative: 0 - 1.
+  env.sheet.values[1][6] = '';
+  const before = env.allSheets.map(sheet => sheet.snapshot());
+  const batches = env.batches.length;
+  const conflict = env.post({ action: 'getState', apiVersion: 2 }).conflict;
+  assert.equal(conflict.reason, 'invalid_allocation');
+  assert.match(conflict.message, /2026.*Fri, 3-Jan.*Soft Sand.*row 2/);
+  assert.match(conflict.message, /0.*1.*René/);
+  assert.equal(conflict.runId, state.runs[0].runId);
+  assert.equal(conflict.seasonSheetId, state.seasonSheetId);
+  assert.equal(conflict.plusOnes, 0);
+  assert.equal(conflict.namedGuestCount, 1);
+  assert.equal(env.batches.length, batches, 'Reads must never guess a promotion or increase headcount');
+  assert.deepEqual(env.allSheets.map(sheet => sheet.snapshot()), before);
+});
+
+test('transferred guest records restore reads and reject stale guest submissions', () => {
+  const env = environment(); setup(env);
+  const rene = guest(env, 'René');
+  assert.equal(env.post(attendance(env, [rene.guestId])).status, 'completed');
+  const stale = attendance(env, [rene.guestId]);
+  env.sheet.values[0][6] = 'René';
+  env.sheet.values[1][6] = 'x';
+  env.sheet.values[1][7] = '';
+  assert.equal(env.post({ action: 'getState', apiVersion: 2 }).conflict.reason, 'invalid_allocation');
+  const visibleBefore = env.grid();
+  const registry = env.allSheets.find(sheet => sheet.name === '_FCTC_Guests');
+  const ledger = env.allSheets.find(sheet => sheet.name === '_FCTC_GuestAttendance');
+  const record = JSON.parse(ledger.values[1][1]);
+  registry.values[1][1] = JSON.stringify({ ...rene, status: 'promoted', memberName: 'René', revision: 2 });
+  ledger.values[1][1] = JSON.stringify({ ...record, classification: 'transferred', revision: 2 });
+  const state = env.post({ action: 'getState', apiVersion: 2 });
+  assert.equal(state.conflict, undefined);
+  assert.deepEqual(state.runs[0].namedGuestIds, []);
+  assert.equal(state.runs[0].unnamedGuests, 0);
+  assert.deepEqual(state.runs[0].attendees, ['Col', 'René']);
+  assert.equal(state.guests[0].confirmedRuns, 1, 'Transferred history retains confirmed attendance');
+  const conflict = env.post(stale).conflict;
+  assert.equal(conflict.reason, 'guest_promoted');
+  assert.equal(conflict.memberName, 'René');
+  assert.ok(conflict.state, 'Old phones receive current state for the existing review flow');
+  assert.deepEqual(env.grid(), visibleBefore, 'Repair must preserve manual member marks and guest totals');
+});

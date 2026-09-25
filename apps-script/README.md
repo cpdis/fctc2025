@@ -24,6 +24,12 @@ Attendance is one logical record per guest/run, with explicit present/removed an
 Named IDs plus the explicit unnamed remainder determine `+1's`. Same-name guests require selection.
 Promotion preserves historical attendance and rejects later writes that still treat the person as a guest.
 
+Manual member-column edits are read from the current headers. Moving a shared guest
+to a member column also needs a reviewed guest-ledger update. Use the app's promotion
+flow for this change. A run whose `+1's` is below its saved named-guest count blocks
+shared reads and writes; the conflict identifies the season, date, run, row and counts.
+See [manual sheet edits and guest repair](../docs/operators/manual-sheet-edits.md).
+
 Every v2 mutation has an operation UUID and a verified canonical-request SHA-256 digest.
 Receipts distinguish pending, completed, rejected, and reconciled non-application (`not_applied`).
 Pending outcomes fence workbook writes until verified; a repeated UUID returns its saved outcome.
