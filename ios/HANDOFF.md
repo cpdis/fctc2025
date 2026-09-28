@@ -56,18 +56,19 @@
 
 ### Tests
 
-- Kit: 418 tests pass. New suites: `RunLabelTests`, `ClubDaysTests`, `DashboardModelTests`,
+- Kit: 427 tests pass. New suites: `RunLabelTests`, `ClubDaysTests`, `DashboardModelTests`,
   `ParityFixtureTests`, `WritePathCharacterizationTests`, `EffectiveRunsTests`,
   `SeasonSnapshotTests`, `EventsBoardTests`, `DashboardStoreTests`.
 - Parity: `ParityFixtureTests` reads `fixtures/attendance/parity/<season>.json`, the files the
   web writes with `scripts/build-parity-fixtures.js`. For every golden run it checks the
   `RunLabel` parse, then totals, member-km, club days, current and best streaks and the
   milestone shortlist. A rule change on either stack fails one side until both match.
-- UI: 59 pass, 1 skipped (the opt-in screen tour). New: `TabNavigationUITests` (10),
+- UI: 60 pass, 1 skipped (the opt-in screen tour). New: `TabNavigationUITests` (11),
   `DashboardUITests` (6), and 3 Events cases in `AttendanceSummaryUITests`.
 - New UI-test launch flags: `-ui-events`, `-ui-dashboard`, `-ui-last-season-offline`. New
   hooks: `fctc-attendance://ui-test/route/today-checklist`, `/route/missing-run`,
-  `/swap-engine`. The README section "UI tests and the screen tour" describes them. Run UI
+  `/swap-engine`, `/swap-engine/today-run`. `-ui-events` pins today to Mon 21 Sep 2026, 18:00
+  Perth. The README section "UI tests and the screen tour" describes them. Run UI
   tests with `-collect-test-diagnostics never`.
 
 ### Known follow-ups
@@ -80,13 +81,14 @@
   can race the overlay.
 - On a legacy endpoint, a cold launch can undercount lifetime priors by one until the first
   refresh (pre-existing).
-- Runs still fetches and decodes the cache per render (`HomeView.activeRuns`,
-  `RunPickerView.cacheFingerprint`, `RootTabView.routeTargets`). Events and Dashboard do not.
+- `ActiveSeason.init` reads the season cache twice per rebuild (`activeSheetCache`, then
+  `activeRuns(in:)`). It runs once per data change, not per render.
 - The screen tour uses the legacy fake without `-ui-events` or `-ui-dashboard`, so its Events
   and Dashboard shots are sparse.
 - Tie order sorts by UTF-16 on iOS and by `localeCompare` on the web (display order only).
 - Behaviour changes to call out in the notes: a route switches to Runs at once, and scanning
-  a setup code in Settings returns to the Runs root.
+  a setup code in Settings returns to the Runs root and drops a reminder still waiting for
+  the old sheet.
 - No Instruments pass is recorded for the Dashboard (plan U17 verification).
 
 ### Next TestFlight build (9)

@@ -19,7 +19,7 @@ actor UITestSharedGuestAPI: SheetAPIClient {
                   SharedGuest(guestId: Self.wes, displayName: "Wes", confirmedRuns: 9)]
         let roster = ["Aaron", "Col", "Dan", "Dan B"].enumerated().map { RosterEntry(name: $0.element, colIndex: $0.offset + 6) }
         let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "EEE, d-MMM"
-        let today = Calendar.current.startOfDay(for: .now)
+        let today = Calendar.current.startOfDay(for: UITestSupport.now)
         let currentYear = Calendar.current.component(.year, from: today)
         var currentRuns = [RunRecord(rowIndex: 42, date: formatter.string(from: today), meet: "Il Lido", run: "Soft Sand", approxKm: 7.1, actualKm: 7.1,
             attendees: ["Col"], plusOnes: 2, identity: RunIdentity(spreadsheetId: "ui-book", seasonSheetId: 26, runId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
@@ -45,7 +45,7 @@ actor UITestSharedGuestAPI: SheetAPIClient {
         if ProcessInfo.processInfo.arguments.contains("-ui-birthdays") {
             let calendar = BirthdayBoard.calendar
             seasons[26]!.birthdays = [("Aaron", 0), ("Col", 7), ("Dan", 31)].map { name, days in
-                let date = calendar.date(byAdding: .day, value: days, to: .now)!
+                let date = calendar.date(byAdding: .day, value: days, to: UITestSupport.now)!
                 return MemberBirthday(name: name, month: calendar.component(.month, from: date), day: calendar.component(.day, from: date))
             }
             seasons[26]!.lifetimeTotals = [MemberTotal(name: "Aaron", runs: 147), MemberTotal(name: "Col", runs: 45), MemberTotal(name: "Dan", runs: 45)]
@@ -80,12 +80,13 @@ actor UITestSharedGuestAPI: SheetAPIClient {
     /// calendar as the app reads them. Every club weekday from tomorrow to a week
     /// on Sunday, plus the club's three Christmas races on one date: 13 Dec, or
     /// today once that has passed. A sheet date has no year, so days outside the
-    /// season's year are skipped rather than landing a year early.
+    /// season's year are skipped rather than landing a year early. The flag pins
+    /// "today" (`UITestSupport.now`), so these rows never move.
     private static func plannedRuns(seasonYear: Int) -> [RunRecord] {
         let perth = BirthdayBoard.calendar
         let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.calendar = perth; formatter.timeZone = perth.timeZone; formatter.dateFormat = "EEE, d-MMM"
-        let today = perth.startOfDay(for: .now)
+        let today = perth.startOfDay(for: UITestSupport.now)
         // Foundation weekday numbers: 2 Monday, 4 Wednesday, 6 Friday.
         let clubRuns: [Int: (meet: String, run: String, km: Double)] = [
             2: ("Drift", "Intervals", 10), 4: ("Filament", "Lakes Loop", 12.5), 6: ("Il Lido", "Soft Sand", 7),

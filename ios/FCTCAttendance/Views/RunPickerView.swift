@@ -18,7 +18,12 @@ struct RunPickerView: View {
     let scope: RunPickerScope
 
     @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
+    @Query private var sheetCaches: [SharedSheetCache]
     @State private var viewModel: RunPickerViewModel
+    /// Past runs still missing attendance, newest first. Stored by
+    /// `updateFromCache()` with the sections, so a render never resolves the
+    /// season cache.
+    @State private var catchUpRuns: [RunSnapshot] = []
     @State private var showingAddRun = false
     @State private var searchText = ""
 
@@ -53,8 +58,6 @@ struct RunPickerView: View {
     }
 
     var body: some View {
-        let catchUpRuns = catchUpRuns
-
         List {
             if scope == .past, catchUpRuns.count >= 2, let start = catchUpRuns.first {
                 Section {
@@ -148,22 +151,19 @@ struct RunPickerView: View {
         }
     }
 
-    private var activeRunSnapshots: [RunSnapshot] {
-        RunCacheScope.runs(cachedRuns.map(RunSnapshot.init), endpoint: runtime.config.endpoint?.absoluteString, state: runtime.activeSheetState)
+    /// Changes whenever the season's runs can. It decodes no JSON, so it is
+    /// cheap to build per render.
+    private var cacheFingerprint: String {
+        runtime.activeRunsFingerprint(runs: cachedRuns, caches: sheetCaches)
     }
 
-    private var cacheFingerprint: [RunSnapshot] {
-        activeRunSnapshots
-    }
-
-    private var catchUpRuns: [RunSnapshot] {
-        CatchUpPlanner.unrecordedPastRuns(among: activeRunSnapshots)
-    }
-
+    /// The one place the picker resolves the season cache.
     private func updateFromCache() {
         let now = Date.now
         let calendar = Calendar.current
-        let snapshots = activeRunSnapshots.filter { run in
+        let runs = runtime.activeRuns(in: cachedRuns).map(RunSnapshot.init)
+        catchUpRuns = CatchUpPlanner.unrecordedPastRuns(among: runs, now: now, calendar: calendar)
+        let snapshots = runs.filter { run in
             guard let date = run.scheduledAt else { return scope == .all }
             switch scope {
             case .all:

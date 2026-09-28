@@ -135,6 +135,33 @@ final class TabNavigationUITests: XCTestCase {
         XCTAssertFalse(app.navigationBars["Run log"].exists)
     }
 
+    /// A route still waiting when the connection changes named a run in the
+    /// old connection's sheet, so the swap drops it: it must not land on the
+    /// new sheet's run. The old sheet has no run today, so a today route waits;
+    /// the new sheet has one.
+    func testEngineSwapDropsAWaitingRoute() {
+        launch()
+        XCTAssertTrue(app.buttons["home-no-run-today"].waitForExistence(timeout: 5))
+        app.tab(.events).tap()
+        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+
+        openHook("route/today-checklist")
+        // It lands on Runs and waits there for a run today.
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tab(.runs).isSelected)
+        XCTAssertFalse(app.navigationBars["Review & Confirm"].exists)
+
+        openHook("swap-engine/today-run")
+        // Give the new sheet time to load, then check nothing opened on it.
+        XCTAssertFalse(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 4),
+                       "The old connection's route opened the new sheet's run")
+        XCTAssertTrue(app.buttons["home-todays-run"].waitForExistence(timeout: 5))
+
+        // A new route still lands on the new connection's run.
+        openHook("route/today-checklist")
+        XCTAssertTrue(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 5))
+    }
+
     /// Push, pop (Back button), re-push, pop (edge swipe): the tab bar hides on
     /// every push and returns on every pop, whichever way the pop happens.
     func testRunPickerHidesTabBarOnEveryPushAndRestoresItOnPop() {

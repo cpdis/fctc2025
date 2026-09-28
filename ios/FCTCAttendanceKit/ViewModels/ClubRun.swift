@@ -71,8 +71,9 @@ public struct ClubDate: Hashable, Comparable, Sendable, CustomStringConvertible 
         return calendar
     }()
 
-    private static let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    /// Lowercased month prefixes, the web's `MONTHS` and Apps Script's `MONTH_ABBREVS`.
+    private static let months = ["jan", "feb", "mar", "apr", "may", "jun",
+                                 "jul", "aug", "sep", "oct", "nov", "dec"]
 
     /// A real calendar day, or nil ("31-Sep" never rolls into October).
     public init?(year: Int, month: Int, day: Int) {
@@ -94,14 +95,27 @@ public struct ClubDate: Hashable, Comparable, Sendable, CustomStringConvertible 
         self.init(year: parts[0], month: parts[1], day: parts[2])
     }
 
-    /// Parse the sheet's run-date cell ("Fri, 25-Sep") for a season year, the
-    /// same pattern as the web's `parseRunDate`. Metadata labels such as
-    /// "BIRTHDAY" and impossible days return nil.
+    /// Parse the sheet's run-date cell for a season year, exactly as the web's
+    /// `parseRunDate` and Apps Script's `parseSheetDate` read it: the first
+    /// 1-2 digit day, a "-", "/" or space (optionally padded), then a month word
+    /// of 3+ letters, anywhere in the cell. The month is that word's first three
+    /// letters in any case, so "Fri, 25-Sep", "Fri 25-Sep", "25-Sep",
+    /// "Thurs, 1-Oct" and "Fri, 25-Sept" are all 25 Sep or 1 Oct.
+    ///
+    /// The weekday comes from the calendar, never the typed text: a copied row
+    /// reading "Wed, 2-Oct" in 2026 is a Friday. Metadata labels ("BIRTHDAY",
+    /// "Notes"), unknown months ("3-Foo") and impossible days ("31-Sep",
+    /// "0-Oct") return nil, as does a missing season (0 or less).
+    ///
+    /// This is the app's only sheet-date parser: the run cache's `scheduledAt`,
+    /// the reminders and the Dashboard all read dates through it.
     public init?(sheetDate: String, season: Int) {
-        let text = sheetDate.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let match = text.wholeMatch(of: /[A-Za-z]{3},\s+([0-9]{1,2})-([A-Za-z]{3})/),
+        // `[0-9]`, not `\d`: Swift's `\d` also takes non-ASCII digits, JS's does not.
+        guard season > 0,
+              let match = sheetDate.firstMatch(of: /([0-9]{1,2})\s*[-\/ ]\s*([A-Za-z]{3,})/),
               let day = Int(match.1),
-              let month = Self.months.firstIndex(of: String(match.2)) else { return nil }
+              let month = Self.months.firstIndex(of: match.2.prefix(3).lowercased()) else { return nil }
+        // The calendar round-trip in `init(year:month:day:)` rejects 31-Sep and 0-Oct.
         self.init(year: season, month: month + 1, day: day)
     }
 
@@ -111,6 +125,13 @@ public struct ClubDate: Hashable, Comparable, Sendable, CustomStringConvertible 
         let parts = calendar.dateComponents([.year, .month, .day], from: date)
         guard let year = parts.year, let month = parts.month, let day = parts.day else { return nil }
         self.init(year: year, month: month, day: day)
+    }
+
+    /// Midnight at the start of this day in `calendar`'s time zone. The run
+    /// cache's `scheduledAt` and the reminders store this instant; pass the
+    /// same calendar to `init(_:calendar:)` to read the day back.
+    public func startOfDay(in calendar: Calendar) -> Date? {
+        calendar.date(from: DateComponents(year: year, month: month, day: day))
     }
 
     /// "2026-09-25": the web's `isoDate` and the fixtures' key.

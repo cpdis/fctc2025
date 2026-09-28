@@ -200,20 +200,20 @@ final class AttendanceSummaryUITests: XCTestCase {
         openEvents()
         XCTAssertTrue(element("events-this-week").waitForExistence(timeout: 5))
 
-        // The fixture plans every club weekday from tomorrow. Saturday has no
-        // club day left this week; Friday's only run is today's fixture row,
-        // whose date follows the device zone, so it is not pinned here.
-        var perth = Calendar(identifier: .gregorian)
-        perth.timeZone = TimeZone(identifier: "Australia/Perth")!
-        switch perth.component(.weekday, from: .now) {
-        case 7: XCTAssertEqual(element("week-empty").label, "No more runs this week.")
-        case 6: break
-        default: XCTAssertTrue(elements(prefixed: "week-row-").firstMatch.exists)
+        // `-ui-events` pins today to Monday 21 Sep 2026 (`UITestSupport.now`),
+        // so the week is the same every day the suite runs: today's row 42,
+        // then the fixture's Wednesday and Friday plans. Sunday is no club day.
+        let week = elements(prefixed: "week-row-")
+        XCTAssertEqual(week.count, 3)
+        XCTAssertFalse(element("week-empty").exists)
+        let expected = [("Soft Sand", "Il Lido · 7.1 km"), ("Lakes Loop", "Filament · 12.5 km"), ("Soft Sand", "Il Lido · 7 km")]
+        for (index, (title, detail)) in expected.enumerated() {
+            let label = week.element(boundBy: index).label
+            XCTAssertTrue(label.contains(title) && label.contains(detail), label)
         }
         capture("events-top")
 
-        // The three Christmas races share a date, so they are one row. Match
-        // on the title: before August the fixture's August runs are specials too.
+        // The three Christmas races share a date, so they are one row.
         let xmasRows = elements(prefixed: "special-row-").matching(NSPredicate(format: "label CONTAINS 'Xmas'"))
         let xmas = xmasRows.firstMatch
         scrollTo(xmas)

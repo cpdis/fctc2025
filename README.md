@@ -88,7 +88,9 @@ The parser applies these rules:
   attendee or +1. Metadata rows such as `BIRTHDAY` never count. The date rule is Apps Script's
   `parseSheetDate`: a day, a `-`, `/` or space, then a month word, so `Fri, 3-Jan`, `Sat 4-Oct`,
   `26-Jan` and `Thu, 4-Sept` all count. Impossible days such as `31-Sep` do not. The weekday
-  (`dayOfWeek`) comes from the calendar, never from the typed text.
+  (`dayOfWeek`) comes from the calendar, never from the typed text. The iOS app reads every
+  sheet date (Runs, reminders, Events, Dashboard) through `ClubDate(sheetDate:season:)`, the
+  same rule.
 - **Labels.** `src/utils/runLabels.js` strips sheet footnote markers (`**Cruise` is `Cruise`)
   and normalizes each run into a `type`, an `event` and a `location`. For example, `Half - Xmas`
   becomes type `Half Marathon` with event `Xmas`, and the meet `Some-day` becomes `Someday`. A
@@ -607,7 +609,7 @@ Every UI test launches with `-ui-testing`, which replaces the sheet with an in-m
 |------|---------|
 | `-ui-shared-guests` | The shared (API v2) fake with this season and last (`UITestSharedGuestAPI.swift`). |
 | `-ui-offline` | No automatic outbox drain, so a queued row stays queued until Retry. |
-| `-ui-events` | Planned club runs from tomorrow to the Sunday after next, plus three Xmas races on one date. |
+| `-ui-events` | Planned club runs from tomorrow to the Sunday after next, plus three Xmas races on one date. It pins today to Mon 21 Sep 2026, 18:00 Perth (`UITestSupport.now`), so the week has the same shape on any day. |
 | `-ui-dashboard` | A season of 30 club days with fixed streaks: Aaron 14, Col 10, Dan 2 (`UITestDashboardFixture.swift`). |
 | `-ui-last-season-offline` | Last season's fetch fails, so Vs last year reads "Last season not downloaded". |
 
@@ -620,6 +622,8 @@ these links instead (`UITestSupport.handleHook`):
 - `fctc-attendance://ui-test/route/missing-run`: a route arrives for a run the sheet does not
   have. It can never resolve.
 - `fctc-attendance://ui-test/swap-engine`: a connection change replaces the engine.
+- `fctc-attendance://ui-test/swap-engine/today-run`: the same, but the new sheet has a run
+  today. A route still waiting from the old connection must not open it.
 
 Open a hook with `XCUIDevice.shared.system.open(url)`, not `app.open(url)`. `app.open`
 relaunches the app and loses the tab and stack state under test. On iPhone, tab buttons can

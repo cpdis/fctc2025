@@ -38,11 +38,44 @@ struct ClubDateTests {
         #expect(ClubDate(sheetDate: " Mon, 5-Jan ", season: 2026)?.iso == "2026-01-05")
     }
 
-    @Test("Impossible days and metadata rows are not dates", arguments: [
-        "Wed, 31-Sep", "BIRTHDAY", "", "Fri 25-Sep", "Fri, 25-Sept", "Fri, 25-sep",
+    /// The web's `parseRunDate` and Apps Script's `parseSheetDate` rule: the day
+    /// and month word anywhere in the cell, the month by its first three letters
+    /// in any case, and the weekday from the calendar, never the typed text.
+    @Test("Loose date cells read as the web and Apps Script read them", arguments: [
+        ("Fri 25-Sep", "2026-09-25", Weekday.fri),
+        ("Fri, 25-Sept", "2026-09-25", Weekday.fri),
+        ("Fri, 25-sep", "2026-09-25", Weekday.fri),
+        ("25-Sep", "2026-09-25", Weekday.fri),
+        ("Sat 26 Sep", "2026-09-26", Weekday.sat),
+        ("Sat, 26/Sep", "2026-09-26", Weekday.sat),
+        ("Thurs, 1-Oct", "2026-10-01", Weekday.thu),
+        ("Mon, 5 - January", "2026-01-05", Weekday.mon),
+        // A mistyped weekday: 2 Oct 2026 is a Friday.
+        ("Wed, 2-Oct", "2026-10-02", Weekday.fri),
+    ])
+    func looseDates(cell: String, iso: String, weekday: Weekday) throws {
+        let date = try #require(ClubDate(sheetDate: cell, season: 2026))
+        #expect(date.iso == iso)
+        #expect(date.weekday == weekday)
+    }
+
+    @Test("Impossible days, unknown months and metadata rows are not dates", arguments: [
+        "Wed, 31-Sep", "0-Oct", "3-Foo", "BIRTHDAY", "Notes", "",
     ])
     func notDates(cell: String) {
         #expect(ClubDate(sheetDate: cell, season: 2026) == nil)
+    }
+
+    @Test("A sheet day starts at midnight in the calendar it is placed in")
+    func startOfDay() throws {
+        var perth = Calendar(identifier: .gregorian)
+        perth.timeZone = try #require(TimeZone(identifier: "Australia/Perth"))
+        let day = try #require(ClubDate(sheetDate: "Sat 4-Oct", season: 2026))
+        let start = try #require(day.startOfDay(in: perth))
+        #expect(perth.dateComponents([.year, .month, .day, .hour, .minute], from: start)
+            == DateComponents(year: 2026, month: 10, day: 4, hour: 0, minute: 0))
+        #expect(ClubDate(start, calendar: perth) == day)
+        #expect(ClubDate(sheetDate: "Sat 4-Oct", season: 0) == nil)
     }
 
     @Test("ISO days round-trip and order by date")

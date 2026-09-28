@@ -12,7 +12,9 @@
 //                          launch, activation)                  as the cache fills
 //
 //  Events and Dashboard keep their stacks. An engine swap (a new connection)
-//  resets every tab's path, because pushed screens hold the old connection's runs.
+//  resets every tab's path and drops a waiting route, because both hold the old
+//  connection's runs: a deferred reminder must not open a look-alike run (same
+//  row, date and name) in the new connection's sheet.
 //
 
 import FCTCAttendanceKit
@@ -31,6 +33,11 @@ struct RootTabView: View {
     let pendingRoutes: PendingRouteStore
 
     @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
+    @Query private var sheetCaches: [SharedSheetCache]
+    /// The runs a reminder route can name: the active season's cache. Resolving
+    /// them fetches and decodes the season cache, so they are stored once per
+    /// data change (`AppRuntime.activeRunsFingerprint`), never per render.
+    @State private var routeTargets: [RunSnapshot] = []
     /// Home's model lives here so a "today" route resolves to the very run the
     /// Runs hero shows, and the Dashboard shares its first-load state. HomeView
     /// still drives its refreshes.
@@ -80,9 +87,12 @@ struct RootTabView: View {
             handlePendingRoute()
             offerSharedScreenshots()
         }
+        .onChange(of: runtime.activeRunsFingerprint(runs: cachedRuns, caches: sheetCaches), initial: true) { _, _ in
+            routeTargets = runtime.activeRuns(in: cachedRuns).map(RunSnapshot.init)
+        }
         // A reminder names one specific run, which can arrive with any sync.
         .onChange(of: routeTargets) { _, _ in handlePendingRoute() }
-        .onChange(of: runtime.generation) { _, _ in resetAllPaths() }
+        .onChange(of: runtime.generation) { _, _ in resetForEngineSwap() }
         .onReceive(NotificationCenter.default.publisher(for: PendingRouteStore.changed)) { _ in
             handlePendingRoute()
         }
@@ -105,11 +115,6 @@ struct RootTabView: View {
         } message: {
             Text("Open today's checklist and review the imported poll.")
         }
-    }
-
-    /// The runs a reminder route can name: the active season's cache.
-    private var routeTargets: [RunSnapshot] {
-        runtime.activeRuns(in: cachedRuns).map(RunSnapshot.init)
     }
 
     /// Takes a newly stored route, or retries the waiting one, and lands it on
@@ -158,10 +163,13 @@ struct RootTabView: View {
         showingSharedScreenshotOffer = true
     }
 
-    /// Every tab back to its root. The selected tab stays where it is.
-    private func resetAllPaths() {
+    /// A new connection: every tab back to its root, and the waiting route
+    /// dropped, since it named a run in the old connection's sheet. The
+    /// selected tab stays where it is.
+    private func resetForEngineSwap() {
         runsPath = []
         eventsPath = NavigationPath()
         dashboardPath = NavigationPath()
+        deferredRoute = nil
     }
 }

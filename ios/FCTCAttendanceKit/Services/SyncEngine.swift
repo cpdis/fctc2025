@@ -23,7 +23,6 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
     let retryPolicy: RetryPolicy
     let automaticallyDrains: Bool
     let runReminderScheduler: any RunReminderScheduling
-    let dateFormatter: DateFormatter
     var isDraining = false
     var isDrainScheduled = false
     var drainRequested = false
@@ -43,10 +42,6 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         self.eventBroadcaster = SyncEventBroadcaster()
         let context = ModelContext(modelContainer)
         context.autosaveEnabled = false
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-        dateFormatter.calendar = Calendar(identifier: .gregorian)
-        dateFormatter.dateFormat = "EEE, d-MMM-yyyy"
         self.modelExecutor = DefaultSerialModelExecutor(modelContext: context)
         self.modelContainer = modelContainer
         self.api = api
@@ -54,7 +49,6 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         self.retryPolicy = retryPolicy
         self.automaticallyDrains = automaticallyDrains
         self.runReminderScheduler = runReminderScheduler
-        self.dateFormatter = dateFormatter
     }
 
     deinit {

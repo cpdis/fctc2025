@@ -167,7 +167,7 @@ public actor RunReminderService: RunReminderManaging {
 
         var scheduledCount = 0
         for run in state.runs where !run.hasRecordedAttendance {
-            guard let runDate = parseDate(run.date, seasonYear: state.seasonYear),
+            guard let runDate = ClubDate(sheetDate: run.date, season: state.seasonYear)?.startOfDay(in: calendar),
                   let fireDate = fireDate(on: runDate),
                   fireDate > now
             else { continue }
@@ -213,16 +213,6 @@ public actor RunReminderService: RunReminderManaging {
             .filter { $0.hasPrefix(Self.identifierPrefix) }
         guard !identifiers.isEmpty else { return }
         await center.removePendingRequests(withIdentifiers: identifiers)
-    }
-
-    private func parseDate(_ value: String, seasonYear: Int) -> Date? {
-        guard seasonYear > 0 else { return nil }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "EEE, d-MMM-yyyy"
-        return formatter.date(from: "\(value)-\(seasonYear)")
     }
 
     private func fireDate(on date: Date) -> Date? {

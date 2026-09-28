@@ -41,6 +41,11 @@ struct HomeView: View {
         filter: #Predicate<PendingSubmission> { $0.stateRaw != "done" },
         sort: \PendingSubmission.createdAt
     ) private var cachedSubmissions: [PendingSubmission]
+    @Query private var sheetCaches: [SharedSheetCache]
+    /// The active season's runs. Resolving them fetches and decodes the season
+    /// cache, so `updateFromCache()` stores them once per data change
+    /// (`cacheFingerprint`) and a render only reads this copy.
+    @State private var activeRuns: [RunSnapshot] = []
     @State private var recovery: [GuestRecoverySnapshot] = []
     /// Flips once per launch so the header cards stagger in on first sight only.
     @State private var hasEntered = false
@@ -302,28 +307,27 @@ struct HomeView: View {
         guestOperations.filter { $0.endpointIdentity == runtime.config.endpoint?.absoluteString && $0.phase != .completed && $0.phase != .superseded }
     }
 
-    private var activeRuns: [ScheduledRun] {
-        runtime.activeRuns(in: cachedRuns)
-    }
-
     /// "94 of 163 runs recorded", or nil before the season has loaded.
     private var seasonProgress: String? {
         guard !activeRuns.isEmpty else { return nil }
-        let recorded = activeRuns.filter { !$0.attendees.isEmpty || $0.plusOnes > 0 }.count
+        let recorded = activeRuns.filter(\.hasRecordedAttendance).count
         return "\(recorded) of \(activeRuns.count) runs recorded"
     }
 
+    /// Changes whenever a Runs input does: the season's runs, an outbox row or
+    /// a guest change. It decodes no JSON, so it is cheap to build per render.
     private var cacheFingerprint: String {
-        let runs = activeRuns.map {
-            "\($0.rowIndex):\($0.attendees.count):\($0.plusOnes):\($0.cachedRevision ?? "")"
-        }.joined(separator: "|")
         let submissions = cachedSubmissions.map { "\($0.id):\($0.stateRaw)" }.joined(separator: "|")
-        return runs + "#" + submissions + pendingGuestOperations.map { "\($0.id):\($0.phaseRaw)" }.joined(separator: "|")
+        let guestChanges = pendingGuestOperations.map { "\($0.id):\($0.phaseRaw)" }.joined(separator: "|")
+        return [runtime.activeRunsFingerprint(runs: cachedRuns, caches: sheetCaches), submissions, guestChanges]
+            .joined(separator: "#")
     }
 
+    /// The one place Runs resolves the season cache.
     private func updateFromCache() {
+        activeRuns = runtime.activeRuns(in: cachedRuns).map(RunSnapshot.init)
         viewModel.update(
-            runs: activeRuns.map(RunSnapshot.init),
+            runs: activeRuns,
             submissions: cachedSubmissions.map(PendingSubmissionSnapshot.init),
             pendingGuestChanges: pendingGuestOperations.count,
             guestConflicts: pendingGuestOperations.filter { $0.phase == .conflict || $0.phase == .rejected }.count

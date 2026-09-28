@@ -26,18 +26,18 @@ public struct GuestAttendanceDiff: Equatable, Sendable {
 extension RunSnapshot {
     public init(record: RunRecord, state: SheetState, endpointIdentity: String?) {
         self.init(rowIndex: record.rowIndex, date: record.date,
-                  scheduledAt: Self.guestRunDate(record.date, year: state.seasonYear),
+                  scheduledAt: Self.guestRunDate(record.date, season: state.seasonYear),
                   meet: record.meet, run: record.run, approxKm: record.approxKm, actualKm: record.actualKm,
                   attendees: record.attendees, plusOnes: record.plusOnes, cachedRevision: state.sheetRevision,
                   runIdentity: record.identity, endpointIdentity: endpointIdentity,
                   namedGuestIds: record.namedGuestIds ?? [], unnamedGuests: record.unnamedGuests,
                   seasonYear: record.seasonYear ?? state.seasonYear)
     }
-    private static func guestRunDate(_ value: String, year: Int) -> Date? {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "EEE, d-MMM-yyyy"
-        return year > 0 ? formatter.date(from: "\(value)-\(year)") : nil
+    /// Midnight of the run's day on the device, as the run cache stores it.
+    private static func guestRunDate(_ value: String, season: Int) -> Date? {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        return ClubDate(sheetDate: value, season: season)?.startOfDay(in: calendar)
     }
 }
 

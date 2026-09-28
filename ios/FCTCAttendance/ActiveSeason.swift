@@ -43,10 +43,11 @@ struct ActiveSeason {
         priors = Self.priors(state: active?.state, cached: cached, members: members)
     }
 
-    /// Changes whenever a tab input changes: a cached run (every cache write
-    /// moves its revision), an outbox row's status, a season's refresh, the live
-    /// state, or a member's cached total or birthday. It reads no JSON, so it is
-    /// cheap to build per render; an `ActiveSeason` is not.
+    /// Changes whenever a tab input changes: the season's runs as
+    /// `AppRuntime.activeRunsFingerprint` sees them (a cached run, a season's
+    /// refresh, the live state), an outbox row's status, or a member's cached
+    /// total or birthday. It reads no JSON, so it is cheap to build per render;
+    /// an `ActiveSeason` is not.
     ///
     /// - Parameter submissions: every outbox row, finished ones included. A
     ///   confirmed shared row stays in the overlay until its season refreshes.
@@ -57,17 +58,13 @@ struct ActiveSeason {
         submissions: [PendingSubmission],
         caches: [SharedSheetCache]
     ) -> String {
-        let endpoint = runtime.config.endpoint?.absoluteString ?? ""
-        let live = runtime.activeState.map { "\($0.spreadsheetId ?? ""):\($0.seasonSheetId ?? 0):\($0.sheetRevision)" }
-        let runs = runs.map { "\($0.cacheKey):\($0.cachedRevision ?? ""):\($0.attendees.count):\($0.plusOnes)" }
         let outbox = submissions.map { "\($0.id):\($0.stateRaw)" }
-        let caches = caches.filter { $0.endpointIdentity == endpoint }
-            .map { "\($0.key):\($0.refreshedAt.timeIntervalSinceReferenceDate)" }
         let members = members.map {
             "\($0.name):\($0.lifetimeRuns):\($0.birthdayMonth ?? 0)-\($0.birthdayDay ?? 0)"
                 + ":\($0.birthdayEndpointIdentity ?? ""):\($0.birthdaySeasonYear ?? 0)"
         }
-        return ([endpoint, live ?? ""] + runs + outbox + caches + members).joined(separator: "|")
+        return ([runtime.activeRunsFingerprint(runs: runs, caches: caches)] + outbox + members)
+            .joined(separator: "|")
     }
 
     /// Lifetime runs before this season (KTD12): the server's totals for the

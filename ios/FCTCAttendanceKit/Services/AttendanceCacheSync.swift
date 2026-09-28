@@ -153,9 +153,16 @@ extension SyncEngine {
         try modelContext.save()
     }
 
-    func cachedSeasonYear(fallbackDate: Date) throws -> Int {
+    /// The device's Gregorian calendar. `scheduledAt` is midnight of the run's
+    /// day in it, so the Runs tab's "today" and "this week" follow the phone.
+    var deviceCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
+        return calendar
+    }
+
+    func cachedSeasonYear(fallbackDate: Date) throws -> Int {
+        let calendar = deviceCalendar
         let runs = try modelContext.fetch(
             FetchDescriptor<ScheduledRun>(sortBy: [SortDescriptor(\.rowIndex)])
         )
@@ -176,8 +183,10 @@ extension SyncEngine {
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
     }
 
+    /// The run's `scheduledAt`, read by the shared sheet-date rule
+    /// (`ClubDate(sheetDate:season:)`), so every date the Dashboard counts
+    /// also has a day on the Runs tab.
     func parseDate(_ value: String, seasonYear: Int) -> Date? {
-        guard seasonYear > 0 else { return nil }
-        return dateFormatter.date(from: "\(value)-\(seasonYear)")
+        ClubDate(sheetDate: value, season: seasonYear)?.startOfDay(in: deviceCalendar)
     }
 }

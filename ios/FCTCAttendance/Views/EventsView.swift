@@ -33,11 +33,18 @@ struct EventsView: View {
     @Query private var sheetCaches: [SharedSheetCache]
     @Environment(\.scenePhase) private var scenePhase
 
-    /// The clock the board reads. It moves only when the Perth day changes, so
-    /// This week and Birthdays turn over at midnight without a rebuild a minute.
-    @State private var now = Date.now
+    /// The clock the board reads (`runtime.now`). It moves only when the Perth
+    /// day changes, so This week and Birthdays turn over at midnight without a
+    /// rebuild a minute.
+    @State private var now: Date
     /// Nil until the first build, so no section flashes its empty state.
     @State private var board: EventsBoard?
+
+    init(runtime: AppRuntime, path: Binding<NavigationPath>) {
+        self.runtime = runtime
+        _path = path
+        _now = State(initialValue: runtime.now())
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -56,14 +63,14 @@ struct EventsView: View {
         .onChange(of: now) { _, _ in rebuild() }
         // Device midnight may differ from Perth midnight while travelling, so
         // poll while active. This never fetches sheet data.
-        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { date in
-            if scenePhase == .active { advanceClock(to: date) }
+        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
+            if scenePhase == .active { advanceClock() }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
-            advanceClock(to: .now)
+            advanceClock()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { advanceClock(to: .now) }
+            if phase == .active { advanceClock() }
         }
     }
 
@@ -73,8 +80,9 @@ struct EventsView: View {
                                  submissions: cachedSubmissions, caches: sheetCaches)
     }
 
-    /// Moves the clock only across a Perth day boundary.
-    private func advanceClock(to date: Date) {
+    /// Moves the clock to `runtime.now()`, only across a Perth day boundary.
+    private func advanceClock() {
+        let date = runtime.now()
         guard !BirthdayBoard.calendar.isDate(date, inSameDayAs: now) else { return }
         now = date
     }
