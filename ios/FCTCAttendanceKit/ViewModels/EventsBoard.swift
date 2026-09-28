@@ -103,7 +103,7 @@ public struct EventsBoard: Hashable, Sendable {
             thisWeek = []
             specials = []
         }
-        milestones = priors.map { Self.milestones(season.map(\.run), priors: $0) } ?? []
+        milestones = priors.map { MilestoneBoard.shortlist(priors: $0, season: season.map(\.run)) } ?? []
         self.birthdays = birthdays.map { BirthdayBoard.upcoming(from: $0, now: now) }
     }
 
@@ -135,18 +135,6 @@ public struct EventsBoard: Hashable, Sendable {
                 options: distinct(runs.map { shortRaceNames[$0.label.type] ?? $0.label.type })
             )
         }
-    }
-
-    /// All-time runs (prior + this season's effective count) for everyone with a
-    /// prior or a run this season, shortlisted by `MilestoneBoard`. The same rule
-    /// as `DashboardModel.milestones`, so both tabs name the same people.
-    private static func milestones(_ runs: [ClubRun], priors: LifetimePriors) -> [MilestoneCandidate] {
-        var seasonRuns: [String: Int] = [:]
-        for name in runs.flatMap(\.attendees) { seasonRuns[name, default: 0] += 1 }
-        let names = Set(priors.runs.keys).union(seasonRuns.keys)
-        return MilestoneBoard.shortlist(from: names.map { name in
-            (name: name, runs: priors.allTime(for: name, seasonRuns: seasonRuns[name] ?? 0))
-        })
     }
 
     /// The values in first-seen order.

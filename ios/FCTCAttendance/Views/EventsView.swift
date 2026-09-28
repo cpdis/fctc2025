@@ -3,13 +3,13 @@
 //  FCTCAttendance
 //
 //  The Events tab (R22, R26): what's coming up, from the offline cache. It feeds
-//  `EventsBoard` the active season's effective runs (the cache with the outbox
-//  applied, KTD11), all-time priors (KTD12) and birthdays, and rebuilds it only
-//  when an input changes or the Perth day turns (KTD10):
+//  `EventsBoard` the `ActiveSeason` (effective runs and all-time priors) plus
+//  birthdays, and rebuilds it only when an input changes or the Perth day
+//  turns (KTD10):
 //
-//    @Query rows ──> boardFingerprint (cheap, no JSON) ──changed──┐
-//    clock ───────> now (moves only at Perth midnight) ──changed──┴─> rebuild()
-//                                                                     └─> board
+//    @Query rows ──> ActiveSeason.fingerprint (cheap) ──changed──┐
+//    clock ───────> now (moves only at Perth midnight) ─changed──┴─> rebuild()
+//                                                                    └─> board
 //
 //  `rebuild()` is the only place that fetches and decodes the season cache, so
 //  a render never does.
@@ -67,22 +67,10 @@ struct EventsView: View {
         }
     }
 
-    /// Changes whenever a board input changes: a cached run (every cache write
-    /// moves its revision), an outbox row's status, a season's refresh, the live
-    /// state, or a member's cached total or birthday. It reads no JSON, so it is
-    /// cheap to build per render; the board is not.
+    /// Changes whenever a board input changes; cheap enough for every render.
     private var boardFingerprint: String {
-        let endpoint = runtime.config.endpoint?.absoluteString ?? ""
-        let live = runtime.activeState.map { "\($0.spreadsheetId ?? ""):\($0.seasonSheetId ?? 0):\($0.sheetRevision)" }
-        let runs = cachedRuns.map { "\($0.cacheKey):\($0.cachedRevision ?? ""):\($0.attendees.count):\($0.plusOnes)" }
-        let outbox = cachedSubmissions.map { "\($0.id):\($0.stateRaw)" }
-        let caches = sheetCaches.filter { $0.endpointIdentity == endpoint }
-            .map { "\($0.key):\($0.refreshedAt.timeIntervalSinceReferenceDate)" }
-        let members = cachedMembers.map {
-            "\($0.name):\($0.lifetimeRuns):\($0.birthdayMonth ?? 0)-\($0.birthdayDay ?? 0)"
-                + ":\($0.birthdayEndpointIdentity ?? ""):\($0.birthdaySeasonYear ?? 0)"
-        }
-        return ([endpoint, live ?? ""] + runs + outbox + caches + members).joined(separator: "|")
+        ActiveSeason.fingerprint(runtime: runtime, runs: cachedRuns, members: cachedMembers,
+                                 submissions: cachedSubmissions, caches: sheetCaches)
     }
 
     /// Moves the clock only across a Perth day boundary.
@@ -93,33 +81,13 @@ struct EventsView: View {
 
     /// The one place the season cache is fetched and decoded.
     private func rebuild() {
-        let endpoint = runtime.config.endpoint?.absoluteString
-        let active = runtime.activeSheetCache
-        let cached = runtime.activeRuns(in: cachedRuns).map(RunSnapshot.init)
-        let effective = EffectiveRuns(
-            cached: cached,
-            submissions: cachedSubmissions.map(PendingSubmissionSnapshot.init),
-            endpoint: endpoint,
-            refreshedAt: active?.refreshedAt
-        )
+        let season = ActiveSeason(runtime: runtime, runs: cachedRuns, members: cachedMembers,
+                                  submissions: cachedSubmissions)
         board = EventsBoard(
-            runs: effective.runs,
-            priors: priors(state: active?.state, cached: cached),
-            birthdays: birthdays(state: active?.state, cached: cached),
+            runs: season.effective.runs,
+            priors: season.priors,
+            birthdays: birthdays(state: season.state, cached: season.cached),
             now: now
-        )
-    }
-
-    /// Lifetime runs before this season (KTD12): the server's totals for the
-    /// current roster, less that same payload's runs. Before a `getState` with
-    /// totals (a cold legacy launch), the members' cached totals stand in, less
-    /// the cached season.
-    private func priors(state: SheetState?, cached: [RunSnapshot]) -> LifetimePriors? {
-        if let state, !state.lifetimeTotals.isEmpty { return LifetimePriors(rosterOf: state) }
-        guard !cachedMembers.isEmpty else { return nil }
-        return LifetimePriors(
-            lifetimeTotals: cachedMembers.map { MemberTotal(name: $0.name, runs: $0.lifetimeRuns) },
-            payload: cached.compactMap { ClubRun($0) }
         )
     }
 

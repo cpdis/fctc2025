@@ -89,6 +89,43 @@ struct HomeRow: View {
     }
 }
 
+/// The season's first load, while nothing is cached yet. Runs and Dashboard
+/// share it, so both tabs say the same thing while the sheet loads.
+struct SeasonLoadingView: View {
+    let identifier: String
+
+    var body: some View {
+        ContentUnavailableView(
+            "Loading Season",
+            systemImage: "calendar.badge.clock",
+            description: Text("Fetching the roster and scheduled runs.")
+        )
+        .accessibilityIdentifier(identifier)
+    }
+}
+
+/// A first load that failed with nothing cached. Runs and Dashboard share it;
+/// each tab words the detail for what else it shows.
+struct SeasonUnavailableView: View {
+    let identifier: String
+    let detail: String
+    let retry: @MainActor () async -> Void
+
+    var body: some View {
+        ContentUnavailableView {
+            Label("Runs Unavailable", systemImage: "wifi.exclamationmark")
+        } description: {
+            Text(detail)
+        } actions: {
+            Button("Try Again") {
+                Task { await retry() }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .accessibilityIdentifier(identifier)
+    }
+}
+
 struct HomeSyncBanner: View {
     let banner: SyncBanner
     let runtime: AppRuntime

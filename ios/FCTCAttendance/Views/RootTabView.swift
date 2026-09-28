@@ -32,7 +32,8 @@ struct RootTabView: View {
 
     @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
     /// Home's model lives here so a "today" route resolves to the very run the
-    /// Runs hero shows. HomeView still drives its refreshes.
+    /// Runs hero shows, and the Dashboard shares its first-load state. HomeView
+    /// still drives its refreshes.
     @State private var runsModel: HomeViewModel
     @State private var selection: AppTab = .runs
     @State private var runsPath: [HomeRoute] = []
@@ -64,7 +65,7 @@ struct RootTabView: View {
             .accessibilityIdentifier("tab-events")
 
             Tab("Dashboard", systemImage: "chart.bar", value: AppTab.dashboard) {
-                TabPlaceholderView(title: "Dashboard", path: $dashboardPath)
+                DashboardView(runtime: runtime, home: runsModel, path: $dashboardPath)
             }
             .accessibilityIdentifier("tab-dashboard")
         }
@@ -162,23 +163,5 @@ struct RootTabView: View {
         runsPath = []
         eventsPath = NavigationPath()
         dashboardPath = NavigationPath()
-    }
-}
-
-/// A titled, empty tab root. It keeps the tab bar honest (a real destination
-/// with its own navigation stack) until the real screen lands.
-private struct TabPlaceholderView: View {
-    let title: String
-    @Binding var path: NavigationPath
-
-    var body: some View {
-        NavigationStack(path: $path) {
-            ContentUnavailableView(
-                title,
-                systemImage: "hammer",
-                description: Text("Coming soon.")
-            )
-            .navigationTitle(title)
-        }
     }
 }

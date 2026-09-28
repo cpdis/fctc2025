@@ -108,12 +108,17 @@ final class TabNavigationUITests: XCTestCase {
     }
 
     /// A connection change swaps the engine, and no tab may keep a screen
-    /// pushed for the old connection. Events and Dashboard push nothing yet,
-    /// so the pushed Outbox on Runs is the observable case.
+    /// pushed for the old connection: the Outbox on Runs and the Run log on
+    /// Dashboard both pop. Events pushes nothing.
     func testEngineSwapReturnsEveryTabToItsRoot() {
         launch()
         app.buttons["home-unsynced"].tap()
         XCTAssertTrue(app.navigationBars["Outbox"].waitForExistence(timeout: 5))
+        app.tab(.dashboard).tap()
+        let runLog = app.descendants(matching: .any)["dashboard-run-log"].firstMatch
+        for _ in 0..<8 where !(runLog.exists && runLog.isHittable) { app.swipeUp() }
+        runLog.tap()
+        XCTAssertTrue(app.navigationBars["Run log"].waitForExistence(timeout: 5))
         app.tab(.events).tap()
         XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
 
@@ -127,6 +132,7 @@ final class TabNavigationUITests: XCTestCase {
         XCTAssertFalse(app.navigationBars["Outbox"].exists)
         app.tab(.dashboard).tap()
         XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.navigationBars["Run log"].exists)
     }
 
     /// Push, pop (Back button), re-push, pop (edge swipe): the tab bar hides on

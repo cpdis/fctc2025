@@ -26,7 +26,7 @@ actor UITestSharedGuestAPI: SheetAPIClient {
             namedGuestIds: [Self.rene], unnamedGuests: 1, seasonYear: currentYear),
             RunRecord(rowIndex: 43, date: formatter.string(from: today.addingTimeInterval(-86400)), meet: "Tompkins Park", run: "River Loop", approxKm: 8.2,
                 identity: RunIdentity(spreadsheetId: "ui-book", seasonSheetId: 26, runId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"), namedGuestIds: [], unnamedGuests: 0, seasonYear: currentYear)]
-        let oldRuns = (0..<3).map { index in
+        var oldRuns = (0..<3).map { index in
             RunRecord(rowIndex: 20 + index, date: "Fri, \(5 + index * 7)-Dec", meet: "Beach", run: "Summer run", approxKm: 7.2, actualKm: 7.2,
                 attendees: ["Col"], plusOnes: 3, identity: RunIdentity(spreadsheetId: "ui-book", seasonSheetId: 25,
                     runId: String(format: "cccccccc-cccc-4ccc-8ccc-%012d", index)), namedGuestIds: [Self.rene, Self.toby, Self.wes], unnamedGuests: 0, seasonYear: currentYear - 1)
@@ -37,6 +37,7 @@ actor UITestSharedGuestAPI: SheetAPIClient {
                     runId: String(format: "dddddddd-dddd-4ddd-8ddd-%012d", index)), namedGuestIds: index < 6 ? [Self.rene, Self.toby, Self.wes] : [Self.rene, Self.toby], unnamedGuests: index < 6 ? 0 : 1, seasonYear: currentYear))
         }
         if ProcessInfo.processInfo.arguments.contains("-ui-events") { currentRuns += Self.plannedRuns(seasonYear: currentYear) }
+        if UITestDashboardFixture.isEnabled { (currentRuns, oldRuns) = UITestDashboardFixture.runs(seasonYear: currentYear) }
         seasons = [25: SheetState(roster: roster, runs: oldRuns, seasonYear: currentYear - 1, sheetRevision: "ui-1", apiVersion: 2,
                         capabilities: GuestCapabilities(), spreadsheetId: "ui-book", seasonSheetId: 25),
                    26: SheetState(roster: roster, runs: currentRuns, seasonYear: currentYear, sheetRevision: "ui-1", apiVersion: 2,
@@ -50,6 +51,7 @@ actor UITestSharedGuestAPI: SheetAPIClient {
             seasons[26]!.lifetimeTotals = [MemberTotal(name: "Aaron", runs: 147), MemberTotal(name: "Col", runs: 45), MemberTotal(name: "Dan", runs: 45)]
         }
         if ProcessInfo.processInfo.arguments.contains("-ui-no-birthdays") { seasons[26]!.birthdays = [] }
+        if UITestDashboardFixture.isEnabled { seasons[26]!.lifetimeTotals = UITestDashboardFixture.lifetimeTotals }
         for guest in guests {
             histories[guest.guestId] = (oldRuns + currentRuns).filter { $0.namedGuestIds?.contains(guest.guestId) == true }.map { run in
                 GuestAttendanceEntry(guestId: guest.guestId, spreadsheetId: "ui-book", seasonSheetId: run.seasonSheetId!, runId: run.runId!,
@@ -104,6 +106,10 @@ actor UITestSharedGuestAPI: SheetAPIClient {
     func getState() async throws -> SheetState { try await getState(seasonSheetId: nil) }
     func getState(seasonSheetId: Int?) async throws -> SheetState {
         if ProcessInfo.processInfo.arguments.contains("-ui-state-offline") { throw URLError(.notConnectedToInternet) }
+        // Last season was never downloaded and the network is gone (Dashboard).
+        if ProcessInfo.processInfo.arguments.contains("-ui-last-season-offline"), seasonSheetId == 25 {
+            throw URLError(.notConnectedToInternet)
+        }
         return state(seasonSheetId ?? 26)
     }
     private func state(_ season: Int) -> SheetState {

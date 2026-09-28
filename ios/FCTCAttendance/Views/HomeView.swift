@@ -84,12 +84,7 @@ struct HomeView: View {
 
                 if viewModel.isInitialLoading && activeRuns.isEmpty {
                     Section {
-                        ContentUnavailableView(
-                            "Loading Season",
-                            systemImage: "calendar.badge.clock",
-                            description: Text("Fetching the roster and scheduled runs.")
-                        )
-                        .accessibilityIdentifier("home-initial-loading")
+                        SeasonLoadingView(identifier: "home-initial-loading")
                     }
                 } else {
                     summarySection
@@ -115,20 +110,13 @@ struct HomeView: View {
 
                     Section {
                         if viewModel.initialLoadFailed && activeRuns.isEmpty {
-                            ContentUnavailableView {
-                                Label("Runs Unavailable", systemImage: "wifi.exclamationmark")
-                            } description: {
-                                Text("The app could not load the season. Check the message below and try again.")
-                            } actions: {
-                                Button("Try Again") {
-                                    Task {
-                                        await viewModel.retry(hasCachedState: false)
-                                        updateFromCache()
-                                    }
-                                }
-                                .buttonStyle(.borderedProminent)
+                            SeasonUnavailableView(
+                                identifier: "home-runs-unavailable",
+                                detail: "The app could not load the season. Check the message below and try again."
+                            ) {
+                                await viewModel.retry(hasCachedState: false)
+                                updateFromCache()
                             }
-                            .accessibilityIdentifier("home-runs-unavailable")
                         } else {
                             if viewModel.todayRun == nil {
                                 NavigationLink(value: HomeRoute.runPicker(.all)) {

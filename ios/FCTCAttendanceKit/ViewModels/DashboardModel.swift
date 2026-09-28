@@ -101,14 +101,7 @@ public struct DashboardModel: Hashable, Sendable {
                 $0.memberKm != $1.memberKm ? $0.memberKm > $1.memberKm : codeUnitPrecedes($0.name, $1.name)
             }
         )
-        milestones = priors.map { priors in
-            // Everyone with a prior or a run this season, at prior + live count.
-            let seasonRuns = Dictionary(uniqueKeysWithValues: byRuns.map { ($0.name, $0.runs) })
-            let names = Set(priors.runs.keys).union(seasonRuns.keys)
-            return MilestoneBoard.shortlist(from: names.map { name in
-                (name: name, runs: priors.allTime(for: name, seasonRuns: seasonRuns[name] ?? 0))
-            })
-        } ?? []
+        milestones = priors.map { MilestoneBoard.shortlist(priors: $0, season: ordered) } ?? []
         runners = Dictionary(uniqueKeysWithValues: standings.map { standing in
             (standing.entry.name, Self.runner(standing, among: byRuns, clubDays: clubDays, priors: priors))
         })

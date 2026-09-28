@@ -80,4 +80,21 @@ public enum MilestoneBoard {
         let lastPlace = eligible[places - 1].runsNeeded
         return eligible.filter { $0.runsNeeded <= lastPlace }
     }
+
+    /// The shortlist over all-time totals (KTD12): each member's prior runs plus
+    /// their runs in `season`, for everyone with a prior or a run this season.
+    /// Events and the Dashboard both call this, so both tabs name the same people.
+    ///
+    /// - Parameters:
+    ///   - priors: lifetime runs before this season.
+    ///   - season: this season's effective runs. Planned rows have no attendees,
+    ///     so they add nothing.
+    public static func shortlist(priors: LifetimePriors, season: [ClubRun]) -> [MilestoneCandidate] {
+        var seasonRuns: [String: Int] = [:]
+        for name in season.lazy.flatMap(\.attendees) { seasonRuns[name, default: 0] += 1 }
+        let names = Set(priors.runs.keys).union(seasonRuns.keys)
+        return shortlist(from: names.map { name in
+            (name: name, runs: priors.allTime(for: name, seasonRuns: seasonRuns[name] ?? 0))
+        })
+    }
 }

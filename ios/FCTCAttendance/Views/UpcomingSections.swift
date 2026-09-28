@@ -68,8 +68,9 @@ struct SpecialsSection: View {
     }
 }
 
-/// A date block, a title and one line of detail.
-private struct EventRow: View {
+/// A date block, a title and one line of detail. The Dashboard's run log uses
+/// it too, so every dated list in the app reads the same way.
+struct EventRow: View {
     let date: ClubDate
     let title: String
     let detail: String
@@ -143,9 +144,13 @@ extension Date.FormatStyle {
 }
 
 extension ClubDate {
-    /// This day formatted in Perth. Noon keeps every zone on the same day.
+    /// Noon of this day in Perth. Noon keeps every zone on the same day.
+    var perthNoon: Date? {
+        BirthdayBoard.calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))
+    }
+
+    /// This day formatted in Perth.
     func formatted(_ style: Date.FormatStyle) -> String {
-        let noon = BirthdayBoard.calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))
-        return noon?.formatted(style) ?? iso
+        perthNoon?.formatted(style) ?? iso
     }
 }
