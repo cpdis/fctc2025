@@ -74,6 +74,38 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         return state
     }
 
+    /// Last season's state for the Dashboard's "Vs last year" card. Nil means
+    /// unavailable: a legacy endpoint, or no earlier season in `supportedSeasons`.
+    ///
+    /// A read-only snapshot. It upserts only that season's `SharedSheetCache` row.
+    /// It never calls `reconcile`, never sets `latestState` and never reschedules
+    /// reminders, so members, cached runs and the live season stay exactly as the
+    /// last live refresh left them. A finished season does not change, so the row
+    /// is fetched once and read from the cache after that.
+    public func previousSeasonSnapshot() async throws -> SheetState? {
+        // Anchor on the newest cached season, not `latestState`: historic
+        // navigation points `latestState` at an older season.
+        guard let endpoint = api.endpointIdentity, let live = try newestSharedState(),
+              live.supportsSharedGuests, let book = live.spreadsheetId else { return nil }
+        // The newest listed season older than the live one. Gaps are allowed.
+        guard let previous = (live.supportedSeasons ?? [])
+            .filter({ $0.seasonYear < live.seasonYear })
+            .max(by: { $0.seasonYear < $1.seasonYear }) else { return nil }
+        if let cached = try sharedSheetCache(
+            endpoint: endpoint, spreadsheetId: book, seasonSheetId: previous.seasonSheetId
+        )?.state {
+            return cached
+        }
+        let state = try await api.getState(seasonSheetId: previous.seasonSheetId)
+        // Never cache another season or workbook under last season's key.
+        guard state.spreadsheetId == book, state.seasonSheetId == previous.seasonSheetId else {
+            throw SheetAPIError.badPayload(message: "The sheet did not return last season.")
+        }
+        try upsertSharedSheetCache(state, endpoint: endpoint, seenAt: await clock.now())
+        try modelContext.save()
+        return state
+    }
+
     /// Compatibility spelling from the U1 seam.
     public func refresh() async throws -> SheetState {
         try await refreshState()
