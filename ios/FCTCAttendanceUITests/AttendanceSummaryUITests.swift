@@ -4,10 +4,12 @@ import XCTest
 final class AttendanceSummaryUITests: XCTestCase {
     private var app: XCUIApplication!
 
-    private func launch(largeText: Bool = false) {
+    /// The shared fake with birthdays by default. Pass the legacy fake's flags
+    /// (for example `["-ui-offline"]`) to drop the shared one.
+    private func launch(largeText: Bool = false, fixture: [String] = ["-ui-shared-guests", "-ui-birthdays"]) {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-ui-testing", "-ui-shared-guests", "-ui-birthdays"]
+        app.launchArguments = ["-ui-testing"] + fixture
         if largeText {
             app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
@@ -175,5 +177,91 @@ final class AttendanceSummaryUITests: XCTestCase {
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.48))
         start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
         capture("attendance-large-text")
+    }
+
+    // MARK: Events tab (R22, R26)
+
+    /// Any element by identifier: combined rows and section headers are not
+    /// always the element type their content suggests.
+    private func element(_ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any)[identifier].firstMatch
+    }
+
+    private func elements(prefixed prefix: String) -> XCUIElementQuery {
+        app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix))
+    }
+
+    private func scrollTo(_ element: XCUIElement) {
+        for _ in 0..<6 where !(element.exists && element.isHittable) { app.swipeUp() }
+    }
+
+    func testEventsListsTheWeekSpecialsMilestonesAndBirthdays() {
+        launch(fixture: ["-ui-shared-guests", "-ui-birthdays", "-ui-events"])
+        openEvents()
+        XCTAssertTrue(element("events-this-week").waitForExistence(timeout: 5))
+
+        // The fixture plans every club weekday from tomorrow. Saturday has no
+        // club day left this week; Friday's only run is today's fixture row,
+        // whose date follows the device zone, so it is not pinned here.
+        var perth = Calendar(identifier: .gregorian)
+        perth.timeZone = TimeZone(identifier: "Australia/Perth")!
+        switch perth.component(.weekday, from: .now) {
+        case 7: XCTAssertEqual(element("week-empty").label, "No more runs this week.")
+        case 6: break
+        default: XCTAssertTrue(elements(prefixed: "week-row-").firstMatch.exists)
+        }
+        capture("events-top")
+
+        // The three Christmas races share a date, so they are one row. Match
+        // on the title: before August the fixture's August runs are specials too.
+        let xmasRows = elements(prefixed: "special-row-").matching(NSPredicate(format: "label CONTAINS 'Xmas'"))
+        let xmas = xmasRows.firstMatch
+        scrollTo(xmas)
+        XCTAssertTrue(xmas.exists)
+        XCTAssertTrue(xmas.label.contains("Mara / Half / 10k"), xmas.label)
+        XCTAssertEqual(xmasRows.count, 1)
+
+        let aaron = element("milestone-row-Aaron")
+        scrollTo(aaron)
+        XCTAssertTrue(aaron.label.contains("3 runs to 150"), aaron.label)
+        XCTAssertTrue(aaron.label.contains("147 all-time runs"), aaron.label)
+
+        let birthday = element("birthday-row-Aaron")
+        scrollTo(birthday)
+        XCTAssertTrue(birthday.label.contains("Today"), birthday.label)
+        capture("events-bottom")
+    }
+
+    func testEventsMilestonesCountAnUnsyncedRun() {
+        // The legacy fake, never draining: the recorded run waits in the outbox.
+        launch(fixture: ["-ui-offline"])
+        openEvents()
+        let aaron = element("milestone-row-Aaron")
+        XCTAssertTrue(aaron.waitForExistence(timeout: 5))
+        XCTAssertTrue(aaron.label.contains("3 runs to 150"), aaron.label)
+
+        app.tab(.runs).tap()
+        tap(app.buttons["home-all-runs"])
+        tap(app.buttons["run-row-43"])
+        XCTAssertTrue(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 3))
+        tap(app.buttons["member-Aaron"])
+        app.buttons["confirm-attendance"].tap()
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["home-unsynced"].label.contains("1 submissions"), app.buttons["home-unsynced"].label)
+
+        openEvents()
+        let updated = element("milestone-row-Aaron")
+        XCTAssertTrue(updated.waitForExistence(timeout: 5))
+        XCTAssertTrue(updated.label.contains("2 runs to 150"), updated.label)
+    }
+
+    func testEventsSaysWhenNothingIsAhead() {
+        // The legacy fake's two runs are both in the past.
+        launch(fixture: [])
+        openEvents()
+        let week = element("week-empty")
+        XCTAssertTrue(week.waitForExistence(timeout: 5))
+        XCTAssertEqual(week.label, "No more runs this week.")
+        XCTAssertEqual(element("specials-empty").label, "No specials scheduled.")
     }
 }

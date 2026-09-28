@@ -1,47 +1,31 @@
-import Combine
 import FCTCAttendanceKit
 import SwiftUI
-import UIKit
 
 /// Day/month only: the organiser needs the occasion, not an age or birth year.
 struct BirthdaysSection: View {
-    let birthdays: [MemberBirthday]?
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var now = Date.now
-
-    private var upcoming: [UpcomingBirthday] {
-        BirthdayBoard.upcoming(from: birthdays ?? [], now: now)
-    }
+    /// Today and the next 30 days, from `EventsBoard`. Nil means an older server
+    /// that sends no birthdays, which has its own empty text. EventsView keeps
+    /// the clock, so the window moves at Perth midnight.
+    let birthdays: [UpcomingBirthday]?
 
     var body: some View {
-        let upcoming = upcoming
         Section {
-            if upcoming.isEmpty {
+            if let birthdays, !birthdays.isEmpty {
+                ForEach(birthdays) { birthday in
+                    BirthdayRow(birthday: birthday)
+                        .accessibilityIdentifier("birthday-row-\(birthday.name)")
+                }
+            } else {
                 Text(birthdays == nil ? "Birthdays are not available yet." : "No birthdays in the next 30 days.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("birthday-empty")
-            } else {
-                ForEach(upcoming) { birthday in
-                    BirthdayRow(birthday: birthday)
-                        .accessibilityIdentifier("birthday-row-\(birthday.name)")
-                }
             }
         } header: {
             Text("Birthdays")
+                .accessibilityIdentifier("events-birthdays")
         } footer: {
             Text("Today and the next 30 days")
-        }
-        // Device midnight may differ from Perth midnight while travelling.
-        // Refresh the local window while active; this never fetches sheet data.
-        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { date in
-            if scenePhase == .active { now = date }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
-            now = .now
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { now = .now }
         }
     }
 }
@@ -85,11 +69,8 @@ private struct BirthdayRow: View {
 
     private var recordedDate: String {
         // Leap-year reference preserves the recorded 29 Feb on non-leap years.
-        let date = BirthdayBoard.calendar.date(from: DateComponents(year: 2000, month: birthday.month, day: birthday.day))!
         // A value-type format style: no DateFormatter built on every body pass.
-        let style = Date.FormatStyle(calendar: BirthdayBoard.calendar, timeZone: BirthdayBoard.calendar.timeZone)
-            .day()
-            .month(.abbreviated)
-        return date.formatted(style)
+        ClubDate(year: 2000, month: birthday.month, day: birthday.day)?
+            .formatted(Date.FormatStyle.perth.day().month(.abbreviated)) ?? ""
     }
 }

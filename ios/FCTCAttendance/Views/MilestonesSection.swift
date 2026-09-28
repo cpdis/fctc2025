@@ -12,14 +12,10 @@ import FCTCAttendanceKit
 import SwiftUI
 
 struct MilestonesSection: View {
-    /// Cached roster with lifetime totals. Filtering lives in MilestoneBoard.
-    let totals: [MemberTotal]
+    /// The shortlist over all-time totals, built once per data change by `EventsBoard`.
+    let candidates: [MilestoneCandidate]
     /// This launch's empty-state line, held by the runtime.
     let emptyPhrase: String
-
-    private var candidates: [MilestoneCandidate] {
-        MilestoneBoard.shortlist(from: totals.map { ($0.name, $0.runs) })
-    }
 
     var body: some View {
         Section {
@@ -37,29 +33,43 @@ struct MilestonesSection: View {
             }
         } header: {
             Text("Milestones")
+                .accessibilityIdentifier("events-milestones")
         }
     }
 }
 
+/// A name with its all-time count, and the distance to go in a pill.
 private struct MilestoneRow: View {
     let candidate: MilestoneCandidate
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(candidate.name)
-                .font(.body)
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(candidate.name)
+                // A shortlisted runner is at most 10 short of a multiple of 50,
+                // so the count is never 1.
+                Text("\(candidate.runs) all-time runs")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
             Spacer(minLength: 12)
-            Text(detail)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            Text("\(candidate.runsNeeded) to \(candidate.milestone)")
+                .font(.subheadline.weight(.semibold))
                 // Digits keep their column as the numbers change.
                 .monospacedDigit()
+                .foregroundStyle(.tint)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(.tint.opacity(0.14), in: .capsule)
         }
+        .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(candidate.name), \(detail)")
+        .accessibilityLabel("\(candidate.name), \(distance), \(candidate.runs) all-time runs")
     }
 
-    private var detail: String {
+    /// "3 runs to 150", for VoiceOver, where the pill's shorthand reads badly.
+    private var distance: String {
         let runs = candidate.runsNeeded == 1 ? "1 run" : "\(candidate.runsNeeded) runs"
         return "\(runs) to \(candidate.milestone)"
     }

@@ -64,13 +64,27 @@ final class AppRuntime {
 
     /// Historic navigation refreshes another season without changing Home's scope.
     var activeSheetState: SheetState? {
+        activeSheetCache?.state
+    }
+
+    /// The active season's state with its cache row's last refresh, which the
+    /// outbox overlay needs (`EffectiveRuns`, KTD11). `refreshedAt` is nil when
+    /// only the in-memory state exists, as on a legacy endpoint. It fetches and
+    /// decodes the cache, so read it once per data change, never per render.
+    var activeSheetCache: (state: SheetState, refreshedAt: Date?)? {
+        let endpoint = config.endpoint?.absoluteString
         let caches = (try? modelContainer.mainContext.fetch(FetchDescriptor<SharedSheetCache>())) ?? []
         if let activeState {
-            return caches.first { $0.endpointIdentity == config.endpoint?.absoluteString
-                && $0.spreadsheetId == activeState.spreadsheetId && $0.seasonSheetId == activeState.seasonSheetId }?.state ?? activeState
+            let row = caches.first { $0.endpointIdentity == endpoint
+                && $0.spreadsheetId == activeState.spreadsheetId && $0.seasonSheetId == activeState.seasonSheetId }
+            return (row?.state ?? activeState, row?.refreshedAt)
         }
-        return caches.filter { $0.endpointIdentity == config.endpoint?.absoluteString }
-            .sorted { ($0.state?.seasonYear ?? 0) > ($1.state?.seasonYear ?? 0) }.first?.state
+        // The highest season year wins; the first such row breaks a tie. Each
+        // row decodes once.
+        let rows = caches.filter { $0.endpointIdentity == endpoint }.map { (state: $0.state, refreshedAt: $0.refreshedAt) }
+        guard let newest = rows.max(by: { ($0.state?.seasonYear ?? 0) < ($1.state?.seasonYear ?? 0) }),
+              let state = newest.state else { return nil }
+        return (state, newest.refreshedAt)
     }
 
     /// The cached runs that belong to this connection's active season. The run

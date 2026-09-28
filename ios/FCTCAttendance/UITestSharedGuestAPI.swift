@@ -36,6 +36,7 @@ actor UITestSharedGuestAPI: SheetAPIClient {
                 attendees: ["Col"], plusOnes: 3, identity: RunIdentity(spreadsheetId: "ui-book", seasonSheetId: 26,
                     runId: String(format: "dddddddd-dddd-4ddd-8ddd-%012d", index)), namedGuestIds: index < 6 ? [Self.rene, Self.toby, Self.wes] : [Self.rene, Self.toby], unnamedGuests: index < 6 ? 0 : 1, seasonYear: currentYear))
         }
+        if ProcessInfo.processInfo.arguments.contains("-ui-events") { currentRuns += Self.plannedRuns(seasonYear: currentYear) }
         seasons = [25: SheetState(roster: roster, runs: oldRuns, seasonYear: currentYear - 1, sheetRevision: "ui-1", apiVersion: 2,
                         capabilities: GuestCapabilities(), spreadsheetId: "ui-book", seasonSheetId: 25),
                    26: SheetState(roster: roster, runs: currentRuns, seasonYear: currentYear, sheetRevision: "ui-1", apiVersion: 2,
@@ -71,6 +72,33 @@ actor UITestSharedGuestAPI: SheetAPIClient {
             seasons[26]!.runs[0].namedGuestIds?.append(Self.toby)
             seasons[26]!.runs[0].plusOnes += 1
             seasons[26]!.runs[0].actualKm = 8.1
+        }
+    }
+    /// `-ui-events`: the planned rows the Events tab reads, dated on the Perth
+    /// calendar as the app reads them. Every club weekday from tomorrow to a week
+    /// on Sunday, plus the club's three Christmas races on one date: 13 Dec, or
+    /// today once that has passed. A sheet date has no year, so days outside the
+    /// season's year are skipped rather than landing a year early.
+    private static func plannedRuns(seasonYear: Int) -> [RunRecord] {
+        let perth = BirthdayBoard.calendar
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = perth; formatter.timeZone = perth.timeZone; formatter.dateFormat = "EEE, d-MMM"
+        let today = perth.startOfDay(for: .now)
+        // Foundation weekday numbers: 2 Monday, 4 Wednesday, 6 Friday.
+        let clubRuns: [Int: (meet: String, run: String, km: Double)] = [
+            2: ("Drift", "Intervals", 10), 4: ("Filament", "Lakes Loop", 12.5), 6: ("Il Lido", "Soft Sand", 7),
+        ]
+        var planned: [(date: Date, meet: String, run: String, km: Double)] = (1...13).compactMap { offset in
+            guard let day = perth.date(byAdding: .day, value: offset, to: today),
+                  let club = clubRuns[perth.component(.weekday, from: day)] else { return nil }
+            return (date: day, meet: club.meet, run: club.run, km: club.km)
+        }
+        let xmas = perth.date(from: DateComponents(year: seasonYear, month: 12, day: 13)).map { max($0, today) } ?? today
+        planned += [("Mara - Xmas", 42.2), ("Half - Xmas", 21.1), ("10k - Xmas", 10)].map { (date: xmas, meet: "Alex 👑's", run: $0.0, km: $0.1) }
+        return planned.filter { perth.component(.year, from: $0.date) == seasonYear }.enumerated().map { index, row in
+            RunRecord(rowIndex: 44 + index, date: formatter.string(from: row.date), meet: row.meet, run: row.run, approxKm: row.km,
+                identity: RunIdentity(spreadsheetId: "ui-book", seasonSheetId: 26, runId: String(format: "eeeeeeee-eeee-4eee-8eee-%012d", index)),
+                namedGuestIds: [], unnamedGuests: 0, seasonYear: seasonYear)
         }
     }
     func getState() async throws -> SheetState { try await getState(seasonSheetId: nil) }
