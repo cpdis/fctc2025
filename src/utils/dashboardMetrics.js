@@ -25,7 +25,7 @@
  */
 import { LATEST_YEAR } from '../config/years.js'
 import { buildClubDays, memberClubDays, WEEKDAY_ORDER } from './clubDays.js'
-import { isoDate } from './runLabels.js'
+import { isoDate, monthKey } from './runLabels.js'
 
 /**
  * Sort runs chronologically by parsedDate. Runs without a parsedDate are
@@ -37,11 +37,6 @@ function datedRunsSorted(runs) {
     .filter((r) => r && r.parsedDate instanceof Date && !Number.isNaN(r.parsedDate.getTime()))
     .slice()
     .sort((a, b) => a.parsedDate - b.parsedDate)
-}
-
-/** Local YYYY-MM key for a Date. */
-function monthKey(d) {
-  return isoDate(d).slice(0, 7)
 }
 
 /**
@@ -93,9 +88,14 @@ function activeMembers(view) {
   return view.members.filter((name) => view.memberTotals[name]?.totalRuns > 0)
 }
 
+/** Names A–Z (English collation), the one name order every dashboard list uses. */
+export function compareNames(a, b) {
+  return a.localeCompare(b, 'en')
+}
+
 /** Most runs in the view first, then A–Z, so ties read the same on every refresh. */
 function byRuns(a, b) {
-  return b.runs - a.runs || a.name.localeCompare(b.name, 'en')
+  return b.runs - a.runs || compareNames(a.name, b.name)
 }
 
 /**

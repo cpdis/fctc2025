@@ -2,6 +2,7 @@ import { memo, useCallback, useId, useMemo, useRef, useState } from 'react'
 import Tooltip, { useTooltip } from '../Poster/Tooltip'
 import { formatDay, formatNumber, parseIsoDate } from '../Poster/format'
 import { MONO_ADVANCE, fitLabel, rovingStep, runName, useWidth } from './chartKit'
+import { WEEKDAY_NAMES } from '../../utils/clubDays'
 
 // Dot geometry in px, from the approved mockup: 5px dots stacked 1.4px apart,
 // columns 12px wide for the pointer, 12px of inset at each end of the scale,
@@ -15,10 +16,8 @@ const LABEL_SIZE = 11
 const FALLBACK_WIDTH = 900
 const DAY_MS = 86_400_000
 
-const TRACK_NAMES = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday' }
-
 /** "Monday", or "Specials" for the weekend and holiday track. */
-const fullName = (track) => TRACK_NAMES[track.name] ?? track.name
+const fullName = (track) => WEEKDAY_NAMES[track.name] ?? track.name
 
 /** The same words for a hovered and a focused column. */
 function columnTip(column) {

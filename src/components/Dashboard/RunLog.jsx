@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useNavigationType, useSearchParams } from 'react-router-dom'
 import { formatDay, formatNumber, monthName } from '../Poster/format'
-import { monthAxis } from '../../utils/dashboardMetrics'
+import { compareNames, monthAxis } from '../../utils/dashboardMetrics'
 import { dashboardBasePath, runHref, RUN_LOG_FILTERS } from '../../utils/dashboardPaths'
-import { isoDate } from '../../utils/runLabels'
+import { monthKey } from '../../utils/runLabels'
 import { useExpandableRows } from '../../utils/useExpandableRows'
 import RunTag from './RunTag'
 import ShowMoreButton from './ShowMoreButton'
@@ -49,7 +49,7 @@ export default function RunLog({ runs }) {
         ({ run, text }) =>
           (!type || run.type === type) &&
           (!location || run.location === location) &&
-          (!month || monthKey(run) === month) &&
+          (!month || monthKey(run.parsedDate) === month) &&
           terms.every((term) => text.includes(term))
       )
       .map(({ run }) => run)
@@ -290,14 +290,9 @@ function fold(text) {
   return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 }
 
-// The run's month as monthAxis keys it: "2026-01".
-function monthKey(run) {
-  return isoDate(run.parsedDate).slice(0, 7)
-}
-
 // Unique values, A–Z.
 function distinct(values) {
-  return [...new Set(values)].sort((a, b) => a.localeCompare(b, 'en'))
+  return [...new Set(values)].sort(compareNames)
 }
 
 // The URL's value when the view offers it, else '' (no filter).

@@ -120,6 +120,11 @@ export function isoDate(date) {
   return `${date.getFullYear()}-${month}-${day}`
 }
 
+/** Local YYYY-MM for a Date: the month key the run log and month axis share. */
+export function monthKey(date) {
+  return isoDate(date).slice(0, 7)
+}
+
 /**
  * Build a stable run id, `YYYY-MM-DD-<slug of the run label>` (KTD4), for
  * example `2026-09-25-river-loop`. The date carries the year, so ids stay

@@ -2,6 +2,7 @@ import { memo, useCallback, useId, useLayoutEffect, useMemo, useRef, useState } 
 import Tooltip, { useTooltip } from '../Poster/Tooltip'
 import { formatDay, monthName } from '../Poster/format'
 import { kmText, rovingStep, runName, useWidth } from './chartKit'
+import { compareNames } from '../../utils/dashboardMetrics'
 
 // Geometry in px, from the approved mockup: rows 18 apart with 12-high cells
 // under a 30px header (month labels, special diamonds), columns at least 7
@@ -15,7 +16,7 @@ const FALLBACK_WIDTH = 800
 // "Find yourself" survives reloads and year switches (KTD9).
 const STORAGE_KEY = 'fctc.findYourself'
 
-const byName = (a, b) => a.name.localeCompare(b.name, 'en')
+const byName = (a, b) => compareNames(a.name, b.name)
 
 // The sort select. Ties fall back to runs, then A–Z, so the order is stable.
 const SORTS = {
@@ -77,7 +78,7 @@ export default function TheWall({ model }) {
   const [chosen, setChosen] = useState(readChoice)
 
   const rows = useMemo(() => [...model.rows].sort(SORTS[sort].compare), [model.rows, sort])
-  const runners = useMemo(() => model.rows.map((row) => row.name).sort((a, b) => a.localeCompare(b, 'en')), [model.rows])
+  const runners = useMemo(() => model.rows.map((row) => row.name).sort(compareNames), [model.rows])
   const offRoster = useMemo(() => model.rows.some((row) => row.cells.some((cell) => cell.notOnRoster)), [model.rows])
 
   // The stored runner shows only in a view where they ran; the choice itself

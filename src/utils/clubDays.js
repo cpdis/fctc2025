@@ -27,7 +27,18 @@ import { isoDate } from './runLabels.js'
 
 // Calendar order, so per-weekday counts (and the dashboard's weekday tracks)
 // read Mon, Wed, Fri whatever day the season opened on.
-export const WEEKDAY_ORDER =['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+export const WEEKDAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+// Three-letter sheet weekday -> full name, for sentences and track titles.
+export const WEEKDAY_NAMES = {
+  Mon: 'Monday',
+  Tue: 'Tuesday',
+  Wed: 'Wednesday',
+  Thu: 'Thursday',
+  Fri: 'Friday',
+  Sat: 'Saturday',
+  Sun: 'Sunday',
+}
 
 // Milestone rule, copied from the app's MilestoneBoard (Swift): landmarks every
 // 50 runs, nobody more than 10 runs out, the closest 3 plus anyone tied with 3rd.

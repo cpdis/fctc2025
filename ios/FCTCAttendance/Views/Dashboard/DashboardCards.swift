@@ -115,6 +115,16 @@ enum DashboardFormat {
     static func runs(_ count: Int) -> String {
         count == 1 ? "1 run" : "\(count.formatted()) runs"
     }
+
+    /// "1 runner", "12 runners": everyone on one run, +1s included.
+    static func runners(_ count: Int) -> String {
+        count == 1 ? "1 runner" : "\(count.formatted()) runners"
+    }
+
+    /// One run's distance to a tenth, "12.4 km"; nil when the sheet has none.
+    static func distance(_ km: Double?) -> String? {
+        km.map { "\($0.formatted(.number.precision(.fractionLength(0...1)))) km" }
+    }
 }
 
 // MARK: - Headline

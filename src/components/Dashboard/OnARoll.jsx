@@ -1,15 +1,6 @@
 import { Fragment } from 'react'
 import { formatShortDate, parseIsoDate } from '../Poster/format'
-
-const DAY_NAMES = {
-  Mon: 'Monday',
-  Tue: 'Tuesday',
-  Wed: 'Wednesday',
-  Thu: 'Thursday',
-  Fri: 'Friday',
-  Sat: 'Saturday',
-  Sun: 'Sunday',
-}
+import { WEEKDAY_NAMES } from '../../utils/clubDays'
 
 // "Monday, Wednesday and Friday": the Australian list style, as the marquee.
 const joinDays = new Intl.ListFormat('en-AU', { style: 'long', type: 'conjunction' })
@@ -20,7 +11,7 @@ const joinDays = new Intl.ListFormat('en-AU', { style: 'long', type: 'conjunctio
  * @param {string[]} weekdays - three-letter names in calendar order
  */
 export function streakRule(weekdays) {
-  const days = weekdays.length ? `${joinDays.format(weekdays.map((day) => DAY_NAMES[day]))} ` : ''
+  const days = weekdays.length ? `${joinDays.format(weekdays.map((day) => WEEKDAY_NAMES[day]))} ` : ''
   return `A streak counts ${days}club runs in a row. Any run that day counts. Weekend and holiday specials don't add to it or break it.`
 }
 

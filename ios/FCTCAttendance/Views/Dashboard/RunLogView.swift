@@ -77,8 +77,8 @@ struct RunLogView: View {
     /// "Drift · 10 km · 18 runners". A run with no distance shows none.
     private static func detail(of entry: DashboardRun) -> String {
         let run = entry.run
-        let km = run.actualKm.map { "\($0.formatted(.number.precision(.fractionLength(0...1)))) km" }
-        let runners = run.headcount == 1 ? "1 runner" : "\(run.headcount) runners"
+        let km = DashboardFormat.distance(run.actualKm)
+        let runners = DashboardFormat.runners(run.headcount)
         let special = entry.isSpecial ? "special" : nil
         return [run.location, km, runners, special].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
@@ -97,7 +97,7 @@ struct RunDetailView: View {
                     LabeledContent("Date", value: run.date.formatted(Date.FormatStyle.perth.weekday(.wide).day().month(.wide)))
                     LabeledContent("Place", value: run.location.isEmpty ? "—" : run.location)
                     // A run with attendance but no km adds 0 km and shows "—".
-                    LabeledContent("Distance", value: run.actualKm.map { "\($0.formatted(.number.precision(.fractionLength(0...1)))) km" } ?? "—")
+                    LabeledContent("Distance", value: DashboardFormat.distance(run.actualKm) ?? "—")
                     LabeledContent("Club day", value: entry.isSpecial ? "No, a special" : "Yes")
                 }
                 Section {
@@ -110,7 +110,7 @@ struct RunDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                 } header: {
-                    Text(run.headcount == 1 ? "1 runner" : "\(run.headcount) runners")
+                    Text(DashboardFormat.runners(run.headcount))
                 }
             }
             .listStyle(.insetGrouped)
