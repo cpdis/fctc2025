@@ -284,6 +284,21 @@ final class FCTCAttendanceUITests: XCTestCase {
         XCTAssertEqual(app.descendants(matching: .any)["milestone-empty"].label, firstReading)
     }
 
+    func testSettingsShowsAppVersionAtTheBottom() {
+        configureApp()
+        launch()
+
+        app.buttons["home-settings"].tap()
+        XCTAssertTrue(app.buttons["settings-save"].waitForExistence(timeout: 5))
+        // The footer sits below every section, so scroll until it is on screen.
+        let version = app.staticTexts["settings-app-version"]
+        for _ in 0..<6 where !(version.exists && version.isHittable) { app.swipeUp() }
+
+        XCTAssertTrue(version.waitForExistence(timeout: 3))
+        XCTAssertTrue(version.label.hasPrefix("Version "), version.label)
+        XCTAssertTrue(version.label.hasSuffix(")"), version.label)
+    }
+
     private func configureApp(
         offline: Bool = false,
         screenshotFixture: ScreenshotFixture? = nil,

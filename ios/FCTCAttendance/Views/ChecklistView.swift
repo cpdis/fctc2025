@@ -92,7 +92,7 @@ struct ChecklistView: View {
                     .accessibilityHint("Dictate names, guests, and actual kilometres.")
                     .accessibilityIdentifier("dictate-attendance")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
@@ -118,6 +118,8 @@ struct ChecklistView: View {
                         Text(viewModel.draft.plusOnes, format: .number)
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
+                            .contentTransition(.numericText(value: Double(viewModel.draft.plusOnes)))
+                            .animation(Motion.snappy, value: viewModel.draft.plusOnes)
                     }
                 }
                 .accessibilityLabel("Guests, \(viewModel.draft.plusOnes)")

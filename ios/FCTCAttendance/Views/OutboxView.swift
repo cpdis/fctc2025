@@ -18,6 +18,7 @@ struct OutboxView: View {
     @State private var viewModel: OutboxViewModel
     @State private var selectedConflict: PendingSubmissionSnapshot?
     @State private var showingSettings = false
+    @State private var outboxClearBounces = 0
 
     init(runtime: AppRuntime) {
         self.runtime = runtime
@@ -82,11 +83,14 @@ struct OutboxView: View {
                 }
             }
             if outstanding.isEmpty && pendingGuestOperations.isEmpty {
-                ContentUnavailableView(
-                    "Outbox Clear",
-                    systemImage: "checkmark.circle",
-                    description: Text("Confirmed attendance will wait here when the sheet is offline.")
-                )
+                ContentUnavailableView {
+                    Label("Outbox Clear", systemImage: "checkmark.circle")
+                        // Bounces when the last waiting item leaves while the
+                        // Outbox is open, confirming the sync that emptied it.
+                        .symbolEffect(.bounce, value: outboxClearBounces)
+                } description: {
+                    Text("Confirmed attendance will wait here when the sheet is offline.")
+                }
                 .listRowBackground(Color.clear)
                 .accessibilityIdentifier("outbox-empty")
             } else {
@@ -118,6 +122,11 @@ struct OutboxView: View {
             }
         }
         .listStyle(.insetGrouped)
+        // Sent rows leave the list instead of vanishing between frames.
+        .animation(Motion.snappy, value: outstanding.map(\.id))
+        .onChange(of: outstanding.isEmpty && pendingGuestOperations.isEmpty) { wasClear, isClear in
+            if isClear && !wasClear { outboxClearBounces += 1 }
+        }
         .navigationTitle("Outbox")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -187,6 +196,8 @@ private struct OutboxRow: View {
             Image(systemName: icon)
                 .font(.title3)
                 .foregroundStyle(tint)
+                // The arrows turn while the row is actually sending.
+                .symbolEffect(.rotate, options: .repeating, isActive: submission.status == .inFlight)
                 .frame(width: 26)
                 .accessibilityHidden(true)
 
