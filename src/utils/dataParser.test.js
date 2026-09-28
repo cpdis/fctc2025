@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import Papa from 'papaparse'
 import { parseRunData, combineYearData } from './dataParser'
 
 // Read fixtures relative to this test file so it works regardless of cwd.
@@ -36,11 +37,124 @@ describe('parseRunData - header detection by content', () => {
 })
 
 describe('parseRunData - row filtering', () => {
-  it('skips future/empty rows (no run has 0 attendance AND 0 actualKm)', () => {
+  it('skips future and empty rows (every run has an attendee or a +1)', () => {
     for (const data of [data2025, data2026]) {
-      const ghost = data.runs.find((r) => r.totalAttendance === 0 && !r.actualKm)
-      expect(ghost).toBeUndefined()
+      expect(data.runs.find((r) => r.totalAttendance === 0)).toBeUndefined()
     }
+  })
+
+  // Minimal sheet: header plus one row per [date, km, Ann, Bob, +1s] tuple.
+  const sheet = (...rows) =>
+    [
+      "Date,Meet,Run,Approx kms,Actual kms,Ann,Bob,+1's",
+      ...rows.map(([date, km, ann, bob, plusOnes]) => `"${date}",Filament,Social,8,${km},${ann},${bob},${plusOnes}`),
+    ].join('\n')
+
+  it('drops a dated row with a distance but nobody on it', () => {
+    const { runs, totalRuns } = parseRunData(sheet(['Fri, 8-May', '12.5', '', '', '0']), 2026)
+    expect(runs).toEqual([])
+    expect(totalRuns).toBe(0)
+  })
+
+  it('keeps a dated row whose only runners are +1s', () => {
+    const { runs } = parseRunData(sheet(['Fri, 8-May', '12.5', '', '', '3']), 2026)
+    expect(runs).toHaveLength(1)
+    expect(runs[0]).toMatchObject({ attendees: [], plusOnes: 3, totalAttendance: 3 })
+  })
+})
+
+describe('parseRunData - x-only attendance', () => {
+  // One run; Ann's cell holds the value under test, Bob always has "x".
+  const sheetWithCell = (cell) =>
+    ["Date,Meet,Run,Approx kms,Actual kms,Ann,Bob,+1's", `"Wed, 19-Feb",Filament,Lakes Loop,12.5,12.3,"${cell}",x,0`].join('\n')
+
+  it.each(['x', 'X', ' x ', '  X'])('counts %p as attended', (cell) => {
+    const { runs, memberTotals } = parseRunData(sheetWithCell(cell), 2025)
+    expect(runs[0].attendance.Ann).toBe(true)
+    expect(runs[0].attendees).toEqual(['Ann', 'Bob'])
+    expect(memberTotals.Ann.totalRuns).toBe(1)
+  })
+
+  it.each(['🛕', 'sad face', '-', '12.30', 'xx', 'y', ''])('does not count %p', (cell) => {
+    const { runs, memberTotals } = parseRunData(sheetWithCell(cell), 2025)
+    expect(runs[0].attendance.Ann).toBe(false)
+    expect(runs[0].attendees).toEqual(['Bob'])
+    expect(memberTotals.Ann.totalRuns).toBe(0)
+  })
+})
+
+describe('parseRunData - member names', () => {
+  it('trims header names and normalizes them to NFC', () => {
+    // "René" typed with a combining acute (NFD) must match the precomposed "René"
+    // the app and the other season use.
+    const decomposed = 'René'
+    const csv = [
+      `Date,Meet,Run,Approx kms,Actual kms, Ann ,${decomposed},+1's`,
+      '"Mon, 5-Jan",Drift,Cruise,10,10.4,x,x,0',
+    ].join('\n')
+    const { members, memberTotals, runs } = parseRunData(csv, 2026)
+    expect(members).toEqual(['Ann', 'René'])
+    expect(memberTotals['René'].totalRuns).toBe(1)
+    expect(runs[0].attendees).toEqual(['Ann', 'René'])
+  })
+})
+
+// Dated snapshot of the live sheets (27 Sep 2026). Unlike the May fixtures
+// above, it carries the 2026 BIRTHDAY row and the 2025 annotation cells ("🛕",
+// "sad face"), so it pins the attendance rules against the real sheets.
+const snapshotDir = join(import.meta.dirname, '..', '..', 'fixtures', 'attendance', '2026-09-27')
+const snapshotCsv = (year) => readFileSync(join(snapshotDir, `${year}.csv`), 'utf-8')
+
+describe('parseRunData - 27 Sep 2026 snapshot', () => {
+  const snap2025 = parseRunData(snapshotCsv(2025), 2025)
+  const snap2026 = parseRunData(snapshotCsv(2026), 2026)
+
+  it('2026 has 118 runs and Aaron has 89 (AE4: the BIRTHDAY row is not a run)', () => {
+    expect(snap2026.totalRuns).toBe(118)
+    expect(snap2026.memberTotals.Aaron.totalRuns).toBe(89)
+  })
+
+  it('19 Feb 2025 has 16 runners; the "🛕" and "sad face" cells do not count (AE5)', () => {
+    const run = snap2025.runs.find((r) => r.id === '2025-02-19-lakes-loop')
+    expect(run.attendees).toHaveLength(16)
+    expect(run.totalAttendance).toBe(16)
+    expect(run.attendance.Adam).toBe(false)
+  })
+
+  it('2025 totals drop the annotation cells (AE5)', () => {
+    const runs = (name) => snap2025.memberTotals[name].totalRuns
+    expect({
+      Adam: runs('Adam'),
+      'Alex 👑': runs('Alex 👑'),
+      Rhys: runs('Rhys'),
+      Rohan: runs('Rohan'),
+      Toby: runs('Toby'),
+    }).toEqual({ Adam: 80, 'Alex 👑': 82, Rhys: 29, Rohan: 8, Toby: 46 })
+  })
+
+  it('a blank past row (Fri 8 May 2026) is not a run', () => {
+    expect(snap2026.runs.some((r) => r.id.startsWith('2026-05-08'))).toBe(false)
+  })
+
+  // The row right above the header is the sheet's own per-member run count
+  // (column E holds "2026" in the 2026 sheet and is blank in 2025). Every
+  // member's parsed total must equal it.
+  it.each([
+    [2025, snap2025],
+    [2026, snap2026],
+  ])('every %i member total matches the sheet summary row', (year, data) => {
+    const rows = Papa.parse(snapshotCsv(year)).data
+    const headerIndex = rows.findIndex((row) => row[0]?.trim() === 'Date' && row.includes('Actual kms'))
+    const header = rows[headerIndex]
+    const summary = rows[headerIndex - 1]
+    const memberCols = header.slice(header.indexOf('Actual kms') + 1, header.indexOf("+1's"))
+    expect(memberCols).toHaveLength(data.members.length)
+
+    const sheetTotals = Object.fromEntries(
+      memberCols.map((name, i) => [name, Number(summary[header.indexOf('Actual kms') + 1 + i])])
+    )
+    const parsedTotals = Object.fromEntries(data.members.map((name) => [name, data.memberTotals[name].totalRuns]))
+    expect(parsedTotals).toEqual(sheetTotals)
   })
 })
 

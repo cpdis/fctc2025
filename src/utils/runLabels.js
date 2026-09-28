@@ -107,8 +107,14 @@ function slugify(text) {
     .replace(/^-+|-+$/g, '')
 }
 
-/** Local YYYY-MM-DD for a Date (no UTC shift). */
-function isoDate(date) {
+/**
+ * Local YYYY-MM-DD for a Date (no UTC shift). The one date-key helper for run
+ * ids, club days and dashboard series.
+ *
+ * @param {Date} date
+ * @returns {string}
+ */
+export function isoDate(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${date.getFullYear()}-${month}-${day}`

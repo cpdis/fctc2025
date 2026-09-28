@@ -31,6 +31,16 @@ function parseRunDate(cell, year) {
 }
 
 /**
+ * True when a member cell records attendance: its trimmed value is "x" in any
+ * case (R1). Organisers leave notes in cells ("🛕", "sad face", "-", a time
+ * like "12.30"); none of them mean the member ran. This is the one attendance
+ * rule for every stack, and the sheet's own summary row counts the same way.
+ */
+function isAttended(cell) {
+  return (cell ?? '').trim().toLowerCase() === 'x'
+}
+
+/**
  * Parse the FCTC attendance CSV for a given year.
  *
  * Both the 2025 and 2026 sheets share the same general shape:
@@ -45,8 +55,12 @@ function parseRunDate(cell, year) {
  * break parsing. Member columns are everything AFTER "Actual kms" up to (but not
  * including) the "+1's" column, so 2025 yields 30 members and 2026 yields 33.
  *
- * All totals are COMPUTED from the data rows. The sheets' own summary rows use
- * COUNTUNIQUE etc. and have drifted between years, so we never read them.
+ * A run is a dated row with at least one attendee or +1 (R2), and a member
+ * attended only when their cell is "x" (R1, see isAttended).
+ *
+ * All totals are COMPUTED from the data rows; the sheets' own summary rows are
+ * never read. Under the rules above, each member's total matches the summary row
+ * above the header (the snapshot tests check it).
  *
  * Each run keeps the sheet's own labels (`runType` without footnote markers,
  * `meet` as typed) for Wrapped, and gains the normalized `type`, `event` and
@@ -81,7 +95,9 @@ export function parseRunData(csvText, year) {
     throw new Error('Header missing "Actual kms" or "+1\'s" column')
   }
   const memberStart = actualKmIndex + 1
-  const members = headers.slice(memberStart, plusOnesIndex)
+  // Names are trimmed (above) and NFC-normalized, so "René" typed with a
+  // combining accent is the same member as the precomposed one on every stack.
+  const members = headers.slice(memberStart, plusOnesIndex).map((name) => name.normalize('NFC'))
 
   // Seed member totals so every member appears even if they attended nothing.
   const memberTotals = {}
@@ -110,20 +126,19 @@ export function parseRunData(csvText, year) {
     const approxKm = parseFloat(parsed[3]) || 0
     const actualKm = parseFloat(parsed[4]) || 0
 
-    // Attendance per member, read by the member's column index.
+    // Attendance per member, read by the member's column index (R1).
     const attendance = {}
     members.forEach((member, idx) => {
-      const value = parsed[memberStart + idx]
-      attendance[member] = value === 'x' || (value && value !== '-' && value !== '')
+      attendance[member] = isAttended(parsed[memberStart + idx])
     })
 
     const attendees = members.filter((m) => attendance[m])
     const plusOnes = parseInt(parsed[plusOnesIndex]) || 0
     const totalAttendance = attendees.length + plusOnes
 
-    // Skip rows that are clearly not real runs (future/blank): nobody attended
-    // and no distance recorded.
-    if (totalAttendance === 0 && !actualKm) continue
+    // A run needs someone on it (R2). A dated row with nobody is a future or
+    // unrecorded run, even when a distance was typed in ahead of time.
+    if (totalAttendance === 0) continue
 
     const aggregateKm = actualKm * totalAttendance
 

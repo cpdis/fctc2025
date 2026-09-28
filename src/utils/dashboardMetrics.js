@@ -16,6 +16,7 @@
  *  - `firstVsSecondHalf` splits at the TRUE data midpoint (earliest..latest run
  *    date), never a hardcoded month.
  */
+import { isoDate } from './runLabels.js'
 
 /**
  * Sort runs chronologically by parsedDate. Runs without a parsedDate are
@@ -29,17 +30,9 @@ function datedRunsSorted(runs) {
     .sort((a, b) => a.parsedDate - b.parsedDate)
 }
 
-/** Local YYYY-MM-DD key for a Date (no UTC shift, no time component). */
-function dateKey(d) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
 /** Local YYYY-MM key for a Date. */
 function monthKey(d) {
-  return dateKey(d).slice(0, 7)
+  return isoDate(d).slice(0, 7)
 }
 
 /**
@@ -286,7 +279,7 @@ export function runFrequencyByDate(runs) {
   const sorted = datedRunsSorted(runs)
   const byDay = new Map()
   for (const run of sorted) {
-    const key = dateKey(run.parsedDate)
+    const key = isoDate(run.parsedDate)
     byDay.set(key, (byDay.get(key) || 0) + (run.totalAttendance || 0))
   }
   return Array.from(byDay.entries())
