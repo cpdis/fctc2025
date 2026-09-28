@@ -1,5 +1,18 @@
 # iOS handoff
 
+## Private TestFlight build 8 (28 September 2026)
+
+- Version 0.1.0 build 8 from `release/testflight-build-7` (5858adb). It adds the
+  post-build-7 fixes: standard push from the Home tiles (zoom removed), a 44 pt
+  Settings gear, run status beside the date, and Review in the bottom toolbar
+  with search.
+- Build `ed201c2a-58b6-4c09-b71f-4095b6f25557` is VALID and `IN_BETA_TESTING` for
+  FCTC Internal only. FCTC Friends and FCTC External have no access; external
+  state is `READY_FOR_BETA_SUBMISSION`.
+- Notes set on build 8 by number; they match `ios/testflight-build-8.txt`.
+- Verification: 365 tests, 364 passed, 1 skipped (screen tour), 0 failed. Archive
+  signed with Apple Distribution; app and share extension report 0.1.0 (8).
+
 ## Private TestFlight build 7 (28 September 2026)
 
 - Version 0.1.0 build 7, built from local branch `release/testflight-build-7`.
