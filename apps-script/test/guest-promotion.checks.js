@@ -177,6 +177,24 @@ test('explicit linking preserves existing identity and rejects an already attend
   assert.equal(seasonState(env, 26).lifetimeTotals.find(t => t.name === 'Toby').runs, 2);
 });
 
+test('linking into annotated cells writes x; only an x blocks the link', () => {
+  const { env, guestId } = seeded({ current: 1, historical: 1 });
+  const current = env.spreadsheet.getSheetById(26), historical = env.spreadsheet.getSheetById(25);
+  // Toby (column G) is the link target on each season's only run row (row 4).
+  // An uppercase, padded X is attendance (R1), so it still blocks the transfer.
+  current.values[3][6] = ' X ';
+  assert.equal(preview(env, guestId, 'Toby', 'link').conflict.reason, 'member_already_attended');
+  // Annotations are not attendance: they neither block the link nor survive it.
+  current.values[3][6] = '🛕';
+  historical.values[3][6] = 'sad face';
+  assert.equal(seasonState(env, 26).lifetimeTotals.find(t => t.name === 'Toby').runs, 0);
+  const saved = env.post(promotion(guestId, preview(env, guestId, 'Toby', 'link')));
+  assert.equal(saved.status, 'completed', JSON.stringify(saved));
+  assert.equal(current.values[3][6], 'x');
+  assert.equal(historical.values[3][6], 'x');
+  assert.equal(seasonState(env, 26).lifetimeTotals.find(t => t.name === 'Toby').runs, 2);
+});
+
 test('changed history, labels, notes, formulas or target choice invalidate the preview', () => {
   const cases = {
     distance: env => { env.sheet.values[3][4] = 9; },

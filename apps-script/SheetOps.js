@@ -389,19 +389,21 @@ function numberOrNull(value) {
 }
 
 /**
- * Whether a member cell counts as "attended".
+ * Whether a member cell counts as "attended": its trimmed value is "x" in any
+ * case (R1).
  *
- * Matches `src/utils/dataParser.js`: `x` attends; blank and `-` (the sheet's
- * "away / not recorded" marker) do not.
+ * Identical to `isAttended` in `src/utils/dataParser.js`, so the app's
+ * attendees and lifetime totals match the dashboard and the milestone email.
+ * Everything else an organiser leaves in a member cell is an annotation, not
+ * attendance: "-" (away / not recorded), "🛕", "sad face", a time like "12.30".
+ * Nobody records a per-person distance in a member cell. The write paths
+ * (`buildRowWrite`, guest promotion) treat an annotation exactly like a blank.
  *
  * @param {*} value
  * @return {boolean}
  */
 function isAttendedMark(value) {
-  var text = cellText(value);
-  if (!text) return false;
-  if (text === '-') return false;
-  return true;
+  return cellText(value).toLowerCase() === ATTENDED_MARK;
 }
 
 /**
@@ -473,10 +475,10 @@ function listRuns(grid, headerRow) {
 /**
  * Lifetime attendance count per member for ONE season tab.
  *
- * Attendance is `isAttendedMark`, not a literal "x". The real sheet also records
- * a per-person distance ("12.30"), the odd emoji, and free text; only blank and
- * "-" mean absent. This matches `src/utils/dataParser.js` on main, which is what
- * the weekly milestone email counts, so both surfaces agree on a person's total.
+ * A run counts only when the member's cell is "x" (`isAttendedMark`). The 2025
+ * tab carries eight annotation cells ("🛕", "sad face"); they do not count.
+ * This is the same rule `src/utils/dataParser.js` applies for the dashboard and
+ * the weekly milestone email, so every surface agrees on a person's total.
  *
  * @param {!Array<!Array<*>>} grid One tab's values.
  * @return {!Array<{name: string, runs: number}>} In sheet order. Members with no
@@ -517,8 +519,8 @@ function isSeasonTabName(name) {
 /**
  * The raw member-band cell values of a run row, aligned to `band` order.
  *
- * `buildRowWrite` needs the RAW values, not the derived attendee list: a `-`
- * ("away") marker must survive a write that does not concern that member.
+ * `buildRowWrite` needs the RAW values, not the derived attendee list: an
+ * annotation ("-", "🛕") must survive a write that does not concern that member.
  *
  * @param {!Array<!Array<*>>} grid
  * @param {number} headerRow 1-based.
@@ -757,10 +759,11 @@ function memberInsertPlan(band, bounds, position) {
  *   - `overwrite` — absolute; members absent from `attendees` have their `x`
  *                   cleared.
  *
- * In BOTH modes a non-`x` marker that is already in a cell (the sheet's `-`
- * "away / not recorded") is preserved unless that member is now an attendee.
- * Clearing only ever turns an `x` into a blank, so an overwrite cannot silently
- * destroy Colin's hand-entered annotations.
+ * In BOTH modes an annotation already in a cell (anything `isAttendedMark`
+ * rejects: the sheet's `-` "away / not recorded", "🛕", "sad face", "12.30") is
+ * preserved unless that member is now an attendee, in which case it becomes
+ * `x`. Clearing only ever turns an `x` into a blank, so an overwrite cannot
+ * silently destroy Colin's hand-entered annotations.
  *
  * `plusOnes`/`actualKm` are absolute values, and `null`/`undefined` means "the
  * client had nothing to say" → keep whatever the sheet has (the app frequently has
@@ -808,7 +811,7 @@ function buildRowWrite(band, attendees, plusOnes, actualKm, options) {
     } else if (mode === 'overwrite' && existingAttended) {
       value = '';
     } else {
-      // merge: keep the mark. Either mode: keep a non-attendance marker ('-').
+      // merge: keep the mark. Either mode: keep an annotation ('-', '🛕').
       value = existing;
     }
     if (value !== existing) changedCells++;
