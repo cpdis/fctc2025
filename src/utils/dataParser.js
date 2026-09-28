@@ -1,4 +1,5 @@
 import Papa from 'papaparse'
+import { normalizeLocation, parseRunLabel, runId } from './runLabels.js'
 
 // Fixed columns that precede the dynamic member list in both the 2025 and 2026 sheets.
 const FIXED_LEADING_COLS = ['Date', 'Meet', 'Run', 'Approx kms', 'Actual kms']
@@ -47,6 +48,10 @@ function parseRunDate(cell, year) {
  * All totals are COMPUTED from the data rows. The sheets' own summary rows use
  * COUNTUNIQUE etc. and have drifted between years, so we never read them.
  *
+ * Each run keeps the sheet's own labels (`runType` without footnote markers,
+ * `meet` as typed) for Wrapped, and gains the normalized `type`, `event` and
+ * `location` plus a stable `id` from ./runLabels.js for everything else.
+ *
  * @param {string} csvText - raw CSV contents
  * @param {number} year - calendar year used to build parsedDate
  */
@@ -86,6 +91,8 @@ export function parseRunData(csvText, year) {
 
   // --- Parse data rows (everything after the header). ---
   const runData = []
+  // Ids given out so far this season, so a same-date, same-label row gets "-2".
+  const runIds = new Set()
   for (let i = headerIndex + 1; i < rows.length; i++) {
     const parsed = rows[i]
     if (!Array.isArray(parsed) || parsed.length < FIXED_LEADING_COLS.length) continue
@@ -99,10 +106,7 @@ export function parseRunData(csvText, year) {
     if (!runDate) continue
 
     const meet = parsed[1]
-    // Organisers flag a cell with "**" as a sheet footnote ("**Cruise" on
-    // 5 Jan 2026). The marker is not part of the run type, so drop it here and
-    // every widget groups the run with its siblings.
-    const runType = (parsed[2] ?? '').replace(/^\*+|\*+$/g, '').trim()
+    const { label, type, event } = parseRunLabel(parsed[2])
     const approxKm = parseFloat(parsed[3]) || 0
     const actualKm = parseFloat(parsed[4]) || 0
 
@@ -130,11 +134,15 @@ export function parseRunData(csvText, year) {
     })
 
     runData.push({
+      id: runId(runDate.parsedDate, label, runIds),
       date,
       parsedDate: runDate.parsedDate,
       dayOfWeek: runDate.dayOfWeek,
       meet,
-      runType,
+      location: normalizeLocation(meet),
+      runType: label,
+      type,
+      event,
       approxKm,
       actualKm,
       attendance,
@@ -167,25 +175,24 @@ function aggregate({ runs, members, memberTotals }) {
 
   // Runs by type.
   const runsByType = {}
-  runs.forEach((run) => {
-    const type = normalizeRunType(run.runType)
+  runs.forEach(({ type, actualKm, totalAttendance }) => {
     if (!runsByType[type]) {
       runsByType[type] = { count: 0, totalKm: 0, totalAttendance: 0 }
     }
     runsByType[type].count++
-    runsByType[type].totalKm += run.actualKm || 0
-    runsByType[type].totalAttendance += run.totalAttendance
+    runsByType[type].totalKm += actualKm || 0
+    runsByType[type].totalAttendance += totalAttendance
   })
 
   // Runs by location.
   const runsByLocation = {}
-  runs.forEach((run) => {
-    if (!runsByLocation[run.meet]) {
-      runsByLocation[run.meet] = { count: 0, totalKm: 0, totalAttendance: 0 }
+  runs.forEach(({ location, actualKm, totalAttendance }) => {
+    if (!runsByLocation[location]) {
+      runsByLocation[location] = { count: 0, totalKm: 0, totalAttendance: 0 }
     }
-    runsByLocation[run.meet].count++
-    runsByLocation[run.meet].totalKm += run.actualKm || 0
-    runsByLocation[run.meet].totalAttendance += run.totalAttendance
+    runsByLocation[location].count++
+    runsByLocation[location].totalKm += actualKm || 0
+    runsByLocation[location].totalAttendance += totalAttendance
   })
 
   // Runs by month.
@@ -232,8 +239,8 @@ function aggregate({ runs, members, memberTotals }) {
  * Merges by:
  *  - runs:        concatenated (each run already carries its own dated
  *                 parsedDate, so chronology across years is preserved without
- *                 any re-dating). The weekday prefix in each run's `date` string
- *                 ("Fri, 3-Jan") keeps same-day-different-year rows distinct.
+ *                 any re-dating). Run ids start with the full date, so they
+ *                 stay unique across years.
  *  - members:     union, preserving first-seen order (a member who joined in a
  *                 later season still appears once).
  *  - memberTotals: summed per member across years (totalRuns / totalKm).
@@ -271,22 +278,4 @@ export function combineYearData(datasets) {
   }
 
   return aggregate({ runs, members, memberTotals })
-}
-
-function normalizeRunType(type) {
-  if (!type) return 'Other'
-  const t = type.toLowerCase().trim()
-  if (t.includes('interval')) return 'Intervals'
-  if (t.includes('social')) return 'Social'
-  if (t.includes('soft sand')) return 'Soft Sand'
-  if (t.includes('lakes')) return 'Lakes Loop'
-  if (t.includes('river')) return 'River Loop'
-  if (t.includes('n/hood') || t.includes('neighbourhood')) return 'N\'hood Loop'
-  if (t.includes('hills')) return 'Hills'
-  if (t.includes('half')) return 'Half Marathon'
-  if (t.includes('mara')) return 'Marathon'
-  if (t.includes('10k')) return '10K'
-  if (t.includes('cup')) return 'Filament Cup'
-  if (t.includes('pancake')) return 'Special Event'
-  return type
 }

@@ -146,8 +146,12 @@ describe('parseRunData - output contract', () => {
     expect(run).toHaveProperty('date')
     expect(run).toHaveProperty('parsedDate')
     expect(run).toHaveProperty('dayOfWeek')
+    expect(run).toHaveProperty('id')
     expect(run).toHaveProperty('meet')
+    expect(run).toHaveProperty('location')
     expect(run).toHaveProperty('runType')
+    expect(run).toHaveProperty('type')
+    expect(run).toHaveProperty('event')
     expect(run).toHaveProperty('approxKm')
     expect(run).toHaveProperty('actualKm')
     expect(run).toHaveProperty('attendance')
@@ -220,14 +224,73 @@ describe('parseRunData - run dates', () => {
     ])
   })
 
-  it('strips sheet footnote markers from the run type', () => {
-    const csv = sheet('Mon, 5-Jan').replace('Social', '**Cruise')
-    expect(parseRunData(csv, 2026).runs[0].runType).toBe('Cruise')
-  })
 
   it('drops rows whose first cell is not a real run date', () => {
     const { runs, totalRuns } = parseRunData(sheet('Notes', 'Fri, 31-Sep', 'Fri, 3-Sept'), 2026)
     expect(runs).toEqual([])
     expect(totalRuns).toBe(0)
+  })
+})
+
+describe('parseRunData - run labels, locations and ids', () => {
+  // Minimal sheet: header plus one attended row per [date, meet, run] triple.
+  const sheet = (...rows) =>
+    [
+      'Date,Meet,Run,Approx kms,Actual kms,Ann,Bob,+1\'s',
+      ...rows.map(([date, meet, run]) => `"${date}",${meet},${run},8,8,x,,0`),
+    ].join('\n')
+
+  it('stamps the normalized type, event and location, and keeps the sheet labels for Wrapped', () => {
+    const [run] = parseRunData(sheet(['Sun, 13-Dec', 'Some-day', 'Half - Xmas']), 2026).runs
+    expect(run).toMatchObject({
+      id: '2026-12-13-half-xmas',
+      type: 'Half Marathon',
+      event: 'Xmas',
+      location: 'Someday',
+      runType: 'Half - Xmas',
+      meet: 'Some-day',
+    })
+  })
+
+  it('strips sheet footnote markers so "**Cruise" groups with "Cruise"', () => {
+    const { runs, runsByType } = parseRunData(
+      sheet(['Mon, 5-Jan', 'Drift', '**Cruise'], ['Mon, 12-Jan', 'Drift', 'Cruise']),
+      2026
+    )
+    expect(runs.map((r) => [r.runType, r.type, r.event])).toEqual([
+      ['Cruise', 'Cruise', null],
+      ['Cruise', 'Cruise', null],
+    ])
+    expect(Object.keys(runsByType)).toEqual(['Cruise'])
+    expect(runsByType.Cruise.count).toBe(2)
+  })
+
+  it('keys runsByLocation by the normalized location', () => {
+    const { runsByLocation } = parseRunData(
+      sheet(['Wed, 7-Jan', 'Some-day', 'Hills'], ['Wed, 14-Jan', ' Someday ', 'Hills']),
+      2026
+    )
+    expect(Object.keys(runsByLocation)).toEqual(['Someday'])
+    expect(runsByLocation.Someday.count).toBe(2)
+  })
+
+  it('gives a repeated date and label a suffixed id in sheet order', () => {
+    const { runs } = parseRunData(
+      sheet(['Fri, 25-Sep', 'MSBB', 'River Loop'], ['Fri, 25-Sep', 'MSBB', 'River Loop']),
+      2026
+    )
+    expect(runs.map((r) => r.id)).toEqual(['2026-09-25-river-loop', '2026-09-25-river-loop-2'])
+  })
+
+  it('gives every 2026 fixture run a unique id and one Cruise key', () => {
+    const ids = data2026.runs.map((r) => r.id)
+    expect(ids.every((id) => /^2026-\d{2}-\d{2}-[a-z0-9-]+$/.test(id))).toBe(true)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(Object.keys(data2026.runsByType).filter((t) => t.includes('Cruise'))).toEqual(['Cruise'])
+  })
+
+  it('keeps ids unique when seasons merge into All time', () => {
+    const ids = combineYearData([data2025, data2026]).runs.map((r) => r.id)
+    expect(new Set(ids).size).toBe(ids.length)
   })
 })
