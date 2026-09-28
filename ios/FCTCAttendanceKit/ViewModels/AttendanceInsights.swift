@@ -49,6 +49,7 @@ public enum CatchUpPlanner {
 public struct MemberStats: Hashable, Sendable {
     public var attendanceCount: Int
     public var lastAttendedAt: Date?
+    /// Consecutive most-recent club days made (R5), the rule the Dashboard uses.
     public var currentStreak: Int
 
     public init(attendanceCount: Int, lastAttendedAt: Date?, currentStreak: Int) {
@@ -57,14 +58,21 @@ public struct MemberStats: Hashable, Sendable {
         self.currentStreak = currentStreak
     }
 
-    /// Empty scheduled rows are not evidence of an absence. Calculate the streak
-    /// across recorded past rows only, newest first.
+    /// The checklist's streak line: "1 club day in a row", "14 club days in a row".
+    public var streakLabel: String {
+        currentStreak == 1 ? "1 club day in a row" : "\(currentStreak) club days in a row"
+    }
+
+    /// Empty scheduled rows are not evidence of an absence, and a row recorded
+    /// ahead of its date must not break a streak today. Count recorded past rows
+    /// only; the streak then walks their club days (`ClubDays`).
     public static func calculate(
         member: String,
         runs: [RunSnapshot],
         now: Date = .now
     ) -> MemberStats {
-        calculate(member: member, recorded: recordedRuns(runs, now: now))
+        let recorded = recordedRuns(runs, now: now)
+        return calculate(member: member, recorded: recorded, clubDays: clubDays(recorded))
     }
 
     public static func calculateAll(
@@ -73,25 +81,22 @@ public struct MemberStats: Hashable, Sendable {
         now: Date = .now
     ) -> [String: MemberStats] {
         let recorded = recordedRuns(runs, now: now)
+        let days = clubDays(recorded)
         return Dictionary(uniqueKeysWithValues: members.map { member in
-            (member, calculate(member: member, recorded: recorded))
+            (member, calculate(member: member, recorded: recorded, clubDays: days))
         })
     }
 
     private static func calculate(
         member: String,
-        recorded: [RunSnapshot]
+        recorded: [RunSnapshot],
+        clubDays: ClubDays
     ) -> MemberStats {
         let attended = recorded.filter { $0.attendees.contains(member) }
-        var streak = 0
-        for run in recorded {
-            guard run.attendees.contains(member) else { break }
-            streak += 1
-        }
         return MemberStats(
             attendanceCount: attended.count,
             lastAttendedAt: attended.compactMap(\.scheduledAt).max(),
-            currentStreak: streak
+            currentStreak: clubDays.record(for: member).current
         )
     }
 
@@ -99,12 +104,11 @@ public struct MemberStats: Hashable, Sendable {
         _ runs: [RunSnapshot],
         now: Date
     ) -> [RunSnapshot] {
-        runs
-            .filter { ($0.scheduledAt ?? .distantFuture) <= now && $0.hasRecordedAttendance }
-            .sorted {
-                ($0.scheduledAt ?? .distantPast, $0.rowIndex)
-                    > ($1.scheduledAt ?? .distantPast, $1.rowIndex)
-            }
+        runs.filter { ($0.scheduledAt ?? .distantFuture) <= now && $0.hasRecordedAttendance }
+    }
+
+    private static func clubDays(_ recorded: [RunSnapshot]) -> ClubDays {
+        ClubDays(runs: recorded.compactMap { ClubRun($0) })
     }
 }
 
