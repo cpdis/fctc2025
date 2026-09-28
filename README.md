@@ -1,12 +1,13 @@
 # FCTC Dashboard
 
-A dashboard for the Filament Coffee Track Club: per-season run stats, attendance, and
-high-density visualizations, plus a year-end "Wrapped" retrospective. Built as a static
-React SPA, deployed on Vercel, fed by a weekly Google Sheets export.
+A dashboard for the Filament Coffee Track Club: per-season run stats and attendance, plus a
+year-end "Wrapped" retrospective. It is a static React SPA on Vercel, fed by a weekly Google
+Sheets export.
 
-Multiple seasons live on one site (2025, 2026, ...), switchable via a year control. The
-dashboard restyle follows a clean, minimal aesthetic with Tufte-minded charts (high
-data-ink ratio, no chartjunk, sparklines, small multiples, direct labels).
+Multiple seasons live on one site (2025, 2026, ...). A year control switches between them and
+All time. The dashboard is a quick reference, not a story. fctc.fun proxies it at `/dashboard`,
+so it uses the hub's Poster brand: crema and espresso paper, pink accents, gold bibs, the sock
+stripe and square 2px rules, in light and dark. Wrapped keeps its own look.
 
 ## Quick start
 
@@ -21,79 +22,214 @@ npm run test:watch   # watch mode
 
 ## Stack
 
-React 19, Vite 7, Tailwind CSS v4 (CSS-first `@theme` in `src/index.css`), Recharts 3,
-Framer Motion 12, React Router 7, PapaParse 5, `react-activity-calendar` (calendar heatmap),
-Vitest + Testing Library. No backend; everything runs client-side off committed CSVs.
+React 19, Vite 7, React Router 7, PapaParse 5, Vitest + Testing Library. No backend; everything
+runs client-side off committed CSVs.
+
+- **Poster styles.** The dashboard and run pages use plain CSS scoped to a `.poster` root:
+  brand tokens and layout in `src/styles/poster.css`, chart tokens and chart styles in
+  `src/styles/poster-charts.css`. Nothing lands on `:root`, because Wrapped's Tailwind theme
+  reuses some of the same token names.
+- **Fonts.** Anton (display), Archivo (body) and Space Mono (labels), self-hosted through
+  `@fontsource`. Vite emits the files under `/assets/`, which fctc.fun already proxies.
+- **Charts.** Hand-rolled SVG React components in `src/components/Dashboard/`, drawn from pure
+  builders (see "Metrics + visualizations"). `chartKit.js` holds the shared chart helpers.
+  There is no chart library.
+- **Theme.** One light or dark choice holds across the hub and the dashboard. An inline script
+  in `index.html` reads `localStorage.theme` (else the OS preference) and sets `data-theme` on
+  `<html>` before first paint. The header's toggle writes the same key.
+- **Wrapped.** Tailwind CSS v4 (CSS-first `@theme` in `src/index.css`), Framer Motion 12, and
+  Bricolage Grotesque and DM Sans from Google Fonts.
 
 ## Data model
 
 Each season is one CSV in `public/data/<year>.csv`, exported from the source Google Sheet.
 
-- `public/data/2025.csv` — earlier season, refreshed when historical attendance changes.
-- `public/data/2026.csv` — current season. Both seasons refresh in one weekly snapshot.
+- `public/data/2025.csv`: the earlier season, refreshed when historical attendance changes.
+- `public/data/2026.csv`: the current season. Both seasons refresh in one weekly snapshot.
 
-Years are registered in **`src/config/years.js`**:
+Years and their club weekdays are registered in **`src/config/years.js`**:
 
 ```js
 export const YEARS = { 2025: '/data/2025.csv', 2026: '/data/2026.csv' }
-export const LATEST_YEAR = 2026   // the default view
+export const LATEST_YEAR = YEAR_LIST[0]           // the newest year: the default view
+const CLUB_WEEKDAYS = { 2025: ['Wed', 'Fri'] }    // any other season: Mon, Wed, Fri
 ```
 
 ### Adding a future year
 
 1. Drop the new export at `public/data/<year>.csv`.
-2. Add one line to `YEARS` in `src/config/years.js` (and it becomes the new `LATEST_YEAR`
-   automatically since that is derived from the max key).
-3. Add the year to `ATTENDANCE_EXPORT_YEARS` in `apps-script/AttendanceExport.gs`.
-4. Register its sheet ID with shared guest setup, then verify the complete snapshot on a copy.
+2. Add one line to `YEARS` in `src/config/years.js`. It becomes the new `LATEST_YEAR`
+   automatically, because that is the newest key.
+3. If the season's official club weekdays are not Monday, Wednesday and Friday, add them to
+   `CLUB_WEEKDAYS` in the same file and to `weekdaysBySeason` in
+   `ios/FCTCAttendanceKit/ViewModels/ClubDays.swift`.
+4. Add the year to `ATTENDANCE_EXPORT_YEARS` in `apps-script/AttendanceExport.gs`.
+5. Register its sheet ID with shared guest setup, then verify the complete snapshot on a copy.
 
 The parser and metrics discover member columns from each season header.
 
 ### The parser (`src/utils/dataParser.js`)
 
-`parseRunData(csvText, year)` is **schema-tolerant**: it finds the header row by content
-(the row whose first cell is `Date` and which contains `Run` / `Actual kms`), derives the
-member list dynamically (every column between `Actual kms` and `+1's`), and **computes all
-totals from the run rows** rather than trusting the sheet's summary rows (which drift between
-seasons and have been observed misaligned). This is why a member's computed km can differ
-from a stale summary cell in the sheet; the computed value is the trustworthy one. Run counts
-reconcile exactly.
+`parseRunData(csvText, year)` is **schema-tolerant**. It finds the header row by content (the
+row whose first cell is `Date` and which contains `Run` and `Actual kms`). It derives the member
+list from that header: every column between `Actual kms` and `+1's`. It **computes all totals
+from the run rows** and never reads the sheet's summary rows, which drift between seasons. Each
+member's computed run count matches the sheet's own summary row, and the snapshot tests check
+it. A computed km total can differ from a stale summary cell; the computed value is the
+trustworthy one.
 
-Output shape (stable contract consumed by the dashboard, `calculations.js`, and Wrapped):
+The parser applies these rules:
+
+- **Attendance.** A member cell counts only when its trimmed value is `x`, in any case. Notes
+  such as `-`, `🛕`, `sad face` or `12.30` do not count.
+- **Runs.** A run is a row whose first cell is a real run date (`Fri, 3-Jan`) and that has at
+  least one attendee or +1. Metadata rows such as `BIRTHDAY` never count.
+- **Labels.** `src/utils/runLabels.js` strips sheet footnote markers (`**Cruise` is `Cruise`)
+  and normalizes each run into a `type`, an `event` and a `location`. For example, `Half - Xmas`
+  becomes type `Half Marathon` with event `Xmas`, and the meet `Some-day` becomes `Someday`. A
+  run with an event is a holiday special. Every widget, filter and colour uses the normalized
+  names. Wrapped keeps the sheet's label without footnote markers (`runType`).
+- **Run ids.** Every run gets a stable id, `YYYY-MM-DD-<slug of the label>`, for example
+  `2026-09-25-river-loop`. The date carries the year, so ids stay unique in All time. A second
+  run with the same date and label gets `-2`.
+- **Upcoming.** Dated rows after the season's latest run with nobody on them go into
+  `upcoming`, in date order, each with the id it keeps once it is recorded. They never count as
+  runs. The first one is the meta row's next run. A blank row before the latest run is an
+  unrecorded run, not an upcoming one.
+
+Output shape (stable contract for the dashboard, `calculations.js`, Wrapped, the milestone email
+and the parity fixtures):
 `{ runs[], members[], memberTotals{}, leaderboard[], distanceLeaderboard[], totalRuns,
-totalClubKm, totalAttendanceInstances, runsByType{}, runsByLocation{}, runsByMonth{}, avgAttendance }`.
+totalClubKm, totalAttendanceInstances, runsByType{}, runsByLocation{}, runsByMonth{},
+avgAttendance, upcoming[] }`. Each run carries `id`, `parsedDate`, `dayOfWeek`, `type`, `event`,
+`location`, `actualKm`, `attendees` and `plusOnes`, plus the sheet's own `date`, `meet` and
+`rawRun` cells and the clean `runType` label. `combineYearData(datasets)` merges seasons into
+All time with the same aggregation.
+
+**The same rule in Apps Script.** The iOS app reads the sheet through Apps Script, not the CSVs.
+`isAttendedMark` in `apps-script/SheetOps.js` applies the same x-only rule. A change to it
+reaches the app only after `clasp push` and `clasp deploy -i <existing-id>`; a plain
+`clasp deploy` changes the phone endpoint. The x-only rule of 2026-09-28 needs this redeploy.
+See the [Apps Script runbook](apps-script/README.md#deploy-runbook-clasp).
+
+### Club days and streaks (`src/utils/clubDays.js`)
+
+A club day is a date on one of its season's official club weekdays with at least one run.
+`clubWeekdays(year)` in `src/config/years.js` holds the table: 2025 ran on Wednesday and
+Friday, and every other season runs on Monday, Wednesday and Friday.
+
+- A member makes a club day when they run any run that day. The Half and the 10k on Mon 26 Jan
+  2026 are one club day.
+- A run on any other day is a special: the Saturday Pub Run, the Sunday Xmas races, 2025's
+  Invasion Day Monday. A special never adds to or breaks a streak.
+- A member's current streak is the number of consecutive most-recent club days they made. A
+  finished season shows its streaks "at season end".
+- All time joins the club days of every season in date order, each with its own weekdays. A
+  streak that runs to Wed 31 Dec 2025 continues into Fri 2 Jan 2026.
+
+Example: Aaron made every 2026 club day from Wed 26 Aug to Fri 25 Sep and also ran the Sat 5 Sep
+Pub Run. His current streak is 14; the Pub Run neither adds to it nor breaks it.
+
+The same file holds the milestone rule. Landmarks come every 50 runs. `milestoneShortlist`
+keeps members 10 or fewer runs from their next landmark: the closest 3, plus anyone tied with
+3rd. It copies the app's `MilestoneBoard` rule, so the dashboard and the app list the same
+people. The weekly email uses its own forecast (see "Weekly milestone emails").
+
+The Swift kit mirrors the label, club-day and milestone rules. The parity fixtures below hold
+the two stacks to the same numbers.
 
 ### Metrics + visualizations
 
-`src/utils/dashboardMetrics.js` holds pure, unit-tested derivations that power the new charts
-(kept separate from rendering and from the Wrapped-only `calculations.js`):
+`src/utils/dashboardMetrics.js` holds pure, unit-tested builders. Each takes a view (one
+season, or All time) and, where it compares, the previous season. The components only draw what
+the builders return. `calculations.js` stays Wrapped-only.
 
-| Function | Powers |
-|----------|--------|
-| `cumulativeSeries(runs)` | `viz/SeasonProgress` (cumulative season line) |
-| `runFrequencyByDate(runs)` | `viz/CalendarHeatmap` (GitHub-style run calendar) |
-| `memberMonthlyAttendance(data)` | `viz/SparklineLeaderboard` (per-member sparkline table) |
-| `firstVsSecondHalf(data)` | `viz/HalfSeasonSlopegraph` (who's showing up more/less) |
-| `runTypeMonthlyCounts(data)` | `viz/RunTypeSmallMultiples` (seasonality) |
-| `rankByMonth(data)` | reserved for a future bump chart |
+`src/pages/Dashboard.jsx` shows these sections, in order:
 
-These are honest about partial seasons: the slopegraph splits at the *actual* data midpoint
-(not a hardcoded month), date-keyed series only include real run dates, and zero-attendance
-members are excluded. Shared, decluttered chart defaults live in `src/utils/chartConfig.js`;
-reusable SVG primitives (`Sparkline`, `Slopegraph`, `DotPlot`) live in `src/components/Dashboard/viz/`.
+| Section | Component | Data |
+|---------|-----------|------|
+| Title band: year switcher, then a meta row with the update time, last run and next run | `Poster/SeasonTitle` | parser `runs` and `upcoming`, `public/data/last-updated.json` |
+| Headline numbers: runs, km run together, runners and members per run; runs and km compare with the previous season on the same date | `Poster/HeadlineNumbers` | `headline(view, previous)` |
+| Marquee band: the totals and the current streak leaders | `Poster/Marquee` | `headline`, `wallModel` rows |
+| On a roll: top current streaks, season-best streaks with dates, the streak rule in one sentence | `OnARoll` | `onARoll(view)` |
+| Leaderboard: top 10 by runs or by km | `Leaderboard` | parser `leaderboard`, `distanceLeaderboard` |
+| The Wall: every active runner against every run, with current streaks and specials marked. Sort by runs, streak or name; "Find yourself" highlights one runner. A grid wider than the screen opens on the latest runs | `TheWall` | `wallModel(view)` |
+| Every run: one mark per runner in Monday, Wednesday, Friday and Specials tracks; each track labels its busiest day | `EveryRun` | `everyRunTracks(view)` |
+| Vs last year: cumulative member-km against the previous season, with the gap at the latest run. Hidden for All time and the first season | `VsLastYear` | `seasonProgress(view, previous)` |
+| Milestones ahead: gold bibs for members near their next 50 all-time runs, the same in every view | `MilestoneBibs` | `milestoneShortlist` over all-time totals |
+| Run log: every run, newest first, with type, location, month and search filters | `RunLog` | parser `runs`, `monthAxis(runs)` |
+
+The builders keep these honesty rules:
+
+- Headline numbers and charts always describe the whole selected view. Filters scope only the
+  run log, so a filter never changes a headline.
+- The run log's filters live in the URL. A run link carries them, Back restores them, and a year
+  switch resets them.
+- The month filter offers only the months from the first to the latest run month
+  (`monthAxis`). All time keeps its seasons apart.
+- Km is member-km: each run's actual km once per member who ran it, +1s excluded.
+- A same-date comparison matches month and day, so 25 Sep compares with 25 Sep in a leap year
+  too. All time never compares.
+- Members with no runs in the view are left out of per-member outputs.
+- Every chart gives hover and keyboard detail, and prints its key values so it reads without
+  hover.
+
+### Parity fixtures
+
+The web and the iOS app apply the same rules, in JavaScript and in Swift. Golden fixtures hold
+the two stacks to the same numbers.
+
+- `fixtures/attendance/2026-09-27/<season>.csv`: a frozen snapshot of the live sheets on
+  27 Sep 2026. Do not edit it. Put a newer snapshot in a new dated folder.
+- `fixtures/attendance/parity/<season>.json`: one contract per season. It holds the season's
+  club weekdays, every run with its raw and normalized labels, and the expected totals, member
+  totals, club days, streaks and milestones.
+
+`node scripts/build-parity-fixtures.js` writes the JSON files from the snapshot with the web's
+own parser and club-day rules. `scripts/build-parity-fixtures.test.js` runs in `npm test`. It
+rebuilds the files in memory and fails when the committed files drift from them. The iOS kit
+tests (`ios/FCTCAttendanceKitTests/ParityFixtureTests.swift`) read the same files, parse each raw
+label with `RunLabel` and recompute `expected` from `runs`.
+
+After a change to `dataParser.js`, `runLabels.js`, `clubDays.js` or `src/config/years.js`,
+regenerate and check:
+
+```bash
+node scripts/build-parity-fixtures.js
+npx vitest run scripts/build-parity-fixtures.test.js
+```
+
+Read the diff. Every changed number is a rule change that the Swift kit must match. The schema
+is in `fixtures/attendance/README.md`.
 
 ## Year switching
 
-The selected year is driven by the URL query param `?year=YYYY` (`useSearchParams` in
-`src/App.jsx`), defaulting to `LATEST_YEAR` when absent/invalid, so views are shareable. The
-Header's segmented control just sets `?year=`. The **2025 Wrapped** routes are pinned to 2025
-data regardless of the dashboard's selected year.
+The URL query param `?year=YYYY` or `?year=all` drives the selected view (`useSearchParams` in
+`src/App.jsx`). An absent or invalid value falls back to `LATEST_YEAR`, so views are shareable.
+The title band's year control writes `?year` and drops the run log's filters. The app loads and
+parses every season once at start (all the CSVs together are about 26 KB), so a year switch is
+instant. The **2025 Wrapped** routes are pinned to 2025 data regardless of the dashboard's
+selected year.
 
 ## Routes
 
-- `/`, `/dashboard` — dashboard (honors `?year`)
-- `/run/:runId` — single run detail
-- `/wrapped`, `/wrapped/:member`, `/2025wrapped`, `/2025wrapped/:member` — 2025 Wrapped (pinned to 2025)
+- `/`, `/dashboard`: the dashboard. The app's own domain serves it at the root, and fctc.fun
+  proxies it under `/dashboard`. Every link stays under the mount point it was opened from
+  (`src/utils/dashboardPaths.js`).
+- `/run/:runId`, `/dashboard/run/:runId`: one run. The run resolves from its id alone, inside
+  the season its date names, so a 2025 run opened from All time is that 2025 run. An unknown or
+  old numeric id shows "Run not found".
+- `/wrapped`, `/wrapped/:member`, `/2025wrapped`, `/2025wrapped/:member`: 2025 Wrapped (pinned
+  to 2025).
+
+The query holds `year` (a season or `all`) and the run log's filters: `type`, `location`,
+`month` and `q`. A run link keeps the view it was opened from, and the run page's Back link
+returns to it:
+
+```text
+/dashboard?year=2025&location=Filament                            the view
+/dashboard/run/2025-12-31-intervals?year=2025&location=Filament   a run opened from it
+```
 
 ## Weekly data sync
 
@@ -300,16 +436,18 @@ build are untouched by it.
 - `apps-script/` — the Google Apps Script Web App the phone posts to (JSON + shared
   secret, no OAuth in the app). Runbook: `apps-script/README.md`.
   Tests: `node --test apps-script/test`.
-- `fixtures/attendance/` — shared fixtures (season CSV snapshots, OCR line dumps, voice
-  transcripts + expected parse results). Schema: `fixtures/attendance/README.md`.
+- `fixtures/attendance/` — shared fixtures (season CSV snapshots, golden parity fixtures,
+  OCR line dumps, voice transcripts + expected parse results). Schema:
+  `fixtures/attendance/README.md`.
 
 Plan (architecture, API contract, design language, work units):
 `docs/plans/2026-08-14-001-feat-fctc-attendance-ios-app-plan.md`.
 
 The app's home screen also carries a **Milestones** section, which is the passive
 counterpart to the weekly emails above. Both use the same definition of a landmark
-(the next positive multiple of 50) and the same attendance rule (any mark except
-blank and `-`), so they never disagree about a total. They differ in what they show:
+(the next positive multiple of 50) and the same attendance rule (only an `x` counts;
+see "The parser"), so they agree on every total once the current Apps Script is
+deployed. They differ in what they show:
 the email forecasts who is *likely* to get there this week and only considers people
 within three runs, while the app just lists the closest few with the runs they need,
 no forecast. The app reads live from the sheet through `getState`, so it reflects
@@ -384,11 +522,14 @@ itself through `getState`.
 
 ## Deployment
 
-Vercel (hobby), SPA rewrites in `vercel.json`. Pushes to the default branch auto-deploy. After
-the first deploy of changes, confirm Bot Protection + AI Bot blocking remain enabled in the
-Vercel Firewall.
+Vercel (hobby), with SPA rewrites and cache headers in `vercel.json`. Pushes to the default
+branch auto-deploy. fctc.fun serves the same deployment at `/dashboard` through the hub's own
+rewrite (see "Routes"). After the first deploy of changes, confirm Bot Protection + AI Bot
+blocking remain enabled in the Vercel Firewall.
 
 ## Reference
 
+- Approved dashboard mockups, web and iOS (open `index.html`): `docs/reference/2026-09-28-dashboard-mockups/`.
+- Dashboard rebuild plan (shared rules, Poster dashboard, iOS tabs): `docs/plans/2026-09-28-001-feat-dashboard-review-and-ios-dashboard-plan.md`.
 - Pre-redesign baseline (look + architecture as of 2025): `docs/reference/2025-dashboard-baseline.md`.
-- Redesign plan + implementation units: `docs/plans/2026-05-28-001-feat-fctc-dashboard-2026-redesign-plan.md`.
+- Earlier 2026 redesign plan, superseded by the Poster rebuild: `docs/plans/2026-05-28-001-feat-fctc-dashboard-2026-redesign-plan.md`.

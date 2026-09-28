@@ -52,7 +52,7 @@ function cellStatus(cell) {
   return cell.streak ? 'ran ✓ (current streak)' : 'ran ✓'
 }
 
-/** CSS class for a cell's fill (poster-dashboard.css). */
+/** CSS class for a cell's fill (poster-charts.css). */
 function cellClass(cell) {
   if (cell.notOnRoster) return 'cell off'
   if (!cell.ran) return 'cell'
@@ -156,7 +156,7 @@ function WallGrid({ rows, columns, selected }) {
   const { tip, show, hide } = useTooltip()
   // The one tabbable cell (roving tab stop). c -1 is the latest run.
   const [active, setActive] = useState({ r: 0, c: -1 })
-  // The print-in sweep runs once, on the first draw (poster-dashboard.css).
+  // The print-in sweep runs once, on the first draw (poster-charts.css).
   const [printing, setPrinting] = useState(true)
 
   const lastCol = columns.length - 1
