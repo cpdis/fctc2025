@@ -71,10 +71,12 @@ struct HomeView: View {
                         Button {
                             path.append(HomeRoute.settings)
                         } label: {
+                            // 44 pt matches the system toolbar buttons (Back, +,
+                            // Retry) on every pushed screen.
                             Image(systemName: "gearshape")
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(.primary)
-                                .frame(width: 40, height: 40)
+                                .frame(width: 44, height: 44)
                                 .background(Color(.secondarySystemGroupedBackground), in: .circle)
                         }
                         .buttonStyle(.pressable)
