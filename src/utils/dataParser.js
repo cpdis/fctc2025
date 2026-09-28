@@ -65,6 +65,12 @@ function isAttended(cell) {
  * Each run keeps the sheet's own labels (`runType` without footnote markers,
  * `meet` as typed) for Wrapped, and gains the normalized `type`, `event` and
  * `location` plus a stable `id` from ./runLabels.js for everything else.
+ * `rawRun` is the "Run" cell exactly as typed ("**Cruise"), which the golden
+ * parity fixtures hand to the Swift label parser.
+ *
+ * `upcoming` lists the scheduled runs still to come: dated rows after the
+ * season's latest run with nobody on them yet, each with the id it will keep
+ * once it is recorded. They never count as runs.
  *
  * @param {string} csvText - raw CSV contents
  * @param {number} year - calendar year used to build parsedDate
@@ -107,6 +113,8 @@ export function parseRunData(csvText, year) {
 
   // --- Parse data rows (everything after the header). ---
   const runData = []
+  // Dated rows nobody has run yet; the ones after the latest run are upcoming.
+  const unrecorded = []
   // Ids given out so far this season, so a same-date, same-label row gets "-2".
   const runIds = new Set()
   for (let i = headerIndex + 1; i < rows.length; i++) {
@@ -138,7 +146,17 @@ export function parseRunData(csvText, year) {
 
     // A run needs someone on it (R2). A dated row with nobody is a future or
     // unrecorded run, even when a distance was typed in ahead of time.
-    if (totalAttendance === 0) continue
+    if (totalAttendance === 0) {
+      unrecorded.push({
+        ...runDate,
+        label,
+        type,
+        event,
+        location: normalizeLocation(meet),
+        approxKm,
+      })
+      continue
+    }
 
     const aggregateKm = actualKm * totalAttendance
 
@@ -155,6 +173,7 @@ export function parseRunData(csvText, year) {
       dayOfWeek: runDate.dayOfWeek,
       meet,
       location: normalizeLocation(meet),
+      rawRun: parsed[2],
       runType: label,
       type,
       event,
@@ -168,10 +187,34 @@ export function parseRunData(csvText, year) {
     })
   }
 
+  // Upcoming rows get their ids once every run has one. They are dated after
+  // every run, so the shared set only separates same-date, same-label rows
+  // among themselves, and each row keeps its id once it is recorded.
+  const upcoming = stillToCome(unrecorded, runData).map(({ label, ...row }) => ({
+    id: runId(row.parsedDate, label, runIds),
+    ...row,
+  }))
+
   // Roll the parsed rows + per-member totals up into the dashboard shape. Kept
   // as a separate step so combineYearData() can reuse the EXACT same aggregation
   // over merged rows — there is one source of truth for every derived stat.
-  return aggregate({ runs: runData, members, memberTotals })
+  return aggregate({ runs: runData, members, memberTotals, upcoming })
+}
+
+/**
+ * The scheduled rows still to come, in date order: those dated after the
+ * latest run. A blank row before it (Fri 8 May 2026) is a run nobody recorded,
+ * not a future one. Before a season's first run, every scheduled row is ahead.
+ *
+ * @param {Array<{ parsedDate: Date }>} scheduled - dated rows with nobody on them
+ * @param {Array<{ parsedDate: Date }>} runs - the recorded runs
+ */
+function stillToCome(scheduled, runs) {
+  // -Infinity when there are no runs yet, so every row passes.
+  const latest = Math.max(...runs.map((run) => run.parsedDate.getTime()))
+  return scheduled
+    .filter((row) => row.parsedDate.getTime() > latest)
+    .sort((a, b) => a.parsedDate - b.parsedDate)
 }
 
 /**
@@ -180,10 +223,11 @@ export function parseRunData(csvText, year) {
  * Every derived figure (club totals, leaderboards, runs-by-type/location/month,
  * averages) is computed here from `runs` + `memberTotals` so parseRunData (one
  * year) and combineYearData (all years merged) produce an identical shape.
+ * `upcoming` passes through untouched; it never feeds a total.
  *
- * @param {{ runs: Array, members: string[], memberTotals: Object }} parsed
+ * @param {{ runs: Array, members: string[], memberTotals: Object, upcoming: Array }} parsed
  */
-function aggregate({ runs, members, memberTotals }) {
+function aggregate({ runs, members, memberTotals, upcoming }) {
   // --- Club-wide totals, all computed from the data above. ---
   const totalClubKm = Object.values(memberTotals).reduce((sum, m) => sum + m.totalKm, 0)
   const totalAttendanceInstances = Object.values(memberTotals).reduce((sum, m) => sum + m.totalRuns, 0)
@@ -245,6 +289,7 @@ function aggregate({ runs, members, memberTotals }) {
     runsByLocation,
     runsByMonth,
     avgAttendance: runs.length > 0 ? totalAttendanceInstances / runs.length : 0,
+    upcoming,
   }
 }
 
@@ -259,6 +304,8 @@ function aggregate({ runs, members, memberTotals }) {
  *  - members:     union, preserving first-seen order (a member who joined in a
  *                 later season still appears once).
  *  - memberTotals: summed per member across years (totalRuns / totalKm).
+ *  - upcoming:    every season's scheduled rows still ahead of the latest run
+ *                 of all, in date order.
  *
  * Everything downstream (leaderboards, totals, by-type/location/month, averages)
  * is then recomputed by aggregate(), so an all-time view is internally
@@ -268,7 +315,7 @@ function aggregate({ runs, members, memberTotals }) {
  */
 export function combineYearData(datasets) {
   const present = (datasets ?? []).filter(Boolean)
-  if (present.length === 0) return aggregate({ runs: [], members: [], memberTotals: {} })
+  if (present.length === 0) return aggregate({ runs: [], members: [], memberTotals: {}, upcoming: [] })
   if (present.length === 1) return present[0]
 
   const members = []
@@ -292,5 +339,6 @@ export function combineYearData(datasets) {
     }
   }
 
-  return aggregate({ runs, members, memberTotals })
+  const upcoming = stillToCome(present.flatMap((data) => data.upcoming ?? []), runs)
+  return aggregate({ runs, members, memberTotals, upcoming })
 }

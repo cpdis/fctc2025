@@ -136,6 +136,42 @@ describe('parseRunData - 27 Sep 2026 snapshot', () => {
     expect(snap2026.runs.some((r) => r.id.startsWith('2026-05-08'))).toBe(false)
   })
 
+  it('lists the scheduled runs after Fri 25 Sep as upcoming, starting Mon 28 Sep', () => {
+    const [next] = snap2026.upcoming
+    expect(next).toEqual({
+      id: '2026-09-28-intervals',
+      parsedDate: new Date(2026, 8, 28),
+      dayOfWeek: 'Mon',
+      type: 'Intervals',
+      event: null,
+      location: 'Drift',
+      approxKm: 10,
+    })
+    // Every row from 28 Sep to Wed 30 Dec, and no recorded run moved out.
+    expect(snap2026.upcoming).toHaveLength(44)
+    expect(snap2026.upcoming.at(-1).id).toBe('2026-12-30-intervals')
+    expect(snap2026.totalRuns).toBe(118)
+  })
+
+  it('a blank row before the latest run (Fri 8 May) is not upcoming', () => {
+    const latest = Math.max(...snap2026.runs.map((r) => r.parsedDate.getTime()))
+    expect(snap2026.upcoming.every((row) => row.parsedDate.getTime() > latest)).toBe(true)
+    expect(snap2026.upcoming.some((row) => row.id.startsWith('2026-05-08'))).toBe(false)
+  })
+
+  it('gives the three Xmas races on Sun 13 Dec their own ids and event', () => {
+    const xmas = snap2026.upcoming.filter((row) => row.id.startsWith('2026-12-13'))
+    expect(xmas.map((row) => [row.id, row.type, row.event, row.location])).toEqual([
+      ['2026-12-13-mara-xmas', 'Marathon', 'Xmas', "Alex 👑's"],
+      ['2026-12-13-half-xmas', 'Half Marathon', 'Xmas', "Alex 👑's"],
+      ['2026-12-13-10k-xmas', '10K', 'Xmas', "Alex 👑's"],
+    ])
+  })
+
+  it('a finished season (2025) has nothing upcoming', () => {
+    expect(snap2025.upcoming).toEqual([])
+  })
+
   // The row right above the header is the sheet's own per-member run count
   // (column E holds "2026" in the 2026 sheet and is blank in 2025). Every
   // member's parsed total must equal it.
@@ -193,6 +229,7 @@ describe('combineYearData - all time', () => {
     expect(empty.runs).toEqual([])
     expect(empty.totalRuns).toBe(0)
     expect(empty.avgAttendance).toBe(0)
+    expect(empty.upcoming).toEqual([])
   })
 
   it('concatenates every run across years', () => {
@@ -254,6 +291,7 @@ describe('parseRunData - output contract', () => {
     expect(typeof d.runsByLocation).toBe('object')
     expect(typeof d.runsByMonth).toBe('object')
     expect(typeof d.avgAttendance).toBe('number')
+    expect(Array.isArray(d.upcoming)).toBe(true)
 
     // Per-run shape.
     const run = d.runs[0]
@@ -263,6 +301,7 @@ describe('parseRunData - output contract', () => {
     expect(run).toHaveProperty('id')
     expect(run).toHaveProperty('meet')
     expect(run).toHaveProperty('location')
+    expect(run).toHaveProperty('rawRun')
     expect(run).toHaveProperty('runType')
     expect(run).toHaveProperty('type')
     expect(run).toHaveProperty('event')
@@ -361,6 +400,7 @@ describe('parseRunData - run labels, locations and ids', () => {
       type: 'Half Marathon',
       event: 'Xmas',
       location: 'Someday',
+      rawRun: 'Half - Xmas',
       runType: 'Half - Xmas',
       meet: 'Some-day',
     })
@@ -371,9 +411,9 @@ describe('parseRunData - run labels, locations and ids', () => {
       sheet(['Mon, 5-Jan', 'Drift', '**Cruise'], ['Mon, 12-Jan', 'Drift', 'Cruise']),
       2026
     )
-    expect(runs.map((r) => [r.runType, r.type, r.event])).toEqual([
-      ['Cruise', 'Cruise', null],
-      ['Cruise', 'Cruise', null],
+    expect(runs.map((r) => [r.rawRun, r.runType, r.type, r.event])).toEqual([
+      ['**Cruise', 'Cruise', 'Cruise', null],
+      ['Cruise', 'Cruise', 'Cruise', null],
     ])
     expect(Object.keys(runsByType)).toEqual(['Cruise'])
     expect(runsByType.Cruise.count).toBe(2)
@@ -406,5 +446,35 @@ describe('parseRunData - run labels, locations and ids', () => {
   it('keeps ids unique when seasons merge into All time', () => {
     const ids = combineYearData([data2025, data2026]).runs.map((r) => r.id)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
+describe('parseRunData - upcoming runs', () => {
+  // Minimal sheet: header plus one row per [date, run, actual km, Ann, +1s].
+  const sheet = (...rows) =>
+    [
+      "Date,Meet,Run,Approx kms,Actual kms,Ann,+1's",
+      ...rows.map(([date, run, km, ann, plusOnes]) => `"${date}",Filament,${run},8,${km},${ann},${plusOnes}`),
+    ].join('\n')
+
+  it('before the first run, every scheduled row is upcoming, in date order', () => {
+    const { runs, upcoming } = parseRunData(sheet(['Fri, 9-Jan', 'Social', '', '', '0'], ['Wed, 7-Jan', 'Social', '', '', '0']), 2026)
+    expect(runs).toEqual([])
+    expect(upcoming.map((row) => row.id)).toEqual(['2026-01-07-social', '2026-01-09-social'])
+  })
+
+  it('a scheduled row keeps its id once it is recorded', () => {
+    const before = parseRunData(sheet(['Mon, 5-Jan', 'Cruise', '', '', '0']), 2026)
+    const after = parseRunData(sheet(['Mon, 5-Jan', 'Cruise', '10.2', 'x', '0']), 2026)
+    expect(before.upcoming[0].id).toBe(after.runs[0].id)
+    expect(after.upcoming).toEqual([])
+  })
+
+  it('All time keeps only rows after the latest run of every season', () => {
+    // 2025 stopped a week early, so its blank 10 Jan row is stale by 2026.
+    const early = parseRunData(sheet(['Fri, 3-Jan', 'Social', '8', 'x', '0'], ['Fri, 10-Jan', 'Social', '', '', '0']), 2025)
+    const later = parseRunData(sheet(['Mon, 5-Jan', 'Cruise', '10', 'x', '0'], ['Wed, 7-Jan', 'Social', '', '', '0']), 2026)
+    expect(early.upcoming.map((row) => row.id)).toEqual(['2025-01-10-social'])
+    expect(combineYearData([later, early]).upcoming.map((row) => row.id)).toEqual(['2026-01-07-social'])
   })
 })

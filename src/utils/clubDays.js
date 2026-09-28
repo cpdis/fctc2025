@@ -25,9 +25,9 @@
 import { clubWeekdays } from '../config/years.js'
 import { isoDate } from './runLabels.js'
 
-// Calendar order, so per-weekday counts read Mon, Wed, Fri whatever day the
-// season opened on.
-const WEEKDAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+// Calendar order, so per-weekday counts (and the dashboard's weekday tracks)
+// read Mon, Wed, Fri whatever day the season opened on.
+export const WEEKDAY_ORDER =['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 // Milestone rule, copied from the app's MilestoneBoard (Swift): landmarks every
 // 50 runs, nobody more than 10 runs out, the closest 3 plus anyone tied with 3rd.
