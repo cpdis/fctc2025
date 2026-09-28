@@ -44,8 +44,6 @@ struct HomeView: View {
     @State private var showingSharedScreenshotOffer = false
     /// Flips once per launch so the header cards stagger in on first sight only.
     @State private var hasEntered = false
-    /// The summary tiles zoom into the screens they open.
-    @Namespace private var tileZoom
 
     init(runtime: AppRuntime, pendingRoutes: PendingRouteStore = .shared) {
         self.runtime = runtime
@@ -234,16 +232,10 @@ struct HomeView: View {
                             path.removeAll()
                         }
                     }
-                // Only the tiles' own routes zoom: each has exactly one source on
-                // Home, so the transition always grows from the card that was tapped.
-                case .runPicker(.thisWeek):
-                    RunPickerView(runtime: runtime, scope: .thisWeek)
-                        .navigationTransition(.zoom(sourceID: route, in: tileZoom))
                 case .runPicker(let scope):
                     RunPickerView(runtime: runtime, scope: scope)
                 case .outbox:
                     OutboxView(runtime: runtime)
-                        .navigationTransition(.zoom(sourceID: route, in: tileZoom))
                 case .settings:
                     SettingsView(runtime: runtime)
                 }
@@ -321,9 +313,6 @@ struct HomeView: View {
                     )
                 }
                 .buttonStyle(.pressable)
-                .matchedTransitionSource(id: HomeRoute.runPicker(.thisWeek), in: tileZoom) {
-                    $0.clipShape(.rect(cornerRadius: SummaryTile.cornerRadius))
-                }
                 .accessibilityLabel("This Week, \(viewModel.thisWeekCount) runs")
                 .accessibilityIdentifier("home-this-week")
 
@@ -346,9 +335,6 @@ struct HomeView: View {
                     )
                 }
                 .buttonStyle(.pressable)
-                .matchedTransitionSource(id: HomeRoute.outbox, in: tileZoom) {
-                    $0.clipShape(.rect(cornerRadius: SummaryTile.cornerRadius))
-                }
                 .accessibilityLabel(
                     viewModel.conflictCount > 0
                         ? "Conflicts, \(viewModel.conflictCount) need review"

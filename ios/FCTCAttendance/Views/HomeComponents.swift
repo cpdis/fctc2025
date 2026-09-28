@@ -163,9 +163,6 @@ struct SummaryTile: View {
     /// Turns the glyph while real work runs, such as a sync drain.
     var isWorking = false
 
-    /// The tile rounding. HomeView reuses it to clip the zoom transition source.
-    static let cornerRadius: CGFloat = 26
-
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -195,7 +192,7 @@ struct SummaryTile: View {
         // 26 matches the inset-grouped section radius the list masks outer row
         // edges with; a smaller radius leaves the inner corners visibly sharper
         // than the outer ones (Colin's review).
-        .background(tint.gradient, in: .rect(cornerRadius: Self.cornerRadius))
+        .background(tint.gradient, in: .rect(cornerRadius: 26))
         .contentShape(.rect)
         .animation(Motion.snappy, value: value)
         .animation(Motion.snappy, value: title)
