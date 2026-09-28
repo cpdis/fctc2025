@@ -62,14 +62,23 @@ public struct ExtractionContext: Hashable, Sendable {
 
     public var mode: ExtractionMode
     public var lines: [String]
+    /// Sheet names for the voice path. Speech punctuation capitalises every sentence
+    /// start, so the scanner asks the roster before it treats a sentence-initial word
+    /// as a name. Empty means "no roster": capitalisation alone decides.
+    public var roster: [String]
 
-    public init(mode: ExtractionMode, lines: [String] = []) {
+    public init(mode: ExtractionMode, lines: [String] = [], roster: [String] = []) {
         self.mode = mode
         self.lines = lines
+        self.roster = roster
     }
 
     public static let voice = ExtractionContext(mode: .voice)
     public static let pollScreenshot = ExtractionContext(mode: .pollScreenshot)
+
+    public static func voice(roster: [String]) -> ExtractionContext {
+        ExtractionContext(mode: .voice, roster: roster)
+    }
 
     public static func pollScreenshot(lines: [String]) -> ExtractionContext {
         ExtractionContext(mode: .pollScreenshot, lines: lines)

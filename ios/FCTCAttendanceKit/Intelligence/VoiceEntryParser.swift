@@ -29,8 +29,9 @@ public struct VoiceEntryParser: Sendable {
     /// U5 implemented the transcript rules in `VoiceTranscriptScanner` (the packet
     /// gives stop-phrase stripping, spelled-out numbers and plus-ones parsing to U5's
     /// heuristics); this type stays as the name U7 wires `SFSpeechRecognizer` up to.
-    public func parse(transcript: String) -> ExtractedEntities {
-        scanner.scan(transcript: transcript)
+    /// `roster` vouches for sentence-initial words; see `VoiceTranscriptScanner`.
+    public func parse(transcript: String, roster: [String] = []) -> ExtractedEntities {
+        scanner.scan(transcript: transcript, roster: roster)
     }
 }
 
@@ -50,5 +51,17 @@ public struct VoiceEntryExtractor: NameExtractor {
 
     public func extract(from text: String) async throws -> ExtractedEntities {
         parser.parse(transcript: text)
+    }
+
+    /// The voice sheet's entry point: passes the context's roster to the parser.
+    public func extract(
+        from text: String,
+        context: ExtractionContext
+    ) async throws -> ExtractionResult {
+        let entities = parser.parse(transcript: text, roster: context.roster)
+        return ExtractionResult(
+            entities: entities,
+            warnings: entities.isEmpty ? [.nothingFound] : []
+        )
     }
 }

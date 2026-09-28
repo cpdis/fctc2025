@@ -127,6 +127,29 @@ struct VoiceEntryTests {
         #expect(viewModel.phase == .triage)
     }
 
+    /// Speech recognition punctuates, so every sentence starts with a capital. Before
+    /// the fix, "Great" pre-checked Grant and "Cott" (Cottesloe) pre-checked Scott.
+    @Test("Punctuated speech never pre-checks a member from a plain word")
+    func punctuatedSpeech() async throws {
+        let transcript = "Great session. Sam and Tim came. Cold one. We ran to Cott."
+        let viewModel = VoiceEntryViewModel(
+            roster: Roster.season2026,
+            transcriber: FakeTranscriber(transcripts: [transcript])
+        )
+
+        await viewModel.prepare()
+        await viewModel.startRecording()
+        await viewModel.stopAndParse()
+        await waitForPhase(.triage, in: viewModel)
+
+        let set = try #require(viewModel.proposalSet)
+        #expect(set.autoCheckNames == ["Sam", "Tim"])
+        // Sentence-initial "Great" and "Cold" are dropped; mid-sentence "Cott" is
+        // offered for review, never pre-checked.
+        #expect(set.proposals.map(\.raw) == ["Sam", "Tim", "Cott"])
+        #expect(set.proposals.last?.resolution == .suggest(candidates: ["Scott"]))
+    }
+
     @Test("A new recording resets voice proposals without changing checklist checks")
     func rerecordLeavesDraftAlone() async throws {
         let transcriber = FakeTranscriber(transcripts: ["Col came", "Adam came"])
@@ -316,6 +339,17 @@ struct VoiceEntryTests {
 
         #expect(names == ["Col", "Adam"])
         #expect(numbers == ["two", "eight", "point", "seven"])
+    }
+
+    @Test("Highlighting skips sentence starts the roster does not recognize")
+    func highlightingUsesRoster() {
+        let tokens = VoiceTranscriptAnnotator().annotate(
+            "Great session. Col and Adam came.",
+            roster: Roster.season2026
+        )
+        let names = tokens.filter { $0.kind == .name }.map(\.text)
+
+        #expect(names == ["Col", "Adam"])
     }
 
     private func waitForPhase(

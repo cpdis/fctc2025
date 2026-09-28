@@ -260,7 +260,10 @@ struct VoiceEntryView: View {
     }
 
     private var highlightedTranscript: Text {
-        let tokens = VoiceTranscriptAnnotator().annotate(viewModel.transcript)
+        let tokens = VoiceTranscriptAnnotator().annotate(
+            viewModel.transcript,
+            roster: viewModel.roster
+        )
         var transcript = AttributedString()
         for entry in tokens.enumerated() {
             let suffix = entry.offset == tokens.count - 1 ? "" : " "

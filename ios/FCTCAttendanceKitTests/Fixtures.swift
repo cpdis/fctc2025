@@ -39,7 +39,7 @@ enum FixtureError: Error, CustomStringConvertible {
 enum Fixtures {
 
     static let ocrFixtures = ["poll-1", "poll-2", "poll-card-nameless"]
-    static let voiceFixtures = ["voice-1", "voice-2", "voice-3"]
+    static let voiceFixtures = ["voice-1", "voice-2", "voice-3", "voice-4"]
 
     static var bundle: Bundle {
         Bundle(for: FixtureBundleToken.self)
