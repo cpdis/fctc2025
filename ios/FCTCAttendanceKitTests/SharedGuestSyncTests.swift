@@ -126,6 +126,50 @@ struct SharedGuestSyncTests {
         #expect(attendance["namedGuestIds"] == .array([.string(guestID)]))
         #expect(requests.filter { $0["action"]?.string == "createGuest" }.count == 1)
     }
+    /// Two runs park on one ambiguous guest. The organiser discards one, then
+    /// resolves the identity. Only the run that is still waiting may be sent.
+    @Test("Resolving an identity never resends a discarded attendance row", arguments: [false, true])
+    func discardedIdentityDependency(asDistinctPerson: Bool) async throws {
+        let container = try guestContainer()
+        let ambiguous = json("{\"ok\":true,\"conflict\":{\"reason\":\"identity_ambiguous\",\"message\":\"Choose a person.\",\"guestIds\":[\"\(guestID)\"]}}")
+        let transport = StubTransport([.response(try guestStateResponse()), .response(ambiguous)])
+        let engine = guestEngine(container, transport)
+        _ = try await engine.refreshState()
+        let provisional = try await engine.createGuest(name: "Rene", confirmDistinct: false)
+        let provisionalId = provisional.id.uuidString.lowercased()
+        var discardedDraft = guestDraft(); discardedDraft.guests = [provisional]
+        var keptDraft = guestDraft(); keptDraft.guests = [provisional]
+        keptDraft.rowIndex = 24; keptDraft.expectedDate = "Fri, 7-Jan"
+        keptDraft.runIdentity = RunIdentity(spreadsheetId: "illustrative-workbook", seasonSheetId: 26, runId: "00000068-2222-4222-8222-222222222222")
+        let discardedId = try await engine.enqueue(draft: discardedDraft, mode: .merge, deviceName: nil)
+        let keptId = try await engine.enqueue(draft: keptDraft, mode: .merge, deviceName: nil)
+        await engine.drain()
+        let parked = try ModelContext(container).fetch(FetchDescriptor<PendingSubmission>())
+        #expect(parked.map(\.conflictReason) == ["identity_ambiguous", "identity_ambiguous"])
+        _ = try await engine.resolveConflict(id: discardedId, action: .discard)
+
+        try await engine.resolveGuestIdentity(provisionalId: provisionalId,
+            existingGuestId: asDistinctPerson ? nil : guestID, confirmDistinct: asDistinctPerson)
+        if asDistinctPerson {
+            await transport.append(.response(try JSONEncoder().encode(GuestJSON.object(["ok": .bool(true), "guest": .object([
+                "guestId": .string(provisionalId), "displayName": .string("Rene"), "status": .string("active"), "revision": .number(1)
+            ])]))))
+        }
+        await transport.append(.response(json("{\"ok\":true,\"written\":1,\"sheetRevision\":\"after\"}")))
+        await transport.append(.response(try guestStateResponse()))
+        await engine.drain()
+
+        let rows = try ModelContext(container).fetch(FetchDescriptor<PendingSubmission>())
+        let discarded = try #require(rows.first { $0.id == discardedId })
+        #expect(discarded.status == .done)
+        #expect(discarded.outcome == .discarded)
+        #expect(discarded.sharedOperationData == nil)
+        #expect(rows.first { $0.id == keptId }?.outcome == .committed)
+        let writes = try await transport.requests.map { try JSONDecoder().decode(GuestJSON.self, from: $0) }
+            .filter { $0["action"]?.string == "submitAttendance" }
+        #expect(writes.map { $0["operationId"]?.string } == [keptId.uuidString.lowercased()])
+        #expect(writes.first?["namedGuestIds"] == .array([.string(asDistinctPerson ? provisionalId : guestID)]))
+    }
 }
 
 private let guestID = "00000001-1111-4111-8111-111111111111"
