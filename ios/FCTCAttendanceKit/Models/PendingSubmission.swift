@@ -176,6 +176,19 @@ extension PendingSubmission {
         return RunIdentity(spreadsheetId: spreadsheetId, seasonSheetId: seasonSheetId, runId: runId)
     }
     public var outcome: SubmissionDisposition? { outcomeRaw.flatMap(SubmissionDisposition.init(rawValue:)) }
+
+    /// Rows not yet done for one endpoint. SyncEngine only sends a row to the
+    /// endpoint it was saved for, so a connection switch leaves these parked.
+    /// Rows with no endpoint are parked regardless and are not counted.
+    public static func outstandingCount(endpointIdentity: String?, in context: ModelContext) throws -> Int {
+        guard let endpointIdentity else { return 0 }
+        let done = SubmissionStatus.done.rawValue
+        // Optional on both sides: #Predicate will not promote a String to String?.
+        let identity: String? = endpointIdentity
+        return try context.fetchCount(FetchDescriptor<PendingSubmission>(
+            predicate: #Predicate { $0.stateRaw != done && $0.endpointIdentity == identity }
+        ))
+    }
 }
 
 /// Legacy `done` remains ambiguous. Only new records carry a proved disposition.
