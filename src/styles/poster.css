@@ -394,3 +394,245 @@ body:has(.poster) {
     letter-spacing: 0.06em;
   }
 }
+
+/* ---- section heads: a display h2 with a mono note on its baseline.
+   Shared by every dashboard section and the run page. ---- */
+.poster .block {
+  padding-block: clamp(36px, 5vw, 64px) 0;
+}
+.poster .kick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.poster .kick h2 {
+  font-size: clamp(40px, 5vw, 64px);
+}
+.poster .kick p {
+  color: var(--ink-soft);
+}
+
+/* ---- controls: selects and search boxes (.pick), the outline button
+   (.more) and the run page's back link ---- */
+.poster .pick {
+  border: 2px solid var(--line);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--ink);
+  padding: 7px 10px;
+  font: 13px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.poster input.pick {
+  min-width: 240px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.poster :is(.more, .run-back) {
+  display: inline-block;
+  border: 2px solid var(--line);
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  font: 700 13px var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: transform 100ms ease, box-shadow 100ms ease;
+}
+.poster .more {
+  margin-top: 12px;
+  padding: 10px 18px;
+}
+.poster .run-back {
+  padding: 12px 18px;
+}
+.poster :is(.more, .run-back):hover {
+  transform: translate(-3px, -3px);
+  box-shadow: 5px 5px 0 var(--pink);
+}
+.poster :is(.pick, .more, .run-back, .log a):focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: 3px;
+}
+
+/* ---- run type tag: ink outline, gold for a special ---- */
+.poster .tag {
+  display: inline-block;
+  border: 2px solid var(--line);
+  padding: 1px 8px;
+  font: 700 11.5px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.poster .tag.sp {
+  background: var(--gold);
+  color: var(--espresso);
+  border-color: var(--espresso);
+}
+
+/* ---- run log: filters, the table, runner dots, the empty state ---- */
+.poster .log-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.poster .log {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid var(--line);
+  background: var(--panel);
+}
+.poster .log th {
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--line);
+  color: var(--ink-soft);
+  font: 12px var(--font-mono);
+  letter-spacing: 0.1em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.poster .log td {
+  padding: 9px 12px;
+  border-top: 1px solid var(--grid);
+  font-size: 15px;
+}
+.poster .log td.mono {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.poster .log .km {
+  text-align: right;
+}
+.poster .log td.km {
+  font: 14px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.poster .log .event {
+  margin-left: 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+.poster .log tbody tr {
+  cursor: pointer;
+}
+.poster .log tbody tr:hover td {
+  background: var(--special-band);
+}
+.poster .dots {
+  display: inline-flex;
+  gap: 2px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.poster .dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mark);
+}
+/* A +1: a hollow dot. */
+.poster .dots i.g {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--mark);
+}
+.poster .log-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 28px 24px;
+  border: 2px solid var(--line);
+  background: var(--panel);
+}
+.poster .log-empty p {
+  font-size: clamp(28px, 4vw, 40px);
+}
+.poster .log-empty .more {
+  margin-top: 0;
+}
+
+/* ---- run page: the title band reuses .title, .meta and .numbers ---- */
+.poster .run-page .meta .tag {
+  margin-left: 4px;
+}
+.poster .run-missing {
+  padding-block: 20px;
+  border-top: 2px solid var(--line);
+  font-size: 19px;
+}
+.poster .runners {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  column-gap: 16px;
+  padding: 12px 16px;
+  border: 2px solid var(--line);
+  background: var(--panel);
+}
+.poster .runners li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--grid);
+}
+.poster .runners i {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--mark);
+}
+.poster .runners .guest {
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+}
+.poster .runners .guest i {
+  background: none;
+  box-shadow: inset 0 0 0 2px var(--mark);
+}
+
+/* The run log on narrow screens: no Where column, then no dots, and the
+   filters stacked: search first across the row (it needs the width for its
+   placeholder), type and location side by side, then month. */
+@media (max-width: 900px) {
+  .poster .log .hide-sm {
+    display: none;
+  }
+}
+@media (max-width: 620px) {
+  .poster .log-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .poster .log-filters .pick {
+    min-width: 0;
+    width: 100%;
+  }
+  .poster .log-filters input.pick {
+    order: -1;
+    grid-column: 1 / -1;
+  }
+  .poster .log-filters select.pick:last-of-type {
+    grid-column: 1 / -1;
+  }
+  .poster .log :is(th, td) {
+    padding-inline: 6px;
+  }
+  .poster .log th {
+    letter-spacing: 0.04em;
+  }
+  .poster .log .dots {
+    display: none;
+  }
+  .poster .log .yr {
+    display: block;
+    color: var(--ink-soft);
+  }
+}

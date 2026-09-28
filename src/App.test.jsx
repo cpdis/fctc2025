@@ -55,7 +55,7 @@ describe('App', () => {
   it('shows the loading state until every season has loaded', async () => {
     renderApp('/run/2025-12-31-intervals?year=2025')
     expect(screen.getByText(/Loading run data/i)).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { level: 1, name: 'Wed, 31-Dec' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Wed 31 Dec 2025' })).toBeInTheDocument()
     expect(screen.queryByText(/Loading run data/i)).not.toBeInTheDocument()
   })
 
@@ -77,28 +77,27 @@ describe('App', () => {
   // The fctc.fun proxy keeps /dashboard in the browser URL (finding 13).
   it('routes a fresh /dashboard/run/<id> link to the run in its own season', async () => {
     renderApp('/dashboard/run/2025-12-31-intervals?year=all')
-    expect(await screen.findByRole('heading', { level: 1, name: 'Wed, 31-Dec' })).toBeInTheDocument()
-    expect(screen.getByText('All Time')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/dashboard?year=all')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Wed 31 Dec 2025' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to All Time' })).toHaveAttribute('href', '/dashboard?year=all')
   })
 
   // Covers AE6 end to end: a row click in the dashboard opens that exact run
   // and keeps the selected year, under either mount point.
   it('opens the 31 Dec 2025 row from the 2025 view', async () => {
     renderApp('/?year=2025')
-    fireEvent.click(await screen.findByRole('cell', { name: 'Wed, 31-Dec' }))
+    fireEvent.click(await screen.findByRole('cell', { name: 'Wed 31 Dec' }))
     expect(currentUrl()).toBe('/run/2025-12-31-intervals?year=2025')
-    expect(screen.getByRole('heading', { level: 1, name: 'Wed, 31-Dec' })).toBeInTheDocument()
-    expect(screen.getByText('2025 Season')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Wed 31 Dec 2025' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to 2025 Season' })).toBeInTheDocument()
   })
 
   it('opens a 2025 row from the All time view under /dashboard', async () => {
     renderApp('/dashboard?year=all')
     fireEvent.click(await screen.findByRole('button', { name: /^Show all \d+ runs$/ }))
-    fireEvent.click(screen.getByRole('cell', { name: 'Wed, 31-Dec' }))
+    fireEvent.click(screen.getByRole('cell', { name: 'Wed 31 Dec 2025' }))
     expect(currentUrl()).toBe('/dashboard/run/2025-12-31-intervals?year=all')
-    expect(screen.getByRole('heading', { level: 1, name: 'Wed, 31-Dec' })).toBeInTheDocument()
-    expect(screen.getByText('All Time')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Wed 31 Dec 2025' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to All Time' })).toBeInTheDocument()
   })
 
   // Covers AE7: a year switch in the title band drops every run-log filter.

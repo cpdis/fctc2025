@@ -1,0 +1,455 @@
+/* ============================================================
+   The dashboard's charts and panels (U8), in the approved mockup's
+   look: On a roll, the leaderboard, The Wall, Every run, Vs last
+   year and the milestone bibs. Tokens come from poster.css, and
+   every rule sits under .poster like the rest of the Poster styles.
+
+   Chart marks take their colours from classes, not from attributes,
+   so a theme switch recolours them without a redraw.
+   ============================================================ */
+
+/* ---- the On a roll and leaderboard pair ---- */
+.poster .pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 2px solid var(--line);
+}
+.poster .pair > div {
+  min-width: 0;
+  padding: 24px;
+}
+.poster .pair > div + div {
+  border-left: 2px solid var(--line);
+}
+.poster .panel-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.poster .panel-h h3 {
+  font: 34px/1 var(--font-display);
+  text-transform: uppercase;
+}
+
+/* ---- On a roll: a pink square per club day in a row ---- */
+.poster .streak {
+  display: grid;
+  grid-template-columns: 96px 1fr 44px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--grid);
+}
+.poster :is(.streak, .lb) .who {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.poster .streak .n {
+  font: 30px/1 var(--font-display);
+  text-align: right;
+}
+.poster .squares {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.poster .squares i {
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+}
+.poster .best {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px solid var(--line);
+  font-size: 15px;
+}
+.poster .note {
+  margin-top: 10px;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+}
+
+/* ---- leaderboard: Runs / Km toggle, outlined Anton ranks ---- */
+.poster .seg {
+  display: flex;
+  border: 2px solid var(--line);
+}
+.poster .seg button {
+  padding: 5px 12px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  font: 12px var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.poster .seg button + button {
+  border-left: 2px solid var(--line);
+}
+.poster .seg button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+.poster .seg button:focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: 3px;
+}
+.poster .lb {
+  display: grid;
+  grid-template-columns: 34px 96px 1fr 56px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+}
+.poster .lb .r {
+  font: 22px/1 var(--font-display);
+  color: transparent;
+  -webkit-text-stroke: 1.2px var(--ink);
+}
+.poster .lb .bar {
+  display: block;
+  height: 12px;
+  background: var(--mark);
+}
+.poster .lb .v {
+  text-align: right;
+  font: 14px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- The Wall: names | scrolling SVG grid | totals ---- */
+.poster .wall-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.poster .legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  color: var(--ink-soft);
+  font: 12px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.poster .legend i {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+.poster .legend .sw-ran {
+  background: var(--mark);
+}
+.poster .legend .sw-streak {
+  background: var(--accent);
+}
+.poster .legend .sw-special {
+  background: var(--special-band);
+  box-shadow: inset 0 0 0 1px var(--mark-gold);
+}
+.poster .legend .sw-off {
+  box-shadow: inset 0 0 0 1px var(--ink-soft);
+}
+.poster .wall {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  border: 2px solid var(--line);
+  background: var(--panel);
+}
+/* 30px lines the first name up with the SVG's first row, under its header. */
+.poster .wall :is(.names, .tots) {
+  padding-top: 30px;
+  font-size: 13.5px;
+}
+.poster .wall :is(.names, .tots) div {
+  height: 18px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.poster .wall .names div {
+  padding: 0 12px;
+  border-right: 2px solid var(--line);
+}
+.poster .wall .tots div {
+  padding: 0 12px;
+  border-left: 2px solid var(--line);
+  font: 12.5px/18px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.poster .wall .tots .up {
+  color: var(--accent);
+}
+.poster .wall .grid {
+  min-width: 0;
+  overflow-x: auto;
+}
+.poster .wall svg {
+  display: block;
+}
+.poster .wall .dim {
+  opacity: 0.35;
+}
+.poster .wall .hl {
+  color: var(--pink);
+  font-weight: 700;
+}
+.poster .wall svg g.dim {
+  opacity: 0.25;
+}
+.poster .wall .cell {
+  fill: var(--empty);
+}
+.poster .wall .cell.ran {
+  fill: var(--mark);
+}
+.poster .wall .cell.streak {
+  fill: var(--accent);
+}
+/* Not on that run's sheet (All time, before a runner joined): an empty
+   outline, never the filled "missed" square. */
+.poster .wall .cell.off {
+  fill: none;
+  stroke: var(--ink-soft);
+  stroke-width: 0.6;
+  stroke-opacity: 0.45;
+}
+.poster .wall .band {
+  fill: var(--special-band);
+}
+.poster .wall .diamond {
+  fill: var(--mark-gold);
+}
+.poster .wall .month-line {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+.poster :is(.wall .month, .progress .axis, .run-track .peak-label) {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  fill: var(--ink-soft);
+}
+
+/* Keyboard focus on a mark: an ink ring just outside it, so it shows on a
+   pink streak cell and on an empty one alike. */
+.poster :is(.wall .cell, .run-track .hit):focus {
+  outline: none;
+}
+.poster :is(.wall .cell, .run-track .hit):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+.poster .progress:focus {
+  outline: none;
+}
+.poster .progress:focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: 4px;
+}
+
+/* ---- Every run: a track of stacked dots per weekday ---- */
+.poster .tracks {
+  border: 2px solid var(--line);
+  background: var(--panel);
+}
+/* The side column fits "38 days · avg 13.1" on one line. */
+.poster .run-track {
+  display: grid;
+  grid-template-columns: 1fr 176px;
+  border-top: 1px solid var(--grid);
+}
+.poster .run-track:first-child {
+  border-top: 0;
+}
+.poster .run-track .box {
+  min-width: 0;
+}
+.poster .run-track svg {
+  display: block;
+  width: 100%;
+}
+.poster .run-track .side {
+  padding: 12px 14px;
+  border-left: 2px solid var(--line);
+}
+.poster .run-track .side .d {
+  font: 28px/1 var(--font-display);
+  text-transform: uppercase;
+}
+.poster .run-track .side .m {
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font: 12px/1.5 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.poster .run-track .side .m span {
+  display: block;
+}
+.poster .run-track .side .stats {
+  white-space: nowrap;
+}
+.poster .run-track .stack circle {
+  fill: var(--mark);
+}
+.poster .run-track .stack circle.guest {
+  fill: none;
+  stroke: var(--mark);
+  stroke-width: 1.2;
+}
+.poster .run-track .stack.peak circle {
+  fill: var(--accent);
+}
+.poster .run-track .stack.peak circle.guest {
+  fill: none;
+  stroke: var(--accent);
+}
+.poster .run-track .peak-label {
+  fill: var(--ink);
+}
+/* Direct labels sit over chart ink; a panel-coloured halo keeps them legible. */
+.poster :is(.run-track .peak-label, .progress .label, .progress .label-now) {
+  paint-order: stroke;
+  stroke: var(--panel);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.poster .run-track .hit {
+  fill: transparent;
+}
+
+/* ---- Vs last year: this season in pink over last season in muted ink ---- */
+.poster .chart {
+  padding: 16px 16px 8px;
+  border: 2px solid var(--line);
+  background: var(--panel);
+}
+.poster .chart svg {
+  display: block;
+  width: 100%;
+}
+.poster .progress .gridline {
+  stroke: var(--grid);
+}
+.poster .progress :is(.line-then, .line-now) {
+  fill: none;
+  stroke-linejoin: round;
+}
+.poster .progress .line-then {
+  stroke: var(--ink-soft);
+  stroke-width: 2;
+  opacity: 0.55;
+}
+.poster .progress .line-now {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+.poster .progress :is(.gap, .cross) {
+  stroke: var(--ink);
+  stroke-width: 1;
+}
+.poster .progress .cross {
+  opacity: 0.4;
+}
+.poster .progress :is(.dot-then, .dot-now) {
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+.poster .progress .dot-then {
+  fill: var(--ink-soft);
+}
+.poster .progress .dot-now {
+  fill: var(--accent);
+}
+.poster .progress :is(.label, .label-now) {
+  fill: var(--ink);
+}
+.poster .progress .label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.poster .progress .label-now {
+  font-family: var(--font-display);
+}
+
+/* ---- Milestones ahead: gold race bibs, slightly askew ---- */
+.poster .bibs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 22px;
+  padding: 6px 0 4px;
+  list-style: none;
+}
+.poster .bib {
+  padding: 12px 16px;
+  border: 2px solid var(--espresso);
+  background: var(--gold);
+  color: var(--espresso);
+  transform: rotate(1.5deg);
+}
+.poster .bib:nth-child(even) {
+  transform: rotate(-1.5deg);
+}
+.poster .bib .who {
+  font: 30px/1 var(--font-display);
+  text-transform: uppercase;
+}
+.poster .bib .to {
+  margin-top: 6px;
+  font: 700 13px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---- the one motion moment: the Wall prints in, left to right, once ---- */
+@media (prefers-reduced-motion: no-preference) {
+  .poster .wall svg.print .cell {
+    animation: poster-ink 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: calc(var(--c) * 7ms);
+  }
+}
+@keyframes poster-ink {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+/* ---- phones and small tablets: panels stack, track labels go inline ---- */
+@media (max-width: 900px) {
+  .poster .pair {
+    grid-template-columns: 1fr;
+  }
+  .poster .pair > div + div {
+    border-left: 0;
+    border-top: 2px solid var(--line);
+  }
+  .poster .run-track {
+    grid-template-columns: 1fr;
+  }
+  .poster .run-track .side {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 8px 12px;
+    border-left: 0;
+    border-top: 1px solid var(--grid);
+  }
+  .poster .lb {
+    grid-template-columns: 30px 84px 1fr 48px;
+  }
+}
+@media (max-width: 620px) {
+  .poster .pair > div {
+    padding: 18px 16px;
+  }
+}

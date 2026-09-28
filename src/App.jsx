@@ -99,9 +99,12 @@ function App() {
     )
   }
 
-  // The selected view: one season, or every season merged.
+  // The selected view: one season, or every season merged. A single season
+  // is compared with the one before it (YEAR_LIST runs newest first); the
+  // earliest season and All time have nothing to compare with.
   const view = isAllTime(selectedYear) ? allTime : seasons[selectedYear]
-  const dashboard = <Dashboard data={view} />
+  const previous = isAllTime(selectedYear) ? null : (seasons[YEAR_LIST[YEAR_LIST.indexOf(selectedYear) + 1]] ?? null)
+  const dashboard = <Dashboard data={view} previous={previous} allTime={allTime} />
   const runDetail = <RunDetail seasons={seasons} />
   const wrapped = <Wrapped data={seasons[WRAPPED_YEAR]} />
 
