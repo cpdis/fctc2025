@@ -110,6 +110,10 @@ public struct PendingSubmissionSnapshot: Hashable, Sendable, Identifiable {
     public var namedGuestIds: [String]?
     public var unnamedGuests: Int?
     public var verificationPending: Bool
+    /// The endpoint the row was saved for; the engine sends it nowhere else.
+    public var endpointIdentity: String?
+    /// See `PendingSubmission.lastAttemptAt`.
+    public var lastAttemptAt: Date?
 
     public init(
         id: UUID,
@@ -128,7 +132,8 @@ public struct PendingSubmissionSnapshot: Hashable, Sendable, Identifiable {
         conflictMessage: String? = nil,
         conflictState: SheetState? = nil, outcome: SubmissionDisposition? = nil,
         runIdentity: RunIdentity? = nil, namedGuestIds: [String]? = nil,
-        unnamedGuests: Int? = nil, verificationPending: Bool = false
+        unnamedGuests: Int? = nil, verificationPending: Bool = false,
+        endpointIdentity: String? = nil, lastAttemptAt: Date? = nil
     ) {
         self.id = id
         self.rowIndex = rowIndex
@@ -147,6 +152,7 @@ public struct PendingSubmissionSnapshot: Hashable, Sendable, Identifiable {
         self.conflictState = conflictState
         self.outcome = outcome; self.runIdentity = runIdentity; self.namedGuestIds = namedGuestIds
         self.unnamedGuests = unnamedGuests; self.verificationPending = verificationPending
+        self.endpointIdentity = endpointIdentity; self.lastAttemptAt = lastAttemptAt
     }
 
     @MainActor
@@ -168,7 +174,8 @@ public struct PendingSubmissionSnapshot: Hashable, Sendable, Identifiable {
             conflictMessage: pending.conflictMessage,
             conflictState: pending.conflictState, outcome: pending.outcome,
             runIdentity: pending.runIdentity, namedGuestIds: pending.namedGuestIds,
-            unnamedGuests: pending.unnamedGuests, verificationPending: pending.verificationPending == true
+            unnamedGuests: pending.unnamedGuests, verificationPending: pending.verificationPending == true,
+            endpointIdentity: pending.endpointIdentity, lastAttemptAt: pending.lastAttemptAt
         )
     }
 

@@ -59,6 +59,9 @@ public final class PendingSubmission {
 
     public var stateRaw: String
     public var createdAt: Date
+    /// When the engine last sent this row. A committed shared row keeps the
+    /// moment its write was confirmed instead: the cache shows that write only
+    /// after the next refresh, and `EffectiveRuns` overlays it until then.
     public var lastAttemptAt: Date?
     public var attemptCount: Int
     public var lastError: String?
