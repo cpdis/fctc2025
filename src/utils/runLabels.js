@@ -125,6 +125,22 @@ export function monthKey(date) {
   return isoDate(date).slice(0, 7)
 }
 
+// One formatter for every run. Date#toLocaleString builds a new one per call,
+// which cost ~50 ms per page load on a 4x-throttled phone.
+const SHORT_MONTH = new Intl.DateTimeFormat(undefined, { month: 'short' })
+
+/**
+ * The month's short name in the browser's locale ("Sep", or "Sept" in en-AU),
+ * exactly as `date.toLocaleString('default', { month: 'short' })` reads it.
+ * Wrapped keys its month stats by it.
+ *
+ * @param {Date} date
+ * @returns {string}
+ */
+export function shortMonthName(date) {
+  return SHORT_MONTH.format(date)
+}
+
 /**
  * Build a stable run id, `YYYY-MM-DD-<slug of the run label>` (KTD4), for
  * example `2026-09-25-river-loop`. The date carries the year, so ids stay

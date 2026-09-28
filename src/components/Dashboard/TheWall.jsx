@@ -10,6 +10,8 @@ import { compareNames } from '../../utils/dashboardMetrics'
 const ROW = 18
 const TOP = 30
 const CELL_H = 12
+// A cell's top inside its row group (rows are placed by transform).
+const CELL_Y = (ROW - CELL_H) / 2
 const MIN_COL = 7
 const FALLBACK_WIDTH = 800
 
@@ -157,7 +159,7 @@ function WallGrid({ rows, columns, selected }) {
   const { tip, show, hide } = useTooltip()
   // The one tabbable cell (roving tab stop). c -1 is the latest run.
   const [active, setActive] = useState({ r: 0, c: -1 })
-  // The print-in sweep runs once, on the first draw (poster-charts.css).
+  // The print-in curtain runs once, on the first draw (poster-charts.css).
   const [printing, setPrinting] = useState(true)
 
   const lastCol = columns.length - 1
@@ -174,10 +176,8 @@ function WallGrid({ rows, columns, selected }) {
     gridRef.current.scrollLeft = gridRef.current.scrollWidth
   }, [width, columns])
 
-  // Per column: "Fri 25 Sep, River Loop" for cell names, and the delay step
-  // of the print-in sweep, shared by every cell in the column.
+  // Per column: "Fri 25 Sep, River Loop" for cell names.
   const columnLabels = useMemo(() => columns.map(({ run }) => `${formatDay(run.parsedDate)}, ${runName(run)}`), [columns])
-  const columnStyles = useMemo(() => columns.map((_, c) => ({ '--c': c })), [columns])
   const months = useMemo(() => monthMarks(columns), [columns])
 
   // The same detail for a hovered and a focused cell. Without a row (the
@@ -219,9 +219,10 @@ function WallGrid({ rows, columns, selected }) {
     else show(tipFor(c, r), event)
   }
 
+  // The row index lives on the cell's row group, so a sort never rewrites cells.
   const onCellFocus = useCallback(
     (event) => {
-      const r = Number(event.currentTarget.dataset.r)
+      const r = Number(event.currentTarget.parentNode.dataset.r)
       const c = Number(event.currentTarget.dataset.c)
       setActive((current) => (current.r === r && current.c === c ? current : { r, c }))
       show(tipFor(c, r), event)
@@ -237,10 +238,11 @@ function WallGrid({ rows, columns, selected }) {
     if (r === null || c === null) return
     event.preventDefault()
     setActive({ r, c })
-    svgRef.current.querySelector(`[data-r="${r}"][data-c="${c}"]`)?.focus()
+    svgRef.current.querySelector(`[data-r="${r}"] > [data-c="${c}"]`)?.focus()
   }
 
   const dim = (name) => Boolean(selected) && selected !== name
+  const gridWidth = colW * columns.length
   const height = TOP + rows.length * ROW + 6
 
   return (
@@ -258,8 +260,7 @@ function WallGrid({ rows, columns, selected }) {
           {width !== null && (
             <svg
               ref={svgRef}
-              className={printing ? 'print' : undefined}
-              width={colW * columns.length}
+              width={gridWidth}
               height={height}
               role="grid"
               aria-label="Attendance grid: one row per runner, one column per run"
@@ -267,10 +268,6 @@ function WallGrid({ rows, columns, selected }) {
               onMouseLeave={hide}
               onBlur={hide}
               onKeyDown={onKeyDown}
-              onAnimationEnd={(event) => {
-                // Every cell in the last column ends together: the sweep is done.
-                if (event.target.dataset?.c === String(lastCol)) setPrinting(false)
-              }}
             >
               <g aria-hidden="true">
                 {columns.map(
@@ -298,10 +295,20 @@ function WallGrid({ rows, columns, selected }) {
                 ar={ar}
                 ac={ac}
                 columnLabels={columnLabels}
-                columnStyles={columnStyles}
                 onCellFocus={onCellFocus}
               />
             </svg>
+          )}
+          {/* The print-in: one paper curtain over the grid shrinks toward the
+              latest run. Only its transform animates, so the compositor runs
+              it; animating every cell ran at ~10 fps on a phone (4x CPU). */}
+          {width !== null && printing && (
+            <div
+              className="ink-curtain"
+              aria-hidden="true"
+              style={{ width: gridWidth, height }}
+              onAnimationEnd={() => setPrinting(false)}
+            />
           )}
         </div>
         <div className="tots" aria-hidden="true">
@@ -321,34 +328,54 @@ function WallGrid({ rows, columns, selected }) {
 /**
  * The grid's rows of cells: the bulk of the DOM (runners × runs rects). Memoized
  * so moving the tooltip, which re-renders WallGrid, never re-renders them.
+ *
+ * Each row group carries its place (transform) and index (data-r); its cells
+ * never do. So a sort or a find changes one attribute per row, and each row's
+ * cells (RowCells, memoized) skip rendering entirely:
+ *
+ *   <g role="row" data-r=3 transform="translate(0 84)">   <- moves on a sort
+ *     <rect data-c=0 x=1 y=3 …/> … <rect data-c=117 …/>   <- untouched
  */
-const WallRows = memo(function WallRows({ rows, colW, dimmed, ar, ac, columnLabels, columnStyles, onCellFocus }) {
+const WallRows = memo(function WallRows({ rows, colW, dimmed, ar, ac, columnLabels, onCellFocus }) {
   const cellW = Math.max(3, colW - 2)
   return rows.map((row, r) => (
     <g
       key={row.name}
       role="row"
+      data-r={r}
+      transform={`translate(0 ${TOP + r * ROW})`}
       aria-label={`${row.name}: ${row.runs} runs, current streak ${row.current}`}
       className={dimmed && dimmed !== row.name ? 'dim' : undefined}
     >
-      {row.cells.map((cell, c) => (
-        <rect
-          key={c}
-          role="gridcell"
-          className={cellClass(cell)}
-          x={c * colW + 1}
-          y={TOP + r * ROW + (ROW - CELL_H) / 2}
-          width={cellW}
-          height={CELL_H}
-          style={columnStyles[c]}
-          tabIndex={r === ar && c === ac ? 0 : -1}
-          data-r={r}
-          data-c={c}
-          aria-label={`${columnLabels[c]}: ${row.name} ${cellStatus(cell)}`}
-          onFocus={onCellFocus}
-        />
-      ))}
+      <RowCells
+        cells={row.cells}
+        name={row.name}
+        colW={colW}
+        cellW={cellW}
+        activeC={r === ar ? ac : -1}
+        columnLabels={columnLabels}
+        onCellFocus={onCellFocus}
+      />
     </g>
+  ))
+})
+
+/** One runner's cells. `activeC` is the tabbable column, or -1 on other rows. */
+const RowCells = memo(function RowCells({ cells, name, colW, cellW, activeC, columnLabels, onCellFocus }) {
+  return cells.map((cell, c) => (
+    <rect
+      key={c}
+      role="gridcell"
+      className={cellClass(cell)}
+      x={c * colW + 1}
+      y={CELL_Y}
+      width={cellW}
+      height={CELL_H}
+      tabIndex={c === activeC ? 0 : -1}
+      data-c={c}
+      aria-label={`${columnLabels[c]}: ${name} ${cellStatus(cell)}`}
+      onFocus={onCellFocus}
+    />
   ))
 })
 

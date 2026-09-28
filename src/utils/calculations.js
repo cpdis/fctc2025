@@ -1,3 +1,5 @@
+import { shortMonthName } from './runLabels.js'
+
 // Calculate member-specific stats for Wrapped
 export function calculateMemberStats(data, memberName) {
   const member = data.memberTotals[memberName]
@@ -50,7 +52,7 @@ export function calculateMemberStats(data, memberName) {
   const monthCounts = {}
   attendedRuns.forEach(run => {
     if (run.parsedDate) {
-      const month = run.parsedDate.toLocaleString('default', { month: 'short' })
+      const month = shortMonthName(run.parsedDate)
       monthCounts[month] = (monthCounts[month] || 0) + 1
     }
   })

@@ -19,6 +19,8 @@ const namesColumn = (container) => [...container.querySelectorAll('.names div')]
 const sortBy = (value) => fireEvent.change(screen.getByRole('combobox', { name: 'Sort runners' }), { target: { value } })
 const find = (value) => fireEvent.change(screen.getByRole('combobox', { name: 'Find a runner' }), { target: { value } })
 const openTip = () => screen.getByRole('tooltip')
+// Rows are placed by transform; a cell's y is inside its row.
+const rowTop = (cell) => Number(cell.parentNode.getAttribute('transform').match(/translate\(0 ([\d.]+)\)/)[1])
 
 afterEach(() => {
   localStorage.clear()
@@ -55,6 +57,29 @@ describe('TheWall', () => {
     expect(rowNames().slice(0, 2)).toEqual(['Aaron', 'Adam'])
     sortBy('runs')
     expect(rowNames().slice(0, 2)).toEqual(['Aaron', 'Scott'])
+  })
+
+  // The cost of a sort is one transform per row, not every cell (profiled:
+  // rewriting ~7,800 All-time cells took up to 345 ms on a 4x-throttled phone).
+  it('moves whole rows on a sort and leaves their cells untouched', () => {
+    render(<TheWall model={wall2026} />)
+    const cell = rowOf('Grant').querySelector('[data-c="5"]')
+    const before = [...cell.attributes].map(({ name, value }) => `${name}=${value}`)
+    const place = [rowOf('Grant').getAttribute('data-r'), rowOf('Grant').getAttribute('transform')]
+    sortBy('name')
+    expect(rowOf('Grant').querySelector('[data-c="5"]')).toBe(cell)
+    expect([...cell.attributes].map(({ name, value }) => `${name}=${value}`)).toEqual(before)
+    expect([rowOf('Grant').getAttribute('data-r'), rowOf('Grant').getAttribute('transform')]).not.toEqual(place)
+  })
+
+  it('prints in under one curtain that leaves when its animation ends', () => {
+    const { container } = render(<TheWall model={wall2026} />)
+    const curtain = container.querySelector('.ink-curtain')
+    expect(curtain).toHaveAttribute('aria-hidden', 'true')
+    expect(curtain.style.width).toBe(grid().getAttribute('width') + 'px')
+    // jsdom has no AnimationEvent, so React listens for the prefixed name.
+    fireEvent(curtain, new Event('webkitAnimationEnd', { bubbles: true }))
+    expect(container.querySelector('.ink-curtain')).toBeNull()
   })
 
   it('lists the active runners A–Z, highlights the chosen one and dims the rest', () => {
@@ -162,7 +187,7 @@ describe('TheWall', () => {
     // Hover the same cell by position (jsdom puts the grid at 0,0).
     fireEvent.mouseMove(grid(), {
       clientX: Number(cell.getAttribute('x')) + 1,
-      clientY: Number(cell.getAttribute('y')) + 1,
+      clientY: rowTop(cell) + Number(cell.getAttribute('y')) + 1,
     })
     expect(openTip().textContent).toBe(focused)
     fireEvent.mouseLeave(grid())
@@ -175,7 +200,7 @@ describe('TheWall', () => {
     fireEvent.focus(start)
 
     fireEvent.keyDown(start, { key: 'ArrowDown' })
-    expect(document.activeElement).toHaveAttribute('data-r', '1')
+    expect(document.activeElement.parentNode).toHaveAttribute('data-r', '1')
     expect(document.activeElement).toHaveAttribute('data-c', '117')
     fireEvent.keyDown(document.activeElement, { key: 'ArrowLeft' })
     expect(document.activeElement).toHaveAttribute('data-c', '116')

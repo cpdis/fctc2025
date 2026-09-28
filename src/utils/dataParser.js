@@ -1,5 +1,5 @@
 import Papa from 'papaparse'
-import { normalizeLocation, parseRunLabel, runId } from './runLabels.js'
+import { normalizeLocation, parseRunLabel, runId, shortMonthName } from './runLabels.js'
 
 // Fixed columns that precede the dynamic member list in both the 2025 and 2026 sheets.
 const FIXED_LEADING_COLS = ['Date', 'Meet', 'Run', 'Approx kms', 'Actual kms']
@@ -268,7 +268,7 @@ function aggregate({ runs, members, memberTotals, upcoming }) {
   const runsByMonth = {}
   runs.forEach((run) => {
     if (!run.parsedDate) return
-    const month = run.parsedDate.toLocaleString('default', { month: 'short' })
+    const month = shortMonthName(run.parsedDate)
     if (!runsByMonth[month]) {
       runsByMonth[month] = { count: 0, totalKm: 0, totalAttendance: 0 }
     }

@@ -190,6 +190,7 @@
   color: var(--accent);
 }
 .poster .wall .grid {
+  position: relative;
   min-width: 0;
   overflow-x: auto;
 }
@@ -410,17 +411,28 @@
   text-transform: uppercase;
 }
 
-/* ---- the one motion moment: the Wall prints in, left to right, once ---- */
+/* ---- the one motion moment: the Wall prints in, left to right, once ----
+   A panel-coloured curtain over the grid shrinks toward its right edge (the
+   latest run). Only its transform animates, so it runs on the compositor and
+   the main thread stays free while the page settles. */
+.poster .wall .ink-curtain {
+  display: none;
+}
 @media (prefers-reduced-motion: no-preference) {
-  .poster .wall svg.print .cell {
-    animation: poster-ink 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-    animation-delay: calc(var(--c) * 7ms);
+  .poster .wall .ink-curtain {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: var(--panel);
+    pointer-events: none;
+    transform-origin: right center;
+    animation: poster-ink 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }
 }
 @keyframes poster-ink {
-  from {
-    opacity: 0;
-    transform: translateY(-3px);
+  to {
+    transform: scaleX(0);
   }
 }
 

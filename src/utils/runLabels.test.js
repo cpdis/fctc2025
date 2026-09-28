@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { normalizeLocation, parseRunLabel, runId } from './runLabels'
+import { normalizeLocation, parseRunLabel, runId, shortMonthName } from './runLabels'
 import { parseRunData } from './dataParser'
 
 describe('parseRunLabel - races', () => {
@@ -156,5 +156,14 @@ describe('the public season sheets', () => {
   it('never keeps a footnote marker or a "Some-day" spelling', () => {
     expect(runs.filter((r) => r.runType.includes('*') || r.type.includes('*'))).toEqual([])
     expect(runs.filter((r) => r.location === 'Some-day')).toEqual([])
+  })
+})
+
+describe('shortMonthName', () => {
+  it('reads each month exactly as toLocaleString does', () => {
+    for (let month = 0; month < 12; month++) {
+      const date = new Date(2026, month, 15)
+      expect(shortMonthName(date)).toBe(date.toLocaleString('default', { month: 'short' }))
+    }
   })
 })
