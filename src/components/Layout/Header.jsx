@@ -1,17 +1,20 @@
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { YEAR_OPTIONS, resolveYear, isAllTime } from '../../config/years'
+import { dashboardBasePath, dashboardHref, yearSwitchParams } from '../../utils/dashboardPaths'
 
 // Clean, minimal dashboard header.
 //
 // Layout: logo + club name on the left, nav (Dashboard | 2025 Wrapped) and the
 // year switcher on the right. The switcher is a dropdown (years + "All time")
 // that writes the selection into the URL (?year=YYYY or ?year=all); App.jsx
-// reads it back via useSearchParams. Active controls use the single dark ink
-// accent, everything else is muted grey on a white surface.
+// reads it back via useSearchParams. Links stay under the mount point
+// (/dashboard on fctc.fun, the root elsewhere). Active controls use the single
+// dark ink accent, everything else is muted grey on a white surface.
 export default function Header() {
   const location = useLocation()
   const isWrapped = location.pathname.startsWith('/wrapped') ||
     location.pathname.startsWith('/2025wrapped')
+  const base = dashboardBasePath(location.pathname)
 
   // Read the current selection from the URL (defaults to the latest valid year).
   const [searchParams, setSearchParams] = useSearchParams()
@@ -21,12 +24,8 @@ export default function Header() {
   // "<year> Season".
   const seasonLabel = isAllTime(selectedYear) ? 'All Time' : `${selectedYear} Season`
 
-  // Set ?year while preserving any other query params already in the URL.
-  const selectYear = (year) => {
-    const next = new URLSearchParams(searchParams)
-    next.set('year', String(year))
-    setSearchParams(next)
-  }
+  // Set ?year. A new season is a new view, so the run-log filters reset.
+  const selectYear = (year) => setSearchParams(yearSwitchParams(searchParams, year))
 
   return (
     <header className="sticky top-0 z-50 bg-card border-b border-border">
@@ -35,7 +34,7 @@ export default function Header() {
             gets clipped; from sm up everything sits on one 64px row. */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between sm:h-16 gap-2 sm:gap-4 py-2.5 sm:py-0">
           {/* Logo + name */}
-          <Link to={`/?year=${selectedYear}`} className="flex items-center gap-3 min-w-0">
+          <Link to={dashboardHref(base, selectedYear)} className="flex items-center gap-3 min-w-0">
             <img
               src="/fctc_logo.jpeg"
               alt="FCTC Logo"
@@ -85,7 +84,7 @@ export default function Header() {
             {/* Nav */}
             <nav className="flex items-center gap-1 sm:gap-2">
               <Link
-                to={`/?year=${selectedYear}`}
+                to={dashboardHref(base, selectedYear)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                   !isWrapped
                     ? 'bg-accent text-card'

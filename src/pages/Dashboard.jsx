@@ -17,6 +17,7 @@ import HalfSeasonSlopegraph from '../components/Dashboard/viz/HalfSeasonSlopegra
 import RunTypeSmallMultiples from '../components/Dashboard/viz/RunTypeSmallMultiples'
 import { getRunTypeDisplayName } from '../utils/theme'
 import { resolveYear, isAllTime } from '../config/years'
+import { yearSwitchParams } from '../utils/dashboardPaths'
 
 // One restrained staggered reveal for the whole page: a single subtle
 // fade + small upward translate per section, children offset by a small delay.
@@ -40,8 +41,8 @@ export default function Dashboard({ data }) {
   const selectedYear = resolveYear(searchParams.get('year'))
   const seasonLabel = isAllTime(selectedYear) ? 'All Time' : `${selectedYear} Season`
 
-  // A new season is a new view: drop every other param so its filters reset.
-  const selectYear = (year) => setSearchParams({ year: String(year) })
+  // A new season is a new view, so the run-log filters reset (AE7).
+  const selectYear = (year) => setSearchParams(yearSwitchParams(searchParams, year))
 
   // The meta row's last run: the latest by date, since All time concatenates
   // seasons newest first rather than in date order.
@@ -205,7 +206,7 @@ export default function Dashboard({ data }) {
 
           {/* Run history — full width: a wide, dense table uses the room well. */}
           <motion.div variants={item} className="mt-6">
-            <RunsTable runs={filteredRuns} allRuns={data.runs} runsByType={data.runsByType} />
+            <RunsTable runs={filteredRuns} runsByType={data.runsByType} />
           </motion.div>
         </motion.div>
       </main>

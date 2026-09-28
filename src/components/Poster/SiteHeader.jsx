@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { dashboardBasePath } from './dashboardBasePath'
+import { dashboardBasePath, dashboardHref } from '../../utils/dashboardPaths'
 
 // The hub's origin, for its own pages (home, Cup) when the dashboard is served
 // from the app's domain instead of through fctc.fun.
@@ -33,7 +33,7 @@ export default function SiteHeader({ year }) {
           </span>
         </a>
         <nav aria-label="Club apps">
-          <Link to={`${base || '/'}?year=${year}`} aria-current="page">
+          <Link to={dashboardHref(base, year)} aria-current="page">
             Dashboard
           </Link>
           <a href={hubHref('/cup')}>Cup</a>

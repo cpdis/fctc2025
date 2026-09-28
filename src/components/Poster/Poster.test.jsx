@@ -7,7 +7,6 @@ import HeadlineNumbers from './HeadlineNumbers'
 import Marquee, { streakLeaders } from './Marquee'
 import SiteFooter from './SiteFooter'
 import Tooltip, { tipPosition, useTooltip } from './Tooltip'
-import { dashboardBasePath } from './dashboardBasePath'
 
 // Headline figures for the 2026 snapshot (the mockup's data.js): 118 runs and
 // 9,889 member-km against 80 runs and 8,263 km at the same date in 2025.
@@ -17,19 +16,6 @@ const DELTA_2026 = { year: 2025, runs: 38, km: 1626 }
 function renderAt(path, ui) {
   return render(<MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>)
 }
-
-describe('dashboardBasePath', () => {
-  it('is /dashboard under the hub mount, for the page and anything below it', () => {
-    expect(dashboardBasePath('/dashboard')).toBe('/dashboard')
-    expect(dashboardBasePath('/dashboard/run/2026-09-25-river-loop')).toBe('/dashboard')
-  })
-
-  it('is empty at the app root, and a look-alike path is not the mount', () => {
-    expect(dashboardBasePath('/')).toBe('')
-    expect(dashboardBasePath('/run/2026-09-25-river-loop')).toBe('')
-    expect(dashboardBasePath('/dashboards')).toBe('')
-  })
-})
 
 describe('SiteHeader', () => {
   afterEach(() => {

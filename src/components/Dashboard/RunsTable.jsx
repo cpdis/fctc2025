@@ -1,13 +1,18 @@
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { getRunTypeDisplayName } from '../../utils/theme'
 import { runTypeColorMap, tint } from '../../utils/runTypeColors'
 import { usePrefersDark } from '../../utils/useThemeColors'
 import { useExpandableRows } from '../../utils/useExpandableRows'
+import { dashboardBasePath, runHref } from '../../utils/dashboardPaths'
 import ShowMoreButton from './ShowMoreButton'
 
-export default function RunsTable({ runs, allRuns, runsByType = {} }) {
+export default function RunsTable({ runs, runsByType = {} }) {
   const navigate = useNavigate()
+  // Rows open their run by its stable id, under the current mount point and
+  // keeping the view's year (and run-log filters) for the run page's Back link.
+  const base = dashboardBasePath(useLocation().pathname)
+  const [searchParams] = useSearchParams()
   const isDark = usePrefersDark()
   // Badge tints match the Run Type Distribution donut (same color per type, in
   // the active scheme).
@@ -128,14 +133,10 @@ export default function RunsTable({ runs, allRuns, runsByType = {} }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {visible.map((run) => {
-              // Find the original index in allRuns for navigation
-              const originalIndex = allRuns.findIndex(r => r.date === run.date && r.runType === run.runType)
-
-              return (
+            {visible.map((run) => (
               <tr
-                key={`${run.date}-${run.runType}`}
-                onClick={() => navigate(`/run/${originalIndex}`)}
+                key={run.id}
+                onClick={() => navigate(runHref(base, run.id, searchParams))}
                 className="hover:bg-surface cursor-pointer transition-colors"
               >
                 <td className="px-3 sm:px-6 py-3 whitespace-nowrap text-sm text-ink">
@@ -176,7 +177,7 @@ export default function RunsTable({ runs, allRuns, runsByType = {} }) {
                   </div>
                 </td>
               </tr>
-            )})}
+            ))}
           </tbody>
         </table>
       </div>

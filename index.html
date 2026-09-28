@@ -6,6 +6,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>FCTC | Filament Coffee Track Club</title>
 
+    <!-- No-flash theme, the same rule as fctc.fun (fctc-site Base.astro): the
+         saved choice in localStorage.theme, else the OS preference. It runs
+         inline before the app loads, so the first paint is already in the
+         right theme. The site header's toggle writes the same key, so one
+         choice holds across the hub and the dashboard (KTD7). -->
+    <script>
+      (() => {
+        const saved = localStorage.getItem('theme')
+        const theme =
+          saved === 'light' || saved === 'dark'
+            ? saved
+            : matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+        document.documentElement.dataset.theme = theme
+      })()
+    </script>
+
     <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://fctc.fun/" />
