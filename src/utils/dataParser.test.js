@@ -190,11 +190,44 @@ describe('reconciliation sanity check (report-only)', () => {
 })
 
 describe('birthday metadata below the attendance header', () => {
-  it('does not count birthday dates as attendance or change dashboard totals', () => {
+  // The label can sit in any leading column (Apps Script's listBirthdays accepts
+  // all of them). The live sheet puts it in the Date column, which is the shape
+  // that once leaked into the totals as a phantom run.
+  it.each([
+    ['the Date column (live sheet shape)', 'BIRTHDAY,,,,,10-May,,20-Jun'],
+    ['a later leading column', ',,,,BIRTHDAY,10-May,,20-Jun'],
+  ])('ignores a birthday row labelled in %s', (_, birthdayRow) => {
     const rows = csv2026.split(/\r?\n/)
     const header = rows.findIndex(row => row.startsWith('Date,Meet,Run'))
     expect(header).toBe(10)
-    rows.splice(header + 1, 0, ',,,,BIRTHDAY,10-May,,20-Jun')
+    rows.splice(header + 1, 0, birthdayRow)
     expect(parseRunData(rows.join('\n'), 2026)).toEqual(data2026)
+  })
+})
+
+describe('parseRunData - run dates', () => {
+  // Minimal sheet: header plus one row per case. Each row has one attendee, so
+  // only the date decides whether it becomes a run.
+  const sheet = (...dates) =>
+    ['Date,Meet,Run,Approx kms,Actual kms,Ann,Bob,+1\'s', ...dates.map((d) => `"${d}",Filament,Social,8,8,x,,0`)]
+      .join('\n')
+
+  it('keeps well-formed dates and reads the weekday from the cell', () => {
+    const { runs } = parseRunData(sheet('Fri, 3-Jan', 'Mon, 28-Sep'), 2026)
+    expect(runs.map((r) => [r.dayOfWeek, r.parsedDate.getMonth(), r.parsedDate.getDate()])).toEqual([
+      ['Fri', 0, 3],
+      ['Mon', 8, 28],
+    ])
+  })
+
+  it('strips sheet footnote markers from the run type', () => {
+    const csv = sheet('Mon, 5-Jan').replace('Social', '**Cruise')
+    expect(parseRunData(csv, 2026).runs[0].runType).toBe('Cruise')
+  })
+
+  it('drops rows whose first cell is not a real run date', () => {
+    const { runs, totalRuns } = parseRunData(sheet('Notes', 'Fri, 31-Sep', 'Fri, 3-Sept'), 2026)
+    expect(runs).toEqual([])
+    expect(totalRuns).toBe(0)
   })
 })

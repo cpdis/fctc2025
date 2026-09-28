@@ -9,9 +9,9 @@
  *
  * Honesty rules baked in here:
  *  - Partial seasons (e.g. 2026 runs only span ~5 months) must never fabricate
- *    points. Date-keyed series only contain real run
- *    dates. Fixed-length monthly arrays carry 0 for months with no runs so
- *    sparklines/small-multiples stay aligned Jan..Dec.
+ *    points. Date-keyed series only contain real run dates. Monthly arrays
+ *    follow `monthAxis` (first to latest run month), so months that have not
+ *    happened yet never appear as zeros.
  *  - Members who attended nothing are excluded from per-member outputs.
  *  - `firstVsSecondHalf` splits at the TRUE data midpoint (earliest..latest run
  *    date), never a hardcoded month.
@@ -35,6 +35,64 @@ function dateKey(d) {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+/** Local YYYY-MM key for a Date. */
+function monthKey(d) {
+  return dateKey(d).slice(0, 7)
+}
+
+/**
+ * monthAxis(runs)
+ *
+ * @param {Array} runs - data.runs from parseRunData
+ * @returns {Array<{ key: string, year: number, month: number }>}
+ *
+ * Every calendar month from the first dated run to the last, inclusive, keyed
+ * YYYY-MM (month is 0-based). Month-bucketed series align to this axis:
+ *
+ *   2026 (partial)   Jan ... Sep            stops at the latest run month
+ *   2025 (complete)  Jan ... Dec
+ *   All time         Jan 2025 ... Sep 2026  seasons stay apart
+ *
+ * A fixed Jan..Dec array would draw months that have not happened yet as zero
+ * attendance, and would fold 2025 and 2026 into the same twelve buckets.
+ */
+export function monthAxis(runs) {
+  const sorted = datedRunsSorted(runs)
+  if (sorted.length === 0) return []
+  const last = sorted[sorted.length - 1].parsedDate
+  const cursor = new Date(sorted[0].parsedDate.getFullYear(), sorted[0].parsedDate.getMonth(), 1)
+  const axis = []
+  while (cursor <= last) {
+    axis.push({ key: monthKey(cursor), year: cursor.getFullYear(), month: cursor.getMonth() })
+    cursor.setMonth(cursor.getMonth() + 1)
+  }
+  return axis
+}
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/**
+ * monthAxisLabel(axis)
+ *
+ * Human label for a month axis: "Jan–Sep 2026" inside one year,
+ * "Jan 2025–Sep 2026" across years, "" when empty. Fixed English month names
+ * so the label does not depend on the viewer's locale.
+ */
+export function monthAxisLabel(axis) {
+  if (!axis?.length) return ''
+  const first = axis[0]
+  const last = axis[axis.length - 1]
+  const name = (m) => MONTH_NAMES[m.month]
+  if (first.key === last.key) return `${name(first)} ${first.year}`
+  if (first.year === last.year) return `${name(first)}–${name(last)} ${last.year}`
+  return `${name(first)} ${first.year}–${name(last)} ${last.year}`
+}
+
+/** Map each axis month key to its index, for O(1) bucketing. */
+function monthIndex(axis) {
+  return new Map(axis.map((m, i) => [m.key, i]))
 }
 
 /**
@@ -99,25 +157,27 @@ function currentStreakFor(sortedRuns, member) {
  *
  * @param {Object} data - full parseRunData output
  * @returns {Array<{ name: string, totalRuns: number, totalKm: number,
- *                    monthly: number[12], currentStreak: number }>}
+ *                    monthly: number[], currentStreak: number }>}
  *
- * For each active member, a fixed 12-element (Jan..Dec) array of attendance
- * counts (number of attended runs in that month). Sorted by totalRuns desc.
- * Members with zero attendance are excluded. Each `monthly` always has length
- * 12 (months with no runs are 0) so a sparkline-per-member table aligns
+ * For each active member, attendance counts per month of `monthAxis(data.runs)`
+ * (number of attended runs in that month). Sorted by totalRuns desc. Members
+ * with zero attendance are excluded. Every `monthly` has the axis length (a
+ * month the member skipped is 0) so a sparkline-per-member table aligns
  * vertically. Powers a sparkline table.
  */
 export function memberMonthlyAttendance(data) {
   if (!data || !Array.isArray(data.members)) return []
   const sorted = datedRunsSorted(data.runs)
+  const axis = monthAxis(sorted)
+  const indexOf = monthIndex(axis)
 
   const rows = data.members.map((name) => {
-    const monthly = new Array(12).fill(0)
+    const monthly = new Array(axis.length).fill(0)
     let totalRuns = 0
     let totalKm = 0
     for (const run of sorted) {
       if (run.attendance?.[name]) {
-        monthly[run.parsedDate.getMonth()] += 1
+        monthly[indexOf.get(monthKey(run.parsedDate))] += 1
         totalRuns += 1
         totalKm += run.actualKm || 0
       }
@@ -140,9 +200,9 @@ export function memberMonthlyAttendance(data) {
  * runTypeMonthlyCounts(data)
  *
  * @param {Object} data - full parseRunData output
- * @returns {Array<{ type: string, monthly: number[12], total: number }>}
+ * @returns {Array<{ type: string, monthly: number[], total: number }>}
  *
- * For each run type, a fixed 12-element monthly run-count array for
+ * For each run type, run counts per month of `monthAxis(data.runs)` for
  * small-multiples. Sorted by total desc. Uses the run's raw `runType` string
  * (not the parser's normalized buckets) so every distinct type label gets its
  * own panel; change here if the dashboard prefers normalized buckets.
@@ -150,11 +210,13 @@ export function memberMonthlyAttendance(data) {
 export function runTypeMonthlyCounts(data) {
   if (!data) return []
   const sorted = datedRunsSorted(data.runs)
+  const axis = monthAxis(sorted)
+  const indexOf = monthIndex(axis)
   const byType = new Map()
   for (const run of sorted) {
     const type = run.runType || 'Other'
-    if (!byType.has(type)) byType.set(type, new Array(12).fill(0))
-    byType.get(type)[run.parsedDate.getMonth()] += 1
+    if (!byType.has(type)) byType.set(type, new Array(axis.length).fill(0))
+    byType.get(type)[indexOf.get(monthKey(run.parsedDate))] += 1
   }
   return Array.from(byType.entries())
     .map(([type, monthly]) => ({

@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseRunData } from './dataParser'
+import { parseRunData, combineYearData } from './dataParser'
 import {
   cumulativeSeries,
+  monthAxis,
+  monthAxisLabel,
   memberMonthlyAttendance,
   runTypeMonthlyCounts,
   firstVsSecondHalf,
@@ -76,12 +78,60 @@ describe('cumulativeSeries', () => {
   })
 })
 
+describe('monthAxis', () => {
+  const keys = (runs) => monthAxis(runs).map((m) => m.key)
+
+  const ym = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+
+  it.each(datasets)('%s: runs from the first to the latest run month, no future months', (_, data) => {
+    const dates = data.runs.map((r) => r.parsedDate).sort((a, b) => a - b)
+    const axis = keys(data.runs)
+    expect(axis[0]).toBe(ym(dates[0]))
+    expect(axis.at(-1)).toBe(ym(dates.at(-1)))
+  })
+
+  it.each(datasets)('%s: months are contiguous', (_, data) => {
+    const axis = monthAxis(data.runs)
+    for (let i = 1; i < axis.length; i++) {
+      const prev = axis[i - 1]
+      expect(axis[i].year * 12 + axis[i].month).toBe(prev.year * 12 + prev.month + 1)
+    }
+  })
+
+  it('keeps seasons apart in the all-time view', () => {
+    const axis = keys(combineYearData([data2025, data2026]).runs)
+    expect(axis[0]).toBe('2025-01')
+    expect(axis).toContain('2025-06')
+    expect(axis).toContain('2026-01')
+    expect(new Set(axis).size).toBe(axis.length)
+  })
+
+  it('returns [] for empty input', () => {
+    expect(monthAxis([])).toEqual([])
+    expect(monthAxis(undefined)).toEqual([])
+  })
+})
+
+describe('monthAxisLabel', () => {
+  const run = (y, m) => ({ parsedDate: new Date(y, m, 5) })
+
+  it('labels a single month, one year, and a cross-year range', () => {
+    expect(monthAxisLabel(monthAxis([run(2026, 8)]))).toBe('Sep 2026')
+    expect(monthAxisLabel(monthAxis([run(2026, 0), run(2026, 8)]))).toBe('Jan–Sep 2026')
+    expect(monthAxisLabel(monthAxis([run(2025, 0), run(2026, 8)]))).toBe('Jan 2025–Sep 2026')
+  })
+
+  it('returns an empty string for an empty axis', () => {
+    expect(monthAxisLabel([])).toBe('')
+  })
+})
+
 describe('memberMonthlyAttendance', () => {
-  it.each(datasets)('%s: each member monthly array has length 12 and sums to totalRuns', (_, data) => {
+  it.each(datasets)('%s: each member monthly array spans the month axis and sums to totalRuns', (_, data) => {
     const rows = memberMonthlyAttendance(data)
     expect(rows.length).toBeGreaterThan(0)
     for (const row of rows) {
-      expect(row.monthly).toHaveLength(12)
+      expect(row.monthly).toHaveLength(monthAxis(data.runs).length)
       const sum = row.monthly.reduce((s, n) => s + n, 0)
       expect(sum).toBe(row.totalRuns)
     }
@@ -127,11 +177,11 @@ describe('memberMonthlyAttendance', () => {
 })
 
 describe('runTypeMonthlyCounts', () => {
-  it.each(datasets)('%s: each type monthly length 12 and sums to total', (_, data) => {
+  it.each(datasets)('%s: each type monthly spans the month axis and sums to total', (_, data) => {
     const rows = runTypeMonthlyCounts(data)
     expect(rows.length).toBeGreaterThan(0)
     for (const row of rows) {
-      expect(row.monthly).toHaveLength(12)
+      expect(row.monthly).toHaveLength(monthAxis(data.runs).length)
       const sum = row.monthly.reduce((s, n) => s + n, 0)
       expect(sum).toBe(row.total)
     }

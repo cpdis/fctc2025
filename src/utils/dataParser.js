@@ -8,6 +8,27 @@ const MONTH_MAP = {
   Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
 }
 
+// The sheet's run-date cell: weekday, comma, day-month ("Fri, 3-Jan").
+const RUN_DATE_PATTERN = /^(\w{3}),\s+(\d{1,2})-(\w{3})$/
+
+/**
+ * Read a run-date cell into a local-midnight Date for the season year.
+ * Returns null for anything that is not a real calendar date in that format
+ * (metadata labels, unknown month names, day 31 in a 30-day month).
+ */
+function parseRunDate(cell, year) {
+  const match = cell?.match(RUN_DATE_PATTERN)
+  if (!match) return null
+  const [, dayOfWeek, dayText, monthText] = match
+  const month = MONTH_MAP[monthText]
+  const day = Number(dayText)
+  if (month === undefined) return null
+  const parsedDate = new Date(year, month, day)
+  // new Date() rolls "31-Sep" into 1 Oct; reject it rather than misfile a run.
+  if (parsedDate.getMonth() !== month) return null
+  return { parsedDate, dayOfWeek }
+}
+
 /**
  * Parse the FCTC attendance CSV for a given year.
  *
@@ -69,11 +90,19 @@ export function parseRunData(csvText, year) {
     const parsed = rows[i]
     if (!Array.isArray(parsed) || parsed.length < FIXED_LEADING_COLS.length) continue
 
-    const date = parsed[0]
-    if (!date || !date.trim()) continue
+    // A run row starts with its date ("Fri, 3-Jan"). Anything else under the
+    // header is sheet metadata, not a run. The BIRTHDAY row is the live example:
+    // its member cells hold dates like "1-Sep", which would otherwise read as
+    // attendance and add a phantom, undated run.
+    const date = parsed[0]?.trim()
+    const runDate = parseRunDate(date, year)
+    if (!runDate) continue
 
     const meet = parsed[1]
-    const runType = parsed[2]
+    // Organisers flag a cell with "**" as a sheet footnote ("**Cruise" on
+    // 5 Jan 2026). The marker is not part of the run type, so drop it here and
+    // every widget groups the run with its siblings.
+    const runType = (parsed[2] ?? '').replace(/^\*+|\*+$/g, '').trim()
     const approxKm = parseFloat(parsed[3]) || 0
     const actualKm = parseFloat(parsed[4]) || 0
 
@@ -94,14 +123,6 @@ export function parseRunData(csvText, year) {
 
     const aggregateKm = actualKm * totalAttendance
 
-    // Parse the date, e.g. "Fri, 3-Jan".
-    const dateMatch = date.match(/(\w+),\s+(\d+)-(\w+)/)
-    let parsedDate = null
-    if (dateMatch) {
-      const [, , day, month] = dateMatch
-      parsedDate = new Date(year, MONTH_MAP[month], parseInt(day))
-    }
-
     // Accumulate per-member totals from the data itself.
     attendees.forEach((m) => {
       memberTotals[m].totalRuns += 1
@@ -110,8 +131,8 @@ export function parseRunData(csvText, year) {
 
     runData.push({
       date,
-      parsedDate,
-      dayOfWeek: date.split(',')[0]?.trim(),
+      parsedDate: runDate.parsedDate,
+      dayOfWeek: runDate.dayOfWeek,
       meet,
       runType,
       approxKm,

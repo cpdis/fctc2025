@@ -1,11 +1,12 @@
-import { runTypeMonthlyCounts } from '../../../utils/dashboardMetrics'
+import { runTypeMonthlyCounts, monthAxis } from '../../../utils/dashboardMetrics'
 import { getRunTypeDisplayName } from '../../../utils/theme'
 import { useThemeColors } from '../../../utils/useThemeColors'
 
 /**
  * RunTypeSmallMultiples — a grid of tiny per-run-type monthly bar charts.
  *
- * Each panel is one run type's Jan..Dec run counts as mini bars. CRUCIAL honesty
+ * Each panel is one run type's monthly run counts as mini bars, over the
+ * season's month axis (first to latest run month). CRUCIAL honesty
  * detail: every panel shares the SAME y-scale (the global max across all types)
  * so panel heights are directly comparable; a tall bar means more runs full stop,
  * not just "more relative to this type". Reveals seasonality at a glance.
@@ -17,7 +18,7 @@ import { useThemeColors } from '../../../utils/useThemeColors'
  * @param {Object} data - full parseRunData output
  */
 
-const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
+const MONTH_INITIALS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
 
 function MiniBars({ monthly, globalMax, label }) {
   const { colors } = useThemeColors()
@@ -51,7 +52,7 @@ function MiniBars({ monthly, globalMax, label }) {
             width={barW}
             height={h}
             // Empty months still get a faint baseline tick so the panel reads as
-            // a full Jan..Dec axis, not a truncated series.
+            // the full month axis, not a truncated series.
             fill={v > 0 ? colors.ink : colors.border}
             rx={0.5}
           />
@@ -63,6 +64,7 @@ function MiniBars({ monthly, globalMax, label }) {
 
 export default function RunTypeSmallMultiples({ data }) {
   const types = runTypeMonthlyCounts(data)
+  const axis = monthAxis(data?.runs)
   const globalMax = types.reduce(
     (m, t) => Math.max(m, ...t.monthly),
     0
@@ -92,8 +94,8 @@ export default function RunTypeSmallMultiples({ data }) {
               </div>
               <MiniBars monthly={t.monthly} globalMax={globalMax} label={getRunTypeDisplayName(t.type)} />
               <div className="mt-1 flex justify-between text-[9px] text-ink-muted leading-none">
-                <span>{MONTHS[0]}</span>
-                <span>{MONTHS[11]}</span>
+                <span>{MONTH_INITIALS[axis[0].month]}</span>
+                <span>{MONTH_INITIALS[axis[axis.length - 1].month]}</span>
               </div>
             </div>
           ))}

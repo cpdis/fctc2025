@@ -1,20 +1,18 @@
 import Sparkline from './Sparkline'
-import { memberMonthlyAttendance } from '../../../utils/dashboardMetrics'
+import { memberMonthlyAttendance, monthAxis, monthAxisLabel } from '../../../utils/dashboardMetrics'
 import { useExpandableRows } from '../../../utils/useExpandableRows'
 import ShowMoreButton from '../ShowMoreButton'
-
-const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
 
 /**
  * SparklineLeaderboard — the high-density centerpiece.
  *
- * One row per active member: name, total runs, total km, a 12-month attendance
- * sparkline (Jan..Dec, aligned because the metric guarantees fixed length), and
- * the current attendance streak. Hairline row separators, numerals in ink,
+ * One row per active member: name, total runs, total km, a monthly attendance
+ * sparkline (first to latest run month, aligned because every row shares the
+ * same month axis), and the current attendance streak. Hairline row separators, numerals in ink,
  * labels muted. This is Tufte's "data table as graphic": every member's whole
  * season legible at a glance, vertically scannable.
  *
- * Mobile: only the sparkline ("Jan–Dec") column is hidden so the table fits the
+ * Mobile: only the sparkline (month range) column is hidden so the table fits the
  * viewport with no horizontal scroll — name, runs, km and streak all stay. The
  * sparkline column returns from sm up to complete the high-density table.
  *
@@ -22,6 +20,7 @@ const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
  */
 export default function SparklineLeaderboard({ data }) {
   const rows = memberMonthlyAttendance(data)
+  const range = monthAxisLabel(monthAxis(data?.runs))
   // Long rosters (33 in all-time) are truncated to keep the page scannable;
   // "Show all" expands in place. Re-collapses when the dataset (year) changes.
   const { visible, expanded, canExpand, toggle, total } = useExpandableRows(rows, 15, data)
@@ -43,7 +42,7 @@ export default function SparklineLeaderboard({ data }) {
                 <th className="py-2 pr-3 font-medium sm:w-1/6">Member</th>
                 <th className="py-2 px-3 font-medium text-right sm:w-1/6">Runs</th>
                 <th className="py-2 px-3 font-medium text-right sm:w-1/6">Km</th>
-                <th className="hidden sm:table-cell py-2 px-3 font-medium w-1/3">Jan–Dec</th>
+                <th className="hidden sm:table-cell py-2 px-3 font-medium w-1/3">{range}</th>
                 <th className="py-2 pl-3 font-medium text-right sm:w-1/6">Streak</th>
               </tr>
             </thead>
@@ -69,7 +68,7 @@ export default function SparklineLeaderboard({ data }) {
                       width={240}
                       height={28}
                       strokeWidth={1.25}
-                      ariaLabel={`${m.name} monthly attendance, ${m.monthly.join(', ')} from January to December`}
+                      ariaLabel={`${m.name} monthly attendance, ${range}: ${m.monthly.join(', ')}`}
                     />
                   </td>
                   <td className="py-2.5 pl-3 text-right tabular-nums">
@@ -92,8 +91,8 @@ export default function SparklineLeaderboard({ data }) {
       {/* Quiet caption clarifying the sparkline x-axis, in lieu of inline axis.
           Hidden on mobile, where the sparkline/streak columns aren't shown. */}
       <p className="hidden sm:block mt-3 text-xs text-ink-muted">
-        Sparklines span <span className="font-medium text-ink">{MONTHS.join(' ')}</span>{' '}
-        (January to December). Streak = consecutive most-recent runs attended.
+        One point per month, <span className="font-medium text-ink">{range}</span>. Streak =
+        club runs attended in a row, counting back from the latest recorded run.
       </p>
     </div>
   )
