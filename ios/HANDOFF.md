@@ -1,5 +1,25 @@
 # iOS handoff
 
+## Private TestFlight build 7 (28 September 2026)
+
+- Version 0.1.0 build 7, built from local branch `release/testflight-build-7`.
+  It merges `ui-refinements` with `fix/discarded-submission-requeue`,
+  `fix/name-match-false-positives` and `fix/setup-link-deployment-id`.
+  Nothing is pushed.
+- Build `dec0d81b-9b35-4828-9785-749570667a25` is VALID. Internal state is
+  `IN_BETA_TESTING`, and only FCTC Internal (Colin's two accounts) has it.
+  External state is `READY_FOR_BETA_SUBMISSION`, so FCTC Friends has no access.
+- Notes were set on build 7 by number, not by `testflight-notes.py`. That script
+  attaches every build to FCTC Friends and picks the latest upload, not an exact
+  build. The en-AU notes match `ios/testflight-build-7.txt`.
+- No schema, config-storage, entitlement or bundle change, so the update keeps the
+  sheet connection, saved guests and pending attendance.
+- Verification: 365 tests on the release branch (324 Kit, 41 UI); 364 passed,
+  1 skipped (the opt-in screen tour), 0 failed. Archive signed with Apple
+  Distribution; app and share extension both report 0.1.0 (7).
+- Build fix: `project.yml` now excludes `.impeccable` tool caches. Two caches in one
+  target had failed the build with "Multiple commands produce hook.cache.json".
+
 ## Shared guests (September 2026)
 
 Work is on `codex/shared-guest-attendance`. The September plan supersedes the old
