@@ -191,7 +191,14 @@ struct ChecklistView: View {
                 )
                 .accessibilityIdentifier("confirm-attendance")
             }
+            // Inside the tab shell, automatic placement moves search into a
+            // navigation-bar drawer that stays hidden until a pull-down. Pin it
+            // to the bottom bar, where it sat before the tabs (U11).
+            DefaultToolbarItem(kind: .search, placement: .bottomBar)
         }
+        // The bottom search and the tab bar cannot share the bottom edge, so the
+        // checklist hides the tab bar like the run picker does.
+        .toolbarVisibility(.hidden, for: .tabBar)
         .sheet(isPresented: $showingVoiceEntry) {
             NavigationStack {
                 VoiceEntryView(checklistViewModel: viewModel)

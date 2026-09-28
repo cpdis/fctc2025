@@ -133,6 +133,11 @@ struct RunPickerView: View {
                 }
             }
         }
+        // The bottom toolbar above and the tab bar both claim the bottom edge,
+        // and iOS 26 draws the tab bar over the toolbar rather than stacking
+        // them. The picker is a focused task, so it hides the tab bar; the tab
+        // bar returns when the picker pops (U11, checked on iOS 26.5).
+        .toolbarVisibility(.hidden, for: .tabBar)
         .sheet(isPresented: $showingAddRun) {
             AddRunView(viewModel: viewModel)
         }

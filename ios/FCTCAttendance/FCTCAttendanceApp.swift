@@ -97,7 +97,7 @@ private struct AppRootView: View {
     var body: some View {
         Group {
             if runtime.config.isConfigured {
-                HomeView(runtime: runtime, pendingRoutes: pendingRoutes)
+                RootTabView(runtime: runtime, pendingRoutes: pendingRoutes)
             } else {
                 NavigationStack {
                     SettingsView(runtime: runtime, configurationRequired: true)
