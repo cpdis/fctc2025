@@ -337,6 +337,20 @@ correction. Choose **Save name** or **Keep saved name**. Pending changes stay in
 Outbox until their original save is confirmed. A queued change shows its saved
 error. Delayed reads cannot replace a newer confirmed guest name.
 
+Motion comes from one shared vocabulary in `ios/FCTCAttendance/Views/Motion.swift`.
+Frequent actions such as checks and counts get fast, quiet feedback. Rare moments,
+such as the first Home appearance, may take longer. Reduce Motion keeps fades and
+color changes and removes travel and scale. For a visual before/after review, run the
+opt-in screen tour. It visits each main screen with synthetic data and attaches one
+screenshot per screen:
+
+```bash
+cd ios && TEST_RUNNER_FCTC_SCREEN_TOUR=1 xcodebuild test -project FCTCAttendance.xcodeproj -scheme FCTCAttendance -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:FCTCAttendanceUITests/ScreenTourUITests -resultBundlePath ../review/tour.xcresult
+```
+
+Export the shots with `xcrun xcresulttool export attachments --path ../review/tour.xcresult --output-path ../review/tour`.
+The default test run skips the tour.
+
 A birthday row below the attendance header does not count as a run. Keep its Date
 cell blank. Shared run IDs follow row insertions; older connections ask for a
 refresh if their saved row coordinate no longer matches the run.
