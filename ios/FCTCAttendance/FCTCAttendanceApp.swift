@@ -107,14 +107,17 @@ private struct AppRootView: View {
         .tint(runtime.accent.color)
         .onOpenURL(perform: receiveSetupCode)
         .alert(
-            "Connect this phone?",
+            pendingSetup?.review.title ?? "",
             isPresented: binding(to: $pendingSetup),
             presenting: pendingSetup
         ) { pending in
-            Button("Connect") { connect(pending.config) }
+            Button(
+                pending.review.confirmTitle,
+                role: pending.review.isDestructive ? .destructive : nil
+            ) { connect(pending.config) }
             Button("Cancel", role: .cancel) {}
         } message: { pending in
-            Text("This setup code points at \(pending.host). Connect only if you recognise it.")
+            Text(pending.review.message)
         }
         .alert(
             "Setup code not valid",
@@ -127,14 +130,28 @@ private struct AppRootView: View {
         }
     }
 
-    /// A scanned setup code is never applied on arrival. Any web page can open a
-    /// custom scheme, so the person confirms the endpoint host first. The prompt
-    /// doubles as the "it worked" feedback the Safari detour never gave.
+    /// A scanned setup code is never applied on arrival. Any web page or chat link
+    /// can open a custom scheme, and every Apps Script endpoint has the same host,
+    /// so the person confirms the deployment and device name first. The prompt also
+    /// says when the code replaces a working sheet and how many submissions that
+    /// strands. It doubles as the "it worked" feedback the Safari detour never gave.
     private func receiveSetupCode(_ url: URL) {
         guard SetupCodeParser.isSetupLink(url.absoluteString) else { return }
         do {
             let config = try SetupCodeParser().parse(url.absoluteString)
-            pendingSetup = PendingSetupCode(config: config)
+            let current = runtime.config
+            // Fails closed: an unreadable outbox shows an error, never a blind prompt.
+            let waiting = try PendingSubmission.outstandingCount(
+                endpointIdentity: current.endpoint?.absoluteString,
+                in: runtime.modelContainer.mainContext
+            )
+            // The parser guarantees an HTTPS endpoint with a host, so this holds.
+            guard let review = SetupCodeReview(
+                incoming: config,
+                current: current,
+                waitingSubmissions: waiting
+            ) else { throw SetupCodeError.invalidEndpoint }
+            pendingSetup = PendingSetupCode(config: config, review: review)
         } catch {
             setupError = error.localizedDescription
         }
@@ -155,12 +172,11 @@ private struct AppRootView: View {
     }
 }
 
-/// A setup code that arrived by URL and is waiting for confirmation.
+/// A setup code that arrived by URL and is waiting for confirmation, with the
+/// review captured on arrival so the prompt text cannot shift under the person.
 private struct PendingSetupCode {
     let config: AppConfig
-
-    /// The endpoint host, which is what the person is being asked to vouch for.
-    var host: String { config.endpoint?.host ?? "an unknown address" }
+    let review: SetupCodeReview
 }
 
 extension AccentChoice {

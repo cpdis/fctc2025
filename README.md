@@ -374,9 +374,13 @@ production Apps Script deployment ID and update it with `clasp deploy -i`; a pla
 deploy changes the phone endpoint. Generate private setup pages with
 `apps-script/make-setup-qr.js`. The code is a `fctc-attendance://setup?…` link the app
 claims, so scanning it with the iPhone Camera opens the app and asks the person to
-confirm the endpoint before connecting. The app validates HTTPS setup payloads and
-stores the shared secret in Keychain. For a new season, add the sheet tab and change the
-`SEASON_SHEET_NAME` script property; each phone refreshes itself through `getState`.
+confirm before connecting. Every Apps Script endpoint shares one host, so the prompt
+shows the deployment ID (for example `AKfy…x9Qc`) and the device name. If the code
+points at a different sheet, the prompt says it replaces the current connection and
+counts the waiting submissions that stay in Outbox for review. The app validates
+HTTPS setup payloads and stores the shared secret in Keychain. For a new season, add
+the sheet tab and change the `SEASON_SHEET_NAME` script property; each phone refreshes
+itself through `getState`.
 
 ## Deployment
 
