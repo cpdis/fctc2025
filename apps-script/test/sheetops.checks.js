@@ -824,6 +824,16 @@ test.describe('date and number cells', () => {
     assert.equal(SheetOps.parseSheetDate(''), null);
   });
 
+  test.it('rejects impossible days, as the web and iOS do', () => {
+    for (const cell of ['Wed, 31-Sep', '31-Apr', '30-Feb', '0-Oct', 'Thu, 32-Jan']) {
+      assert.equal(SheetOps.parseSheetDate(cell), null, cell);
+    }
+    assert.deepEqual(SheetOps.parseSheetDate('Thu, 30-Sep'), { month: 8, day: 30 });
+    assert.deepEqual(SheetOps.parseSheetDate('Sat, 31-Oct'), { month: 9, day: 31 });
+    // No year on the cell, so 29-Feb stays a date (a leap season's run).
+    assert.deepEqual(SheetOps.parseSheetDate('29-Feb'), { month: 1, day: 29 });
+  });
+
   test.it('renders a date-typed cell the way the sheet writes text dates', () => {
     // A cell someone re-typed as a real date must not become "Fri Jan 03 2025 ...".
     assert.equal(SheetOps.dateCellText(new Date(2025, 0, 3)), 'Fri, 3-Jan');

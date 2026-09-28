@@ -65,6 +65,14 @@ var MONTH_ABBREVS = [
   'dec',
 ];
 
+/**
+ * The most days each month can have, January first. A sheet date carries no
+ * year, so February allows 29: that keeps birthdays valid and lets a leap
+ * season's 29-Feb run through. (The web and iOS know the season year and
+ * reject 29-Feb in other years.)
+ */
+var MAX_MONTH_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
 /** Day-of-week prefixes used when a Date object has to be rendered sheet-style. */
 var DAY_ABBREVS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -334,7 +342,7 @@ function birthdayParts(value, formatDate) {
   var label = match[2].toLowerCase();
   var month = label.length === 3 ? MONTH_ABBREVS.indexOf(label) : months.indexOf(label);
   var day = parseInt(match[1], 10);
-  if (month < 0 || day < 1 || day > [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month]) return null;
+  if (month < 0 || day < 1 || day > MAX_MONTH_DAYS[month]) return null;
   return { month: month + 1, day: day };
 }
 
@@ -356,7 +364,9 @@ function parseSheetDate(value) {
   var month = MONTH_ABBREVS.indexOf(match[2].slice(0, 3).toLowerCase());
   if (month < 0) return null;
   var day = parseInt(match[1], 10);
-  if (!(day >= 1 && day <= 31)) return null;
+  // An impossible day ("31-Sep", "0-Oct") is not a date, so its row is not a
+  // run, as the web and iOS read it.
+  if (!(day >= 1 && day <= MAX_MONTH_DAYS[month])) return null;
   return { month: month, day: day };
 }
 
