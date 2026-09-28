@@ -29,7 +29,8 @@ public final class VoiceEntryViewModel {
     public private(set) var proposalSet: DraftProposalSet?
     public private(set) var recognitionMode: TranscriptionMode?
 
-    @ObservationIgnored private var roster: [String]
+    /// Observed: the live transcript highlight reads it to vouch for sentence starts.
+    public private(set) var roster: [String]
     @ObservationIgnored private let transcriber: any Transcriber
     @ObservationIgnored private let extractor: any NameExtractor
     @ObservationIgnored private var recordingID: UUID?
@@ -166,7 +167,7 @@ public final class VoiceEntryViewModel {
         transcriber.stop()
 
         do {
-            let result = try await extractor.extract(from: transcript, context: .voice)
+            let result = try await extractor.extract(from: transcript, context: .voice(roster: roster))
             proposalSet = DraftProposalSet(
                 entities: result.entities,
                 matcher: NameMatcher(roster: roster),

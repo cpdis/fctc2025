@@ -320,6 +320,12 @@ The **Attendance** heading shows the number of checked members across the full
 draft, even during a search. When guests are present, a second line shows the total
 people, including named and unnamed guests. Both counts update as the draft changes.
 
+Screenshot and voice entry pre-check a member only on a sure match: an exact name, a
+nickname, or one wrong letter in a name of seven or more letters. A close but different
+name, such as "Tony" for `Toby`, is only a suggestion. Voice entry ignores a word at the
+start of a sentence unless it is a roster name or a nickname. A poll option with a
+negative word, such as "Can't make it", pre-checks nobody.
+
 The **Birthdays** section follows Milestones. It shows today through 30 days ahead,
 ordered by days remaining then name, using Perth calendar dates. The sheet's
 `BIRTHDAY` row supplies day and month; no birth year or age is stored. A 29 February

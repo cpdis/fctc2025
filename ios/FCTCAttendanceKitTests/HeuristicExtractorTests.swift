@@ -141,6 +141,47 @@ struct VoiceNameTests {
     func dedupe() {
         #expect(Self.names("Col came, Col came again") == ["Col"])
     }
+
+    /// Speech punctuation capitalises every sentence start, so a capital there is no
+    /// evidence of a name. With the roster, a sentence-initial word must be an exact
+    /// roster name, roster first name or nickname.
+    @Test("Sentence starts need the roster to vouch for them", arguments: [
+        ("Great session. Sam and Tim came.", ["Sam", "Tim"]),
+        ("Cold morning. Col came.", ["Col"]),
+        ("Cool breeze today. Col came.", ["Col"]),
+        ("Same crew as last week. Sam came.", ["Sam"]),
+        ("Calm water! Cam came.", ["Cam"]),
+        ("Camp vibes? Cam came.", ["Cam"]),
+        ("Colin, Sam and Tim came.", ["Colin", "Sam", "Tim"]),
+        ("Kate B came. Dan came too.", ["Kate B", "Dan"]),
+        ("Grant, Joe and Scott ran.", ["Grant", "Joe", "Scott"]),
+        ("Tony came. Sam came.", ["Sam"]),
+    ])
+    func sentenceStarts(transcript: String, expected: [String]) {
+        let entities = VoiceTranscriptScanner().scan(transcript: transcript, roster: Roster.season2026)
+        #expect(entities.names == expected)
+    }
+
+    @Test("A capital in mid-sentence is still a name candidate for the matcher to judge")
+    func midSentenceCapitals() {
+        let entities = VoiceTranscriptScanner()
+            .scan(transcript: "We ran to Cott. Scott came.", roster: Roster.season2026)
+        #expect(entities.names == ["Cott", "Scott"])
+    }
+
+    @Test("A sentence start after a guest clause is not a guest name")
+    func sentenceStartIsNotAGuest() {
+        let entities = VoiceTranscriptScanner()
+            .scan(transcript: "Col came, plus one guest. Great session.", roster: Roster.season2026)
+        #expect(entities.plusOnes == 1)
+        #expect(entities.guestNames.isEmpty)
+        #expect(entities.names == ["Col"])
+    }
+
+    @Test("Without a roster, capitalisation alone decides")
+    func noRosterKeepsCapitalRule() {
+        #expect(Self.names("Great session. Sam came.") == ["Great", "Sam"])
+    }
 }
 
 @Suite("HeuristicExtractor — OCR chrome")
@@ -182,6 +223,32 @@ struct PollLineScannerTests {
         #expect(PollLineScanner.isAffirmative("Yes"))
         #expect(!PollLineScanner.isAffirmative("No"))
         #expect(!PollLineScanner.isAffirmative("Maybe"))
+    }
+
+    /// Normalization used to split "Can't" into "can t", which missed "cant" and made
+    /// the option affirmative. Any negative word now makes the whole option negative.
+    @Test("Contractions and negative words make an option negative", arguments: [
+        "Can't", "Can’t", "CANT", "Can't make it", "Cannot", "Won’t make it",
+        "Not this week", "Sorry, no",
+    ])
+    func negativeOptions(label: String) {
+        #expect(!PollLineScanner.isAffirmative(label))
+    }
+
+    @Test("Affirmative options with extra words stay affirmative", arguments: [
+        "Yes", "Yes please", "Friday 6am", "In",
+    ])
+    func affirmativeOptions(label: String) {
+        #expect(PollLineScanner.isAffirmative(label))
+    }
+
+    @Test("Voters on a Can't option are never proposed")
+    func cantVotersAreNotProposed() {
+        let result = PollLineScanner().scan(lines: [
+            "Yes ✓ 1 vote", "Aaron", "Can’t ✓ 1 vote", "Anna",
+        ])
+        #expect(result.options.map(\.label) == ["Yes", "Can’t"])
+        #expect(result.affirmativeNames == ["Aaron"])
     }
 
     @Test("Timestamps, percentages and counts are dropped", arguments: [
