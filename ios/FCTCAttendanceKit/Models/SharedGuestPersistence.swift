@@ -9,10 +9,16 @@ public final class SharedSheetCache {
     public var spreadsheetId: String
     public var seasonSheetId: Int
     public var stateData: Data
+    /// When the request that returned `stateData` started. The server read the
+    /// state after it, so the state holds every write confirmed before it.
     public var refreshedAt: Date
+    /// One row per endpoint, workbook and season.
+    static func key(endpoint: String, spreadsheetId: String, seasonSheetId: Int) -> String {
+        "\(endpoint):\(spreadsheetId):\(seasonSheetId)"
+    }
     public init(endpointIdentity: String, state: SheetState, refreshedAt: Date = .now) throws {
         guard let book = state.spreadsheetId, let season = state.seasonSheetId else { throw SheetAPIError.badPayload(message: "Missing workbook identity.") }
-        key = "\(endpointIdentity):\(book):\(season)"; self.endpointIdentity = endpointIdentity
+        key = Self.key(endpoint: endpointIdentity, spreadsheetId: book, seasonSheetId: season); self.endpointIdentity = endpointIdentity
         spreadsheetId = book; seasonSheetId = season
         stateData = try JSONEncoder().encode(state); self.refreshedAt = refreshedAt
     }

@@ -27,10 +27,12 @@
 //    conflict                     no, it waits for the organiser (this
 //                                 includes rows parked for review)
 //    done, legacy                 no, `finish()` already wrote the cache
-//    done, shared, committed      yes, until the season refreshes after its
-//                                 confirmation. The shared drain leaves the
-//                                 cache to its follow-up refresh, so a failed
-//                                 refresh must not drop the run. A merge or
+//    done, shared, committed      yes, until a refresh that started after its
+//                                 confirmation lands. The shared drain leaves
+//                                 the cache to its follow-up refresh, so a
+//                                 failed refresh must not drop the run, and
+//                                 neither may a slow one that started before
+//                                 the write and landed after it. A merge or
 //                                 overwrite replayed on a run that already
 //                                 shows it changes nothing, so nothing counts
 //                                 twice meanwhile.
@@ -57,8 +59,8 @@ public struct EffectiveRuns: Hashable, Sendable {
     ///     or endpoint match nothing and are not counted.
     ///   - endpoint: the current endpoint. The engine sends a row only to the
     ///     endpoint it was saved for.
-    ///   - refreshedAt: when this season was last reconciled from the sheet
-    ///     (`SharedSheetCache.refreshedAt`). Nil for a legacy endpoint.
+    ///   - refreshedAt: when the request behind this season's cached state
+    ///     started (`SharedSheetCache.refreshedAt`). Nil for a legacy endpoint.
     public init(
         cached: [RunSnapshot],
         submissions: [PendingSubmissionSnapshot],
@@ -115,6 +117,7 @@ public struct EffectiveRuns: Hashable, Sendable {
             guard submission.runIdentity != nil, submission.outcome == .committed,
                   let confirmedAt = submission.lastAttemptAt else { return false }
             guard let refreshedAt else { return true }
+            // Only a request started after the confirmation read the write.
             return refreshedAt <= confirmedAt
         }
     }

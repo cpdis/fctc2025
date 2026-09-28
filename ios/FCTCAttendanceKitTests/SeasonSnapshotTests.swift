@@ -5,6 +5,8 @@
 //  U14: last season is a read-only snapshot for the Dashboard's "Vs last year"
 //  card. Fetching it must never disturb the live season: no reconcile, no
 //  `latestState`, no reminders, and a cold engine must keep writing to the live tab.
+//  A cached row is fetched again once per engine (app session), and serves
+//  offline when that fetch fails.
 //
 
 import Foundation
@@ -66,34 +68,77 @@ struct SeasonSnapshotTests {
         #expect(sent["seasonSheetId"]?.int == 26)
     }
 
-    @Test("A cached snapshot makes no second request, on the same engine or after a relaunch")
-    func fetchedOnce() async throws {
+    @Test("The first call on an engine fetches last season again, even with a row cached; later calls read it")
+    func revalidatedOncePerSession() async throws {
         let container = try guestContainer()
-        let transport = StubTransport([.response(try stateData(liveSeason())), .response(try stateData(lastSeason()))])
-        let engine = snapshotEngine(container, transport)
+        // An earlier session cached last season while it still had one run.
+        let earlier = snapshotEngine(container, StubTransport([.response(try stateData(liveSeason())),
+                                                               .response(try stateData(lastSeason()))]))
+        _ = try await earlier.refreshState()
+        _ = try await earlier.previousSeasonSnapshot()
+
+        // This session: the sheet has since gained a run for last season.
+        let final = try finalLastSeason()
+        let transport = StubTransport([.response(try stateData(liveSeason())), .response(try stateData(final))])
+        let reminders = RecordingReminders()
+        let engine = snapshotEngine(container, transport, reminders: reminders)
         _ = try await engine.refreshState()
+        let before = try footprint(container)
+
         let first = try await engine.previousSeasonSnapshot()
         let second = try await engine.previousSeasonSnapshot()
+        #expect(first == final)
+        #expect(second == final)
         #expect(await transport.requestCount == 2)
-        #expect(first == second)
+        let request = try JSONDecoder().decode(GuestJSON.self, from: #require(await transport.requests.last))
+        #expect(request["seasonSheetId"]?.int == 25)
+        #expect(try snapshotRow(container)?.state == final)
+        // The live season, the caches it owns and the reminders stay as they were.
+        #expect(try footprint(container) == before)
+        #expect(await reminders.reconciledSeasons == [26])
+        #expect(await engine.latestState?.seasonSheetId == 26)
+    }
 
-        let offline = StubTransport()
-        let relaunched = try await snapshotEngine(container, offline).previousSeasonSnapshot()
-        #expect(relaunched?.seasonSheetId == 25)
-        #expect(await offline.requestCount == 0)
+    @Test("When the fetch fails, the cached row serves and the next call tries again", arguments: Failure.allCases)
+    func cachedRowServesOffline(_ failure: Failure) async throws {
+        let container = try guestContainer()
+        let warm = snapshotEngine(container, StubTransport([.response(try stateData(liveSeason())),
+                                                            .response(try stateData(lastSeason()))]))
+        _ = try await warm.refreshState()
+        let cached = try await warm.previousSeasonSnapshot()
+        let cachedRow = try #require(try snapshotRow(container))
+        let cachedAt = cachedRow.refreshedAt
+
+        // A relaunch: the new engine has not fetched last season yet.
+        let transport = StubTransport([failureStep(failure, live: try stateData(liveSeason()))])
+        let cold = snapshotEngine(container, transport)
+        #expect(try await cold.previousSeasonSnapshot() == cached)
+        #expect(await transport.requestCount == 1)
+        #expect(try snapshotRow(container)?.refreshedAt == cachedAt)
+        #expect(try snapshotRow(container)?.state == cached)
+
+        // Back online, the next call fetches, and the one after reads the row.
+        let final = try finalLastSeason()
+        await transport.append(.response(try stateData(final)))
+        #expect(try await cold.previousSeasonSnapshot() == final)
+        #expect(try await cold.previousSeasonSnapshot() == final)
+        #expect(await transport.requestCount == 2)
     }
 
     @Test("Historic navigation does not move the snapshot off the live season's predecessor")
     func historicNavigation() async throws {
         let container = try guestContainer()
-        let transport = StubTransport([.response(try stateData(liveSeason())), .response(try stateData(lastSeason()))])
+        let transport = StubTransport([.response(try stateData(liveSeason())), .response(try stateData(lastSeason())),
+                                       .response(try stateData(lastSeason()))])
         let engine = snapshotEngine(container, transport)
         _ = try await engine.refreshState()
         _ = try await engine.refreshState(seasonSheetId: 25)
         // `latestState` now points at 2025; the snapshot still anchors on 2026.
         let snapshot = try await engine.previousSeasonSnapshot()
         #expect(snapshot?.seasonSheetId == 25)
-        #expect(await transport.requestCount == 2)
+        let request = try JSONDecoder().decode(GuestJSON.self, from: #require(await transport.requests.last))
+        #expect(request["seasonSheetId"]?.int == 25)
+        #expect(await transport.requestCount == 3)
     }
 
     enum Unavailable: String, CaseIterable, Sendable { case legacy, unlisted, onlyNewer }
@@ -124,12 +169,7 @@ struct SeasonSnapshotTests {
     func failure(_ failure: Failure) async throws {
         let container = try guestContainer()
         let live = try stateData(liveSeason())
-        let step: StubTransport.Step = switch failure {
-        case .offline: .failure(.offline)
-        case .rejected: .response(json("{\"ok\":false,\"error\":\"bad_secret\",\"message\":\"Rejected\"}"))
-        // The server answered, but with the live season instead of last season.
-        case .wrongSeason: .response(live)
-        }
+        let step = failureStep(failure, live: live)
         let transport = StubTransport([.response(live), step])
         let engine = snapshotEngine(container, transport)
         _ = try await engine.refreshState()
@@ -170,6 +210,33 @@ private func lastSeason() throws -> SheetState {
         identity: RunIdentity(spreadsheetId: "illustrative-workbook", seasonSheetId: 25, runId: lastSeasonRunId),
         namedGuestIds: [], unnamedGuests: 0, seasonYear: 2025)]
     return state
+}
+
+/// Last season as the sheet holds it after it ended: one more run than the
+/// row cached while it was live.
+private func finalLastSeason() throws -> SheetState {
+    var state = try lastSeason()
+    state.sheetRevision = "season-2025-final"
+    state.runs.append(RunRecord(rowIndex: 24, date: "Wed, 31-Dec", meet: "Beach", run: "Trail",
+        identity: RunIdentity(spreadsheetId: "illustrative-workbook", seasonSheetId: 25,
+                              runId: "00000098-2222-4222-8222-222222222222"),
+        namedGuestIds: [], unnamedGuests: 0, seasonYear: 2025))
+    return state
+}
+
+/// One failed answer to last season's `getState`.
+private func failureStep(_ failure: SeasonSnapshotTests.Failure, live: Data) -> StubTransport.Step {
+    switch failure {
+    case .offline: .failure(.offline)
+    case .rejected: .response(json("{\"ok\":false,\"error\":\"bad_secret\",\"message\":\"Rejected\"}"))
+    // The server answered, but with the live season instead of last season.
+    case .wrongSeason: .response(live)
+    }
+}
+
+/// Last season's cache row.
+private func snapshotRow(_ container: ModelContainer) throws -> SharedSheetCache? {
+    try ModelContext(container).fetch(FetchDescriptor<SharedSheetCache>()).first { $0.seasonSheetId == 25 }
 }
 
 /// Everything a live refresh owns. The snapshot must leave all of it untouched.

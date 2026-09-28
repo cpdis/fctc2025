@@ -40,11 +40,17 @@
 - `EffectiveRuns` applies queued, in-flight and confirmed-but-unrefreshed shared rows in
   creation order, with each endpoint's own write path. The headline shows "Includes N
   unsynced" when it applied any.
-- `DashboardStore` rebuilds `DashboardModel` only when the fingerprint changes. It calls
-  `SyncEngine.previousSeasonSnapshot()` once, after the live season is cached. The snapshot
-  upserts only last season's `SharedSheetCache` row. It never reconciles, never sets
-  `latestState` and never reschedules reminders. Legacy endpoints return nil, and the Vs
-  last year card is hidden. A failed first fetch shows "Last season not downloaded".
+- `DashboardStore` rebuilds `DashboardModel` only when the fingerprint changes. It asks
+  `SyncEngine.previousSeasonSnapshot()` after each data change, once the live season is
+  cached, and rebuilds only when the answer changed. The engine fetches last season at most
+  once per app session (a cached row then answers without a request, and serves offline).
+  The snapshot upserts only last season's `SharedSheetCache` row. It never reconciles,
+  never sets `latestState` and never reschedules reminders. Each answer belongs to one
+  live season: when the live season changes, the store drops it (and any answer in flight)
+  and asks again. Legacy endpoints return nil, and the Vs last year card is hidden. A
+  failed first fetch with nothing cached shows "Last season not downloaded".
+- A shared cache row's `refreshedAt` is when its request started. A confirmed shared write
+  stays in the overlay until a refresh requested after the confirmation lands.
 - The engine's cold-launch fallback now picks the cached season with the highest year, so
   the snapshot row can never become the season new runs write to.
 

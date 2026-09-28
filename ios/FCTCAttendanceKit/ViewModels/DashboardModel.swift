@@ -62,7 +62,8 @@ public struct DashboardModel: Hashable, Sendable {
     ///   - season: the season year the runs belong to.
     ///   - runs: the season's effective runs in sheet order. Planned and blank
     ///     rows may be included; they are not runs and are dropped.
-    ///   - previous: last season's runs, or nil to hide the comparisons.
+    ///   - previous: last season's runs, or nil to hide the comparisons. Runs
+    ///     whose season is not before `season` are ignored.
     ///   - priors: lifetime runs before this season (KTD12), or nil when the
     ///     server sent no lifetime totals; all-time numbers are then absent.
     public init(season: Int, runs: [ClubRun], previous: [ClubRun]? = nil, priors: LifetimePriors? = nil) {
@@ -76,7 +77,9 @@ public struct DashboardModel: Hashable, Sendable {
         self.clubDays = clubDays
 
         // The previous season lined up against this one (web: lineUpPrevious).
-        let previousRuns = Self.chronological(previous ?? [])
+        // Only an earlier season compares: runs of this season or a later one
+        // are dropped, so a stale answer cannot pose as last year.
+        let previousRuns = Self.chronological((previous ?? []).filter { $0.season < season })
         let lineUp = ordered.last.flatMap { latest in
             previousRuns.first.map { first in
                 (year: first.season, sameDate: previousRuns.filter { $0.date.isOnOrBefore(monthDayOf: latest.date) })

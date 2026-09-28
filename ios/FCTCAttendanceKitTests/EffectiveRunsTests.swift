@@ -180,6 +180,88 @@ struct EffectiveRunsOverlayTests {
         #expect(attendance(of: contractRun23, in: effective) == namedAndUnnamed.server)
         #expect(effective.unsyncedCount == 0)
     }
+
+    /// The server reads a refresh's state when the request arrives, so only a
+    /// refresh requested after the confirmation can show the write.
+    @Test("A refresh requested before a confirmation keeps the write counted, though it lands after it")
+    func refreshRequestedBeforeConfirmation() async throws {
+        let container = try guestContainer()
+        let before = try stateData(sharedState(sharedStart, revision: "r0"))
+        let transport = HeldStepTransport([
+            .response(before),            // the first refresh
+            .response(before),            // a pull-to-refresh, held until after the write
+            .response(writtenResponse),   // the write
+            .failure(.offline),           // the write's follow-up refresh
+        ])
+        let engine = SyncEngine(modelContainer: container, api: SheetAPI(config: configuredAPI, transport: transport),
+                                clock: TickingClock(), automaticallyDrains: false)
+        _ = try await engine.refreshState()
+        _ = try await engine.enqueue(draft: namedAndUnnamed.draft, mode: namedAndUnnamed.mode, deviceName: nil)
+
+        await transport.holdNext()
+        let slowRefresh = Task { try await engine.refreshState() }
+        await transport.waitUntilHeld()
+        await engine.drain()
+        await transport.release()
+        _ = try await slowRefresh.value
+
+        // The slow refresh landed last, with the state from before the write.
+        let row = try #require(ModelContext(container).fetch(FetchDescriptor<PendingSubmission>()).first)
+        let cache = try #require(ModelContext(container).fetch(FetchDescriptor<SharedSheetCache>()).first)
+        #expect(row.outcome == .committed)
+        #expect(cache.refreshedAt < (try #require(row.lastAttemptAt)))
+        var effective = try effectiveRuns(container)
+        #expect(attendance(of: contractRun23, in: effective) == namedAndUnnamed.server)
+        #expect(effective.unsyncedCount == 0)
+
+        // A refresh requested after the confirmation retires the overlay: the
+        // sheet wins, though another phone has since removed guest B.
+        let later = RunAttendance(["Col"], plusOnes: 2, actualKm: 7.2, named: [contractGuestA], unnamed: 1)
+        await transport.append(.response(try stateData(sharedState(later, revision: "r2"))))
+        _ = try await engine.refreshState()
+        effective = try effectiveRuns(container)
+        #expect(attendance(of: contractRun23, in: effective) == later)
+    }
+}
+
+/// Answers in order as `StubTransport` does, but can hold one request's answer
+/// until the test releases it. The answer is chosen when the request starts,
+/// as the server reads its state then. No timing sleeps.
+private actor HeldStepTransport: HTTPTransport {
+    private var steps: [StubTransport.Step]
+    private var holdsNext = false
+    private var held: CheckedContinuation<Void, Never>?
+    private var heldStarted: CheckedContinuation<Void, Never>?
+
+    init(_ steps: [StubTransport.Step]) { self.steps = steps }
+
+    func post(_ body: Data) async throws -> Data {
+        guard !steps.isEmpty else { throw StubTransportFailure.offline }
+        let step = steps.removeFirst()
+        if holdsNext {
+            holdsNext = false
+            await withCheckedContinuation { continuation in
+                held = continuation
+                heldStarted?.resume()
+                heldStarted = nil
+            }
+        }
+        switch step {
+        case .response(let data): return data
+        case .failure(let error): throw error
+        }
+    }
+
+    func append(_ step: StubTransport.Step) { steps.append(step) }
+    func holdNext() { holdsNext = true }
+    func waitUntilHeld() async {
+        guard held == nil else { return }
+        await withCheckedContinuation { heldStarted = $0 }
+    }
+    func release() {
+        held?.resume()
+        held = nil
+    }
 }
 
 // MARK: - Overlay rules

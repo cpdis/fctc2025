@@ -250,7 +250,7 @@ let writtenResponse = json(#"{"ok":true,"written":3,"sheetRevision":"rev-2"}"#)
 
 /// A clock that moves one second on every read, so each engine timestamp
 /// (queued, confirmed, refreshed) is strictly later than the one before.
-private actor TickingClock: SyncClock {
+actor TickingClock: SyncClock {
     private var instant = Date(timeIntervalSince1970: 1_790_000_000)
 
     func now() async -> Date {

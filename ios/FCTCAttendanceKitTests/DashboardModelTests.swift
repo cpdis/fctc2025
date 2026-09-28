@@ -53,6 +53,19 @@ struct DashboardModelTests {
         #expect(empty.progress == nil)
     }
 
+    @Test("A previous season that is not before the live one compares nothing")
+    func previousNotEarlier() throws {
+        let runs = try ParityFixture.load(2026).clubRuns()
+        // The live season itself, as a stale answer after a rollover would pose it.
+        let same = DashboardModel(season: 2026, runs: runs, previous: runs)
+        #expect(same.headline.vsPrevious == nil)
+        #expect(same.progress == nil)
+        // A later season is not last year either.
+        let later = DashboardModel(season: 2025, runs: try ParityFixture.load(2025).clubRuns(), previous: runs)
+        #expect(later.headline.vsPrevious == nil)
+        #expect(later.progress == nil)
+    }
+
     @Test("On a roll lists the top current streaks and season bests")
     func onARoll() throws {
         let roll = try model2026().onARoll

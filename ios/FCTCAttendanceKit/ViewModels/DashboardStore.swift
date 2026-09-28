@@ -10,18 +10,24 @@
 //    fingerprint ──same──> nothing
 //                └─new───> inputs() ──> DashboardModel(season, runs, last season, priors)
 //
-//  Last season comes from the engine once, on the engine's actor (off the main
+//  Last season comes from the engine, on the engine's actor (off the main
 //  actor), and only after the live season is cached, because the engine anchors
-//  "last season" on the newest cached one:
+//  "last season" on the newest cached one. The view asks after every data
+//  change. The engine fetches at most once per app session and reads its cache
+//  row after that, so a repeated answer costs no request and rebuilds nothing:
 //
 //    loadLastSeason() ──> engine.previousSeasonSnapshot()
-//        state   -> .loaded         rebuild once with last season's runs
-//        nil     -> .unavailable    legacy endpoint or no earlier season: hide it
+//        state   -> .loaded         rebuild when the runs changed, so a
+//                                   revalidated snapshot replaces the cached one
+//        nil     -> .unavailable    legacy endpoint or no earlier season: hide
+//                                   it and stop asking
 //        throws  -> .notDownloaded  offline before it was ever fetched; the next
-//                                   call (the next data change) tries again
+//                                   call tries again. Loaded runs stay.
 //
-//  A finished season never changes, so once the answer is loaded or unavailable
-//  the store never asks again, until the engine is replaced.
+//  Each answer belongs to one live season. When the live season changes (2027
+//  goes live in January), the store forgets the answer, drops any answer still
+//  in flight and asks again, so 2027 compares with 2026 and not with 2025. An
+//  engine swap does the same.
 //
 
 import Foundation
@@ -71,9 +77,13 @@ public final class DashboardStore {
     @ObservationIgnored private var fingerprint: String?
     @ObservationIgnored private var inputs: DashboardInputs?
     @ObservationIgnored private var previousRuns: [ClubRun]?
+    /// The live season that `lastSeason` and `previousRuns` answer for, set
+    /// when the question is asked. Nil until the first question.
+    @ObservationIgnored private var answeredSeason: Int?
     @ObservationIgnored private var isLoadingLastSeason = false
-    /// Moves with every engine swap, so a stale engine's answer is dropped.
-    @ObservationIgnored private var engineGeneration = 0
+    /// Moves with every engine swap and live-season change, so an answer to
+    /// an older question is dropped.
+    @ObservationIgnored private var generation = 0
 
     public init(engine: any SyncEngineClient) {
         self.engine = engine
@@ -82,12 +92,9 @@ public final class DashboardStore {
     /// A new connection: forget last season and rebuild on the next `update`,
     /// even when its fingerprint happens to match the old one.
     public func replaceEngine(_ engine: any SyncEngineClient) {
-        engineGeneration += 1
         self.engine = engine
         fingerprint = nil
-        previousRuns = nil
-        isLoadingLastSeason = false
-        lastSeason = .loading
+        forgetLastSeason()
     }
 
     /// Rebuilds the model when `fingerprint` differs from the last one. `inputs`
@@ -97,34 +104,57 @@ public final class DashboardStore {
         guard fingerprint != self.fingerprint else { return }
         self.fingerprint = fingerprint
         self.inputs = inputs()
+        // Last season answers for one live season. A new live season needs its own.
+        if let season = self.inputs?.season, let answeredSeason, season != answeredSeason {
+            forgetLastSeason()
+        }
         rebuild()
     }
 
-    /// Asks the engine for last season unless it already answered. Call it after
-    /// each `update`: it waits for the live season, and retries a failed fetch.
+    /// Asks the engine for last season. Call it after each `update`: it waits
+    /// for the live season, retries a failed fetch and picks up a revalidated
+    /// snapshot. It stops asking once the answer is `.unavailable`.
     public func loadLastSeason() async {
-        guard inputs != nil, !isLoadingLastSeason,
-              lastSeason == .loading || lastSeason == .notDownloaded else { return }
+        guard let season = inputs?.season, !isLoadingLastSeason, lastSeason != .unavailable else { return }
         isLoadingLastSeason = true
-        let generation = engineGeneration
+        answeredSeason = season
+        let generation = self.generation
         let result: Result<SheetState?, any Error>
         do {
             result = .success(try await engine.previousSeasonSnapshot())
         } catch {
             result = .failure(error)
         }
-        guard generation == engineGeneration else { return }
+        guard generation == self.generation else { return }
         isLoadingLastSeason = false
         switch result {
         case .success(let state?):
-            previousRuns = state.runs.compactMap { ClubRun($0, season: state.seasonYear) }
+            let runs = state.runs.compactMap { ClubRun($0, season: state.seasonYear) }
+            // Most answers repeat the cached row; only a change rebuilds.
+            guard lastSeason != .loaded || runs != previousRuns else { return }
+            previousRuns = runs
             lastSeason = .loaded
             rebuild()
         case .success(nil):
             lastSeason = .unavailable
+            if previousRuns != nil {
+                previousRuns = nil
+                rebuild()
+            }
         case .failure:
-            lastSeason = .notDownloaded
+            // The engine throws only when nothing is cached. Keep what the
+            // cards already show.
+            if lastSeason != .loaded { lastSeason = .notDownloaded }
         }
+    }
+
+    /// Drops last season's answer and any question still in flight.
+    private func forgetLastSeason() {
+        generation += 1
+        previousRuns = nil
+        answeredSeason = nil
+        isLoadingLastSeason = false
+        lastSeason = .loading
     }
 
     private func rebuild() {
