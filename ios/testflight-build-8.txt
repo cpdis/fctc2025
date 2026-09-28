@@ -1,17 +1,24 @@
-The tiles slide in now, the classic iOS way,
-The gear's grown to match all the buttons today.
-The tick joins the date where it's tidy and neat,
-And Review shares the bar with the search at your feet.
+Ticks draw themselves and the counters now roll,
+The Outbox now spins while it syncs to its goal.
+When two names sound alike, it will ask you, not guess,
+And Review sits by search, so there's less of a mess.
 
-Filament Coffee Track Club — build 8 polish
+Filament Coffee Track Club — smoother, clearer, safer
 
-Private build for Colin. Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on the phone.
+Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone. You do not need a new setup code.
+
+New since build 6:
+• Ticks fill and draw, counts roll, and cards press down when you tap them.
+• The Outbox shows a spinner while attendance syncs, and the Unsynced arrows on Home turn.
+• Dictation and poll imports no longer tick a member for a sound-alike name. "Great run" will not tick Grant, and Tony will not tick Toby. You choose instead. Voters for a "Can't" option are not ticked.
+• A row you discard in the Outbox stays discarded.
+• This Week, Season and Past Runs: the tick sits after the date, and Review sits beside search at the bottom.
+• A setup link now names the sheet and asks before it replaces your connection.
+• Settings shows the app version at the bottom.
 
 Please check:
-• Home: This Week and Unsynced open with the standard slide, not a zoom.
-• Home: the Settings gear matches the size of the Back and + buttons.
-• This Week, Season and Past Runs: the green tick and the Default badge sit right after the date. The detail line stays on one line.
-• The search field and a green Review button share the bottom toolbar. Review opens the run marked Default.
-• Build 7 changes still work: animated ticks, the Outbox spinner, safer dictation matches and the version in Settings.
+• Record a real run. Tick and untick people, confirm, and watch the Outbox clear.
+• Dictate "Great run today. Aaron came." Only Aaron is ticked.
+• Import a poll screenshot and review the suggested names.
 
 Share feedback through TestFlight.
