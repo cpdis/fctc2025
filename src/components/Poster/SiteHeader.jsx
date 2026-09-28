@@ -77,7 +77,12 @@ function ThemeToggle() {
     const root = document.documentElement
     const next = root.dataset.theme === 'dark' ? 'light' : 'dark'
     root.dataset.theme = next
-    localStorage.setItem('theme', next)
+    try {
+      localStorage.setItem('theme', next)
+    } catch {
+      // Storage can throw (Safari private mode, blocked site data). The theme
+      // still flips for this visit; the next one follows the OS preference.
+    }
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', CHROME_COLOR[next])
   }
 

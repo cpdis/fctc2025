@@ -5,23 +5,29 @@ import Dashboard from './Dashboard'
 import { snap2025, snap2026, snapAllTime } from '../test/snapshot'
 
 // What App hands the page for each view: the view, the season before it, and
-// every season merged (for all-time milestones).
+// every season merged plus the latest season's members (for milestones).
 const VIEWS = {
   2026: { data: snap2026, previous: snap2025 },
   2025: { data: snap2025, previous: null },
   all: { data: snapAllTime, previous: null },
 }
 
-function renderView(year) {
+function renderView(year, allTime = snapAllTime) {
   const { data, previous } = VIEWS[year]
   return render(
     <MemoryRouter initialEntries={[`/?year=${year}`]}>
-      <Dashboard data={data} previous={previous} allTime={snapAllTime} />
+      <Dashboard data={data} previous={previous} allTime={allTime} roster={snap2026.members} />
     </MemoryRouter>
   )
 }
 
 const sectionHeadings = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
+
+// Who the Milestones ahead bibs name, in order.
+const milestoneNames = () =>
+  within(screen.getByRole('region', { name: 'Milestones ahead' }))
+    .getAllByRole('listitem')
+    .map((bib) => bib.querySelector('.who').textContent)
 
 describe('Dashboard', () => {
   beforeEach(() => {
@@ -55,7 +61,19 @@ describe('Dashboard', () => {
   it.each([2025, 'all'])('%s has no Vs last year, and milestones still count all-time runs', (year) => {
     renderView(year)
     expect(sectionHeadings()).toEqual(['The Wall', 'Every run', 'Milestones ahead', 'Run log'])
-    const bibs = within(screen.getByRole('region', { name: 'Milestones ahead' })).getAllByRole('listitem')
-    expect(bibs.map((bib) => bib.querySelector('.who').textContent)).toEqual(['Col', 'Claire', 'Adam'])
+    expect(milestoneNames()).toEqual(['Col', 'Claire', 'Adam'])
+  })
+
+  // Tim ran only in 2025. Even one run short of 150 all time (closer than
+  // anyone), he stays off the shortlist, as he does in the app.
+  it.each([2026, 2025, 'all'])('%s never lists a member who is off the latest roster', (year) => {
+    expect(snap2025.members).toContain('Tim')
+    expect(snap2026.members).not.toContain('Tim')
+    const allTime = {
+      ...snapAllTime,
+      memberTotals: { ...snapAllTime.memberTotals, Tim: { ...snapAllTime.memberTotals.Tim, totalRuns: 149 } },
+    }
+    renderView(year, allTime)
+    expect(milestoneNames()).toEqual(['Col', 'Claire', 'Adam'])
   })
 })

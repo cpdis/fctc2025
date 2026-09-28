@@ -36,9 +36,11 @@ runs client-side off committed CSVs.
   There is no chart library.
 - **Theme.** One light or dark choice holds across the hub and the dashboard. An inline script
   in `index.html` reads `localStorage.theme` (else the OS preference) and sets `data-theme` on
-  `<html>` before first paint. The header's toggle writes the same key.
+  `<html>` before first paint. The header's toggle writes the same key. When storage throws
+  (Safari private mode), the OS preference decides and the toggle holds for the visit only.
 - **Wrapped.** Tailwind CSS v4 (CSS-first `@theme` in `src/index.css`), Framer Motion 12, and
-  Bricolage Grotesque and DM Sans from Google Fonts.
+  Bricolage Grotesque and DM Sans from Google Fonts. `src/pages/Wrapped.jsx` adds the Google
+  Fonts stylesheet when a Wrapped route mounts, so the dashboard never downloads it.
 
 ## Data model
 
@@ -82,8 +84,11 @@ The parser applies these rules:
 
 - **Attendance.** A member cell counts only when its trimmed value is `x`, in any case. Notes
   such as `-`, `🛕`, `sad face` or `12.30` do not count.
-- **Runs.** A run is a row whose first cell is a real run date (`Fri, 3-Jan`) and that has at
-  least one attendee or +1. Metadata rows such as `BIRTHDAY` never count.
+- **Runs.** A run is a row whose first cell is a real run date and that has at least one
+  attendee or +1. Metadata rows such as `BIRTHDAY` never count. The date rule is Apps Script's
+  `parseSheetDate`: a day, a `-`, `/` or space, then a month word, so `Fri, 3-Jan`, `Sat 4-Oct`,
+  `26-Jan` and `Thu, 4-Sept` all count. Impossible days such as `31-Sep` do not. The weekday
+  (`dayOfWeek`) comes from the calendar, never from the typed text.
 - **Labels.** `src/utils/runLabels.js` strips sheet footnote markers (`**Cruise` is `Cruise`)
   and normalizes each run into a `type`, an `event` and a `location`. For example, `Half - Xmas`
   becomes type `Half Marathon` with event `Xmas`, and the meet `Some-day` becomes `Someday`. A
@@ -91,7 +96,8 @@ The parser applies these rules:
   names. Wrapped keeps the sheet's label without footnote markers (`runType`).
 - **Run ids.** Every run gets a stable id, `YYYY-MM-DD-<slug of the label>`, for example
   `2026-09-25-river-loop`. The date carries the year, so ids stay unique in All time. A second
-  run with the same date and label gets `-2`.
+  row with the same date and label gets `-2`. Every dated row takes its id in sheet order,
+  recorded or not, so recording an earlier row never moves a later run's id.
 - **Upcoming.** Dated rows after the season's latest run with nobody on them go into
   `upcoming`, in date order, each with the id it keeps once it is recorded. They never count as
   runs. The first one is the meta row's next run. A blank row before the latest run is an
@@ -156,7 +162,7 @@ the builders return. `calculations.js` stays Wrapped-only.
 | The Wall: every active runner against every run, with current streaks and specials marked. Sort by runs, streak or name; "Find yourself" highlights one runner. A grid wider than the screen opens on the latest runs | `TheWall` | `wallModel(view)` |
 | Every run: one mark per runner in Monday, Wednesday, Friday and Specials tracks; each track labels its busiest day | `EveryRun` | `everyRunTracks(view)` |
 | Vs last year: cumulative member-km against the previous season, with the gap at the latest run. Hidden for All time and the first season | `VsLastYear` | `seasonProgress(view, previous)` |
-| Milestones ahead: gold bibs for members near their next 50 all-time runs, the same in every view | `MilestoneBibs` | `milestoneShortlist` over all-time totals |
+| Milestones ahead: gold bibs for members near their next 50 all-time runs, the same in every view | `MilestoneBibs` | `milestoneShortlist` over all-time totals of the latest season's members (the app's roster rule) |
 | Run log: every run, newest first, with type, location, month and search filters | `RunLog` | parser `runs`, `monthAxis(runs)` |
 
 The builders keep these honesty rules:
@@ -533,10 +539,13 @@ offline. `ios/FCTCAttendance/ActiveSeason.swift` gives both tabs the same inputs
 - **Lifetime priors.** `LifetimePriors` turn the sheet's lifetime totals into runs before this
   season. An all-time total is the prior plus this season's effective runs.
 - **Last season.** It comes from a read-only snapshot. `SyncEngine.previousSeasonSnapshot()`
-  fetches the previous supported season once and stores only its cache row. It never changes
-  the live season, the run cache or the reminders. A legacy endpoint has no earlier season, so
-  Vs last year and the same-date comparisons stay hidden. Offline, before the first fetch, the
-  card reads "Last season not downloaded".
+  fetches the previous supported season and stores only its cache row. It fetches again once
+  per app session, so a row cached while that season was live (or before a guest promotion)
+  catches up; offline, the cached row serves. It never changes the live season, the run cache
+  or the reminders. When a new season goes live, the Dashboard drops the old comparison and
+  loads the new season's predecessor. A legacy endpoint has no earlier season, so Vs last year
+  and the same-date comparisons stay hidden. Offline, before the first fetch, the card reads
+  "Last season not downloaded".
 - **Rules.** `RunLabel`, `ClubDays`, `MilestoneBoard` and `DashboardModel` are the Swift mirror
   of the web's rules. The parity fixtures hold both stacks to the same numbers (see "Parity
   fixtures").

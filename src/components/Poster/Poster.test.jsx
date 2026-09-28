@@ -1,12 +1,15 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import SiteHeader from './SiteHeader'
 import SeasonTitle from './SeasonTitle'
 import HeadlineNumbers from './HeadlineNumbers'
 import Marquee, { streakLeaders } from './Marquee'
 import SiteFooter from './SiteFooter'
 import Tooltip, { tipPosition, useTooltip } from './Tooltip'
+import { formatSigned } from './format'
 
 // Headline figures for the 2026 snapshot (the mockup's data.js): 118 runs and
 // 9,889 member-km against 80 runs and 8,263 km at the same date in 2025.
@@ -17,8 +20,17 @@ function renderAt(path, ui) {
   return render(<MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>)
 }
 
+// Storage that throws on every call, as Safari private mode can.
+const blockStorage = () =>
+  ['getItem', 'setItem'].forEach((method) =>
+    vi.spyOn(Storage.prototype, method).mockImplementation(() => {
+      throw new DOMException('The operation is insecure.', 'SecurityError')
+    })
+  )
+
 describe('SiteHeader', () => {
   afterEach(() => {
+    vi.restoreAllMocks()
     delete document.documentElement.dataset.theme
     localStorage.clear()
   })
@@ -64,6 +76,49 @@ describe('SiteHeader', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Toggle light/dark theme' }))
     expect(document.documentElement.dataset.theme).toBe('light')
     expect(localStorage.getItem('theme')).toBe('light')
+  })
+
+  it('the theme toggle still flips the theme and the chrome colour when storage throws', () => {
+    blockStorage()
+    const chrome = Object.assign(document.createElement('meta'), { name: 'theme-color', content: '#faf4e6' })
+    document.head.append(chrome)
+    renderAt('/', <SiteHeader year={2026} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle light/dark theme' }))
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    // The chrome colour is set after the save, so the handler ran to the end.
+    expect(chrome.content).toBe('#1c1410')
+    chrome.remove()
+  })
+})
+
+describe('index.html theme bootstrap', () => {
+  // The inline no-flash script, run the way the browser runs it: before the app.
+  const html = readFileSync(join(import.meta.dirname, '..', '..', '..', 'index.html'), 'utf-8')
+  const bootstrap = html.match(/<script>([\s\S]*?)<\/script>/)[1]
+  const run = (prefersDark) => {
+    vi.stubGlobal('matchMedia', (query) => ({ matches: prefersDark && query === '(prefers-color-scheme: dark)' }))
+    new Function(bootstrap)()
+    return document.documentElement.dataset.theme
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+    delete document.documentElement.dataset.theme
+    localStorage.clear()
+  })
+
+  it('uses the saved theme over the OS preference', () => {
+    localStorage.setItem('theme', 'light')
+    expect(run(true)).toBe('light')
+  })
+
+  it.each([
+    [true, 'dark'],
+    [false, 'light'],
+  ])('falls back to the OS preference (dark: %s) when storage throws', (prefersDark, theme) => {
+    blockStorage()
+    expect(run(prefersDark)).toBe(theme)
   })
 })
 
@@ -156,6 +211,31 @@ describe('HeadlineNumbers', () => {
     )
     const notes = [...container.querySelectorAll('.num .d')].map((d) => d.textContent)
     expect(notes.slice(0, 2)).toEqual(['−5 on this time in 2025', '±0 km on 2025'])
+  })
+
+  it('reads a km near-tie as level, not −0', () => {
+    const { container } = render(
+      <HeadlineNumbers {...TOTALS_2026} delta={{ year: 2025, runs: 3, km: -0.3 }} />
+    )
+    expect(container.querySelectorAll('.num .d')[1].textContent).toBe('±0 km on 2025')
+  })
+})
+
+describe('formatSigned', () => {
+  it.each([
+    [38, '+38'],
+    [-5, '−5'],
+    [0, '±0'],
+    // Under half a unit is level either way: never "+0" or "−0".
+    [0.4, '±0'],
+    [-0.3, '±0'],
+    [-0.5, '−1'],
+    // Halves round away from zero, as the app's rounded() does.
+    [1.5, '+2'],
+    [-1.5, '−2'],
+    [1626.4, '+1,626'],
+  ])('formats %s as %s', (value, text) => {
+    expect(formatSigned(value)).toBe(text)
   })
 })
 

@@ -34,8 +34,14 @@ export function formatNumber(value, fractionDigits = 0) {
   })
 }
 
-/** A delta with its sign: "+38", "−5" (a true minus sign), "±0". */
+/**
+ * A whole-number delta with its sign: "+38", "−5" (a true minus sign), "±0".
+ * The sign comes from the rounded value, so a near-tie such as −0.3 km reads
+ * "±0", never "−0" (the app rounds first too). Halves round away from zero,
+ * like Swift's rounded() and toLocaleString, so −1.5 reads "−2".
+ */
 export function formatSigned(value) {
-  const sign = value > 0 ? '+' : value < 0 ? '−' : '±'
-  return `${sign}${formatNumber(Math.abs(value))}`
+  const rounded = Math.sign(value) * Math.round(Math.abs(value))
+  const sign = rounded > 0 ? '+' : rounded < 0 ? '−' : '±'
+  return `${sign}${formatNumber(Math.abs(rounded))}`
 }

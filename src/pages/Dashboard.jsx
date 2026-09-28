@@ -33,8 +33,11 @@ import '../styles/poster-charts.css'
  *   for All time
  * @param {object} props.allTime - every season merged; milestones always
  *   count all-time runs, whatever the view
+ * @param {string[]} props.roster - the latest season's members. Milestones
+ *   list only them, as the app does (LifetimePriors(rosterOf:)), so a former
+ *   member never takes a current member's place on the shortlist
  */
-export default function Dashboard({ data, previous = null, allTime }) {
+export default function Dashboard({ data, previous = null, allTime, roster }) {
   // The selected season lives in ?year; the title band's year control writes
   // it. The footer label is "All Time" for the combined view, else
   // "<year> Season".
@@ -82,11 +85,14 @@ export default function Dashboard({ data, previous = null, allTime }) {
   const wall = useMemo(() => wallModel(data), [data])
   const tracks = useMemo(() => everyRunTracks(data), [data])
   const progress = useMemo(() => seasonProgress(data, previous), [data, previous])
-  const milestones = useMemo(
-    () =>
-      milestoneShortlist(Object.values(allTime.memberTotals).map(({ name, totalRuns }) => ({ name, runs: totalRuns }))),
-    [allTime]
-  )
+  const milestones = useMemo(() => {
+    const current = new Set(roster)
+    return milestoneShortlist(
+      Object.values(allTime.memberTotals)
+        .filter(({ name }) => current.has(name))
+        .map(({ name, totalRuns }) => ({ name, runs: totalRuns }))
+    )
+  }, [allTime, roster])
 
   const delta = numbers.vsPrevious && {
     year: numbers.vsPrevious.year,

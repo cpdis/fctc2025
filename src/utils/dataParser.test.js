@@ -369,19 +369,46 @@ describe('parseRunData - run dates', () => {
     ['Date,Meet,Run,Approx kms,Actual kms,Ann,Bob,+1\'s', ...dates.map((d) => `"${d}",Filament,Social,8,8,x,,0`)]
       .join('\n')
 
-  it('keeps well-formed dates and reads the weekday from the cell', () => {
-    const { runs } = parseRunData(sheet('Fri, 3-Jan', 'Mon, 28-Sep'), 2026)
-    expect(runs.map((r) => [r.dayOfWeek, r.parsedDate.getMonth(), r.parsedDate.getDate()])).toEqual([
-      ['Fri', 0, 3],
+  // [weekday, 0-based month, day] for each run, the fields a date decides.
+  const dates = ({ runs }) => runs.map((r) => [r.dayOfWeek, r.parsedDate.getMonth(), r.parsedDate.getDate()])
+
+  it('keeps well-formed dates', () => {
+    expect(dates(parseRunData(sheet('Fri, 2-Jan', 'Mon, 28-Sep'), 2026))).toEqual([
+      ['Fri', 0, 2],
       ['Mon', 8, 28],
     ])
   })
 
+  // The forms Apps Script's parseSheetDate accepts (apps-script/SheetOps.js),
+  // so the web never drops a run the app counts. 2025 dates, as typed.
+  it.each([
+    ['no comma', 'Sat 4-Oct', ['Sat', 9, 4]],
+    ['no weekday', '26-Jan', ['Sun', 0, 26]],
+    ['a long weekday', 'Thurs, 2-Oct', ['Thu', 9, 2]],
+    ['a long month', 'Thu, 4-Sept', ['Thu', 8, 4]],
+    ['a space between day and month', '4 Oct', ['Sat', 9, 4]],
+    ['a slash between day and month', 'Sat 4/Oct', ['Sat', 9, 4]],
+    ['an upper-case month', 'Sat, 4-OCT', ['Sat', 9, 4]],
+  ])('reads a date with %s like Apps Script does', (_, cell, expected) => {
+    expect(dates(parseRunData(sheet(cell), 2025))).toEqual([expected])
+  })
+
+  it('takes the weekday from the calendar, not the typed text', () => {
+    // 5 Jan 2026 is a Monday and 2 Oct 2026 a Friday, whatever the cell says.
+    expect(dates(parseRunData(sheet('Tue, 5-Jan-2026', 'Wed, 2-Oct'), 2026))).toEqual([
+      ['Mon', 0, 5],
+      ['Fri', 9, 2],
+    ])
+  })
 
   it('drops rows whose first cell is not a real run date', () => {
-    const { runs, totalRuns } = parseRunData(sheet('Notes', 'Fri, 31-Sep', 'Fri, 3-Sept'), 2026)
+    const { runs, totalRuns, upcoming } = parseRunData(
+      sheet('Notes', 'BIRTHDAY', 'Fri, 31-Sep', 'Sat, 0-Oct', 'Fri, 3-Foo', ''),
+      2026
+    )
     expect(runs).toEqual([])
     expect(totalRuns).toBe(0)
+    expect(upcoming).toEqual([])
   })
 })
 
@@ -468,6 +495,36 @@ describe('parseRunData - upcoming runs', () => {
     const after = parseRunData(sheet(['Mon, 5-Jan', 'Cruise', '10.2', 'x', '0']), 2026)
     expect(before.upcoming[0].id).toBe(after.runs[0].id)
     expect(after.upcoming).toEqual([])
+  })
+
+  // Two Intervals rows on Fri 25 Sep. Recording the first one later must not
+  // move the second run's id, or a saved link would open another run.
+  it('recording an earlier same-date, same-label row keeps the later run id', () => {
+    const secondOnly = parseRunData(
+      sheet(['Fri, 25-Sep', 'Intervals', '', '', '0'], ['Fri, 25-Sep', 'Intervals', '8', 'x', '0']),
+      2026
+    )
+    const both = parseRunData(
+      sheet(['Fri, 25-Sep', 'Intervals', '8', 'x', '0'], ['Fri, 25-Sep', 'Intervals', '8', 'x', '0']),
+      2026
+    )
+    expect(secondOnly.runs.map((run) => run.id)).toEqual(['2026-09-25-intervals-2'])
+    expect(both.runs.map((run) => run.id)).toEqual(['2026-09-25-intervals', '2026-09-25-intervals-2'])
+    // The blank first row is on the latest run's date, so it is not upcoming.
+    expect(secondOnly.upcoming).toEqual([])
+  })
+
+  it('numbers same-date, same-label rows in sheet order across runs and upcoming', () => {
+    const { runs, upcoming } = parseRunData(
+      sheet(
+        ['Mon, 28-Sep', 'Intervals', '8', 'x', '0'],
+        ['Wed, 30-Sep', 'Social', '', '', '0'],
+        ['Wed, 30-Sep', 'Social', '', '', '0']
+      ),
+      2026
+    )
+    expect(runs.map((run) => run.id)).toEqual(['2026-09-28-intervals'])
+    expect(upcoming.map((row) => row.id)).toEqual(['2026-09-30-social', '2026-09-30-social-2'])
   })
 
   it('All time keeps only rows after the latest run of every season', () => {

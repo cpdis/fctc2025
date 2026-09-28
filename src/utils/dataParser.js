@@ -4,30 +4,42 @@ import { normalizeLocation, parseRunLabel, runId } from './runLabels.js'
 // Fixed columns that precede the dynamic member list in both the 2025 and 2026 sheets.
 const FIXED_LEADING_COLS = ['Date', 'Meet', 'Run', 'Approx kms', 'Actual kms']
 
-const MONTH_MAP = {
-  Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
-  Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
-}
+// Month prefixes, lowercased, in the same order as Apps Script's MONTH_ABBREVS.
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
-// The sheet's run-date cell: weekday, comma, day-month ("Fri, 3-Jan").
-const RUN_DATE_PATTERN = /^(\w{3}),\s+(\d{1,2})-(\w{3})$/
+// Weekday names in Date#getDay() order (Sunday = 0).
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+// The sheet's run-date cell, matched exactly as Apps Script's parseSheetDate
+// (apps-script/SheetOps.js) matches it: a 1-2 digit day, a "-", "/" or space,
+// then a month word of 3+ letters, anywhere in the cell. The weekday and comma
+// are optional, so "Fri, 3-Jan", "Sat 4-Oct", "26-Jan", "Thurs, 2-Oct" and
+// "Sat, 4-Sept" are run dates on both stacks.
+const RUN_DATE_PATTERN = /(\d{1,2})\s*[-/ ]\s*([A-Za-z]{3,})/
 
 /**
- * Read a run-date cell into a local-midnight Date for the season year.
- * Returns null for anything that is not a real calendar date in that format
- * (metadata labels, unknown month names, day 31 in a 30-day month).
+ * Read a run-date cell into a local-midnight Date for the season year, plus
+ * the weekday that date falls on.
+ *
+ * The weekday comes from the calendar, never from the typed text: a copied row
+ * that reads "Wed, 2-Oct" in 2026 is a Friday, as the Swift kit also counts it.
+ * The month is the first three letters of the month word in any case ("Sept"
+ * is September), the same as Apps Script.
+ *
+ * Returns null for anything that is not a real calendar date: metadata labels
+ * ("BIRTHDAY", "Notes"), unknown month names, and impossible days. Apps Script
+ * lets "31-Sep" through (it checks only 1-31); the web rejects it rather than
+ * misfile a run in October.
  */
 function parseRunDate(cell, year) {
   const match = cell?.match(RUN_DATE_PATTERN)
   if (!match) return null
-  const [, dayOfWeek, dayText, monthText] = match
-  const month = MONTH_MAP[monthText]
-  const day = Number(dayText)
-  if (month === undefined) return null
-  const parsedDate = new Date(year, month, day)
-  // new Date() rolls "31-Sep" into 1 Oct; reject it rather than misfile a run.
+  const month = MONTHS.indexOf(match[2].slice(0, 3).toLowerCase())
+  if (month === -1) return null
+  const parsedDate = new Date(year, month, Number(match[1]))
+  // new Date() rolls "31-Sep" into 1 Oct and "0-Oct" into 30 Sep; reject both.
   if (parsedDate.getMonth() !== month) return null
-  return { parsedDate, dayOfWeek }
+  return { parsedDate, dayOfWeek: WEEKDAYS[parsedDate.getDay()] }
 }
 
 /**
@@ -121,10 +133,10 @@ export function parseRunData(csvText, year) {
     const parsed = rows[i]
     if (!Array.isArray(parsed) || parsed.length < FIXED_LEADING_COLS.length) continue
 
-    // A run row starts with its date ("Fri, 3-Jan"). Anything else under the
-    // header is sheet metadata, not a run. The BIRTHDAY row is the live example:
-    // its member cells hold dates like "1-Sep", which would otherwise read as
-    // attendance and add a phantom, undated run.
+    // A run row starts with its date ("Fri, 3-Jan", see parseRunDate). Anything
+    // else under the header is sheet metadata, not a run. The BIRTHDAY row is
+    // the live example: its member cells hold dates like "1-Sep", which would
+    // otherwise read as attendance and add a phantom, undated run.
     const date = parsed[0]?.trim()
     const runDate = parseRunDate(date, year)
     if (!runDate) continue
@@ -133,6 +145,12 @@ export function parseRunData(csvText, year) {
     const { label, type, event } = parseRunLabel(parsed[2])
     const approxKm = parseFloat(parsed[3]) || 0
     const actualKm = parseFloat(parsed[4]) || 0
+
+    // Every dated row takes its id here, in sheet order, recorded or not. So
+    // recording an earlier same-date, same-label row later never shifts the
+    // id of a run that is already recorded (and maybe linked), and a
+    // scheduled row keeps its id once it is recorded.
+    const id = runId(runDate.parsedDate, label, runIds)
 
     // Attendance per member, read by the member's column index (R1).
     const attendance = {}
@@ -148,8 +166,8 @@ export function parseRunData(csvText, year) {
     // unrecorded run, even when a distance was typed in ahead of time.
     if (totalAttendance === 0) {
       unrecorded.push({
+        id,
         ...runDate,
-        label,
         type,
         event,
         location: normalizeLocation(meet),
@@ -167,7 +185,7 @@ export function parseRunData(csvText, year) {
     })
 
     runData.push({
-      id: runId(runDate.parsedDate, label, runIds),
+      id,
       date,
       parsedDate: runDate.parsedDate,
       dayOfWeek: runDate.dayOfWeek,
@@ -187,18 +205,10 @@ export function parseRunData(csvText, year) {
     })
   }
 
-  // Upcoming rows get their ids once every run has one. They are dated after
-  // every run, so the shared set only separates same-date, same-label rows
-  // among themselves, and each row keeps its id once it is recorded.
-  const upcoming = stillToCome(unrecorded, runData).map(({ label, ...row }) => ({
-    id: runId(row.parsedDate, label, runIds),
-    ...row,
-  }))
-
   // Roll the parsed rows + per-member totals up into the dashboard shape. Kept
   // as a separate step so combineYearData() can reuse the EXACT same aggregation
   // over merged rows — there is one source of truth for every derived stat.
-  return aggregate({ runs: runData, members, memberTotals, upcoming })
+  return aggregate({ runs: runData, members, memberTotals, upcoming: stillToCome(unrecorded, runData) })
 }
 
 /**

@@ -4,7 +4,7 @@ import Dashboard from './pages/Dashboard'
 import Wrapped from './pages/Wrapped'
 import RunDetail from './pages/RunDetail'
 import { parseRunData, combineYearData } from './utils/dataParser'
-import { YEARS, YEAR_LIST, resolveYear, isAllTime } from './config/years'
+import { YEARS, YEAR_LIST, LATEST_YEAR, resolveYear, isAllTime } from './config/years'
 
 // The 2025 Wrapped retrospective is pinned to 2025 forever, regardless of which
 // year the dashboard is currently viewing. The Dashboard follows the selected
@@ -31,12 +31,18 @@ function loadYear(year) {
  * resolves in its own season whatever the view, and Wrapped reads 2025 from
  * the same store.
  *
- * @returns {{ seasons: Record<number, object>|null, error: string|null }}
+ * One failed CSV fetch fails the whole load, so every view shares one error
+ * screen; `retry` loads every season again from that screen, without a page
+ * reload.
+ *
+ * @returns {{ seasons: Record<number, object>|null, error: string|null, retry: () => void }}
  *   `seasons` stays null until every season has parsed; a failed fetch sets
  *   `error` instead.
  */
 function useSeasons() {
   const [store, setStore] = useState({ seasons: null, error: null })
+  // Load attempt number. retry() bumps it, and a new value re-runs the effect.
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -55,9 +61,15 @@ function useSeasons() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [attempt])
 
-  return store
+  // Back to the loading screen, then fetch every season again.
+  const retry = () => {
+    setStore({ seasons: null, error: null })
+    setAttempt((n) => n + 1)
+  }
+
+  return { ...store, retry }
 }
 
 function App() {
@@ -68,7 +80,7 @@ function App() {
   const [searchParams] = useSearchParams()
   const selectedYear = resolveYear(searchParams.get('year'))
 
-  const { seasons, error } = useSeasons()
+  const { seasons, error, retry } = useSeasons()
 
   // All time merges every season (newest first, as YEAR_LIST runs). Built once
   // per load, so switching to it and back never recomputes it.
@@ -78,12 +90,16 @@ function App() {
   )
 
   // Both screens sit on the Poster paper (styles/poster.css), so the first
-  // thing on screen already matches the saved theme.
+  // thing on screen already matches the saved theme. The error screen's
+  // "Try again" uses the Poster outline button (.more).
   if (error) {
     return (
       <div className="poster status-page" role="alert">
         <h1 className="display">Error loading data</h1>
         <p className="mono soft">{error}</p>
+        <button type="button" className="more" onClick={retry}>
+          Try again
+        </button>
       </div>
     )
   }
@@ -102,7 +118,10 @@ function App() {
   // earliest season and All time have nothing to compare with.
   const view = isAllTime(selectedYear) ? allTime : seasons[selectedYear]
   const previous = isAllTime(selectedYear) ? null : (seasons[YEAR_LIST[YEAR_LIST.indexOf(selectedYear) + 1]] ?? null)
-  const dashboard = <Dashboard data={view} previous={previous} allTime={allTime} />
+  // Milestones list only the latest season's members, whatever the view.
+  const dashboard = (
+    <Dashboard data={view} previous={previous} allTime={allTime} roster={seasons[LATEST_YEAR].members} />
+  )
   const runDetail = <RunDetail seasons={seasons} />
   const wrapped = <Wrapped data={seasons[WRAPPED_YEAR]} />
 

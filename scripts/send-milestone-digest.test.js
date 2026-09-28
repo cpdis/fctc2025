@@ -36,9 +36,32 @@ function attendanceCsv(name, count, year = 2026) {
   return attendanceCsvForMembers([[name, count]], year)
 }
 
+// The parser takes a run's weekday from the calendar, not the typed text, so
+// every fixture date below is a real 2026 date on the weekday it names.
+const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** A local Date as the sheet's Date column types it: "Mon, 5-Jan". */
+function sheetDate(date) {
+  return `${WEEKDAY_NAMES[date.getDay()]}, ${date.getDate()}-${MONTH_NAMES[date.getMonth()]}`
+}
+
+/** The first `count` Monday, Wednesday and Friday dates of 2026, from Mon 5 Jan. */
+function clubDates(count) {
+  const dates = []
+  for (const date = new Date(2026, 0, 5); dates.length < count; date.setDate(date.getDate() + 1)) {
+    if ([1, 3, 5].includes(date.getDay())) dates.push(new Date(date))
+  }
+  return dates
+}
+
+// Every Friday in January 2026. Rows repeat them, so all history stays on
+// Fridays and before the target weeks the tests use (August 2026).
+const JANUARY_FRIDAYS = [2, 9, 16, 23, 30]
+
 function attendanceCsvForMembers(entries, year = 2026) {
   const rows = Array.from({ length: Math.max(...entries.map(([, count]) => count)) }, (_, index) => {
-    const day = (index % 28) + 1
+    const day = JANUARY_FRIDAYS[index % JANUARY_FRIDAYS.length]
     const attendance = entries.map(([, count]) => index < count ? 'x' : '').join(',')
     return `"Fri, ${day}-Jan",Meet,Social,5,5,${attendance},0`
   })
@@ -51,15 +74,10 @@ function attendanceCsvForMembers(entries, year = 2026) {
 }
 
 function forecastChanceCsv(name, year = 2026) {
-  const weekdays = ['Mon', 'Wed', 'Fri']
-  const attendedRows = Array.from({ length: 49 }, (_, index) => {
-    const month = index < 28 ? 'Jan' : 'Feb'
-    const day = index < 28 ? index + 1 : index - 27
-    return `"${weekdays[index % weekdays.length]}, ${day}-${month}",Meet,Social,5,5,x,,0`
-  })
-  const absenceRows = weekdays.map((weekday, index) => (
-    `"${weekday}, ${index + 22}-Feb",Meet,Social,5,5,,x,0`
-  ))
+  // 49 attended Mon, Wed and Fri runs, then one miss on each of those weekdays.
+  const dates = clubDates(52)
+  const attendedRows = dates.slice(0, 49).map((date) => `"${sheetDate(date)}",Meet,Social,5,5,x,,0`)
+  const absenceRows = dates.slice(49).map((date) => `"${sheetDate(date)}",Meet,Social,5,5,,x,0`)
 
   return [
     'Summary row',

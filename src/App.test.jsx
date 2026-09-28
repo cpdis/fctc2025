@@ -66,6 +66,31 @@ describe('App', () => {
     expect(screen.getByText('Failed to load 2026 data (HTTP 404)')).toBeInTheDocument()
   })
 
+  it('loads every season again when Try again follows a failed load', async () => {
+    // 2026 fails once (a dropped connection, a CDN blip), then serves its CSV.
+    stubFetch({ failing: YEARS[2026] })
+    renderApp('/?year=2026')
+    const tryAgain = await screen.findByRole('button', { name: 'Try again' })
+
+    const refetch = stubFetch()
+    fireEvent.click(tryAgain)
+    expect(screen.getByText(/Loading run data/i)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'The 2026 Season' })).toBeInTheDocument()
+    expect(screen.queryByText(/Error loading data/i)).not.toBeInTheDocument()
+    // Every season again (the dashboard also asks for last-updated.json).
+    expect(refetch.mock.calls.map(([url]) => url)).toEqual(expect.arrayContaining(Object.values(YEARS)))
+  })
+
+  it('stays on the error screen when the retry fails too', async () => {
+    const failing = stubFetch({ failing: YEARS[2025] })
+    renderApp()
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Failed to load 2025 data (HTTP 404)')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    // Two full loads: the first one and the retry.
+    expect(failing).toHaveBeenCalledTimes(2 * Object.keys(YEARS).length)
+  })
+
   it('fetches every season exactly once and serves Wrapped 2025 from the same store', async () => {
     renderApp('/2025wrapped')
     // 2025 members only: Deano joined in 2026.

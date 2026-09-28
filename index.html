@@ -10,10 +10,15 @@
          saved choice in localStorage.theme, else the OS preference. It runs
          inline before the app loads, so the first paint is already in the
          right theme. The site header's toggle writes the same key, so one
-         choice holds across the hub and the dashboard (KTD7). -->
+         choice holds across the hub and the dashboard (KTD7). Reading storage
+         can throw (Safari private mode, blocked site data); then the OS
+         preference decides. -->
     <script>
       (() => {
-        const saved = localStorage.getItem('theme')
+        let saved = null
+        try {
+          saved = localStorage.getItem('theme')
+        } catch {}
         const theme =
           saved === 'light' || saved === 'dark'
             ? saved
@@ -37,9 +42,6 @@
     <meta name="twitter:title" content="FCTC | Filament Coffee Track Club" />
     <meta name="twitter:description" content="Filament Coffee Track Club run stats and Wrapped" />
     <meta name="twitter:image" content="https://fctc.fun/fctc_logo.jpeg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
   </head>
   <body>
     <div id="root"></div>
