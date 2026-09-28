@@ -163,7 +163,7 @@ public final class RunPickerViewModel {
                 self?.errorMessage = message
             case .conflict:
                 self?.errorMessage = UserFacingError.conflict
-            case .queued, .written, .rosterRefreshed:
+            case .queued, .written, .rosterRefreshed, .syncActivity:
                 break
             }
         }

@@ -340,7 +340,9 @@ struct HomeView: View {
                         systemImage: viewModel.conflictCount > 0
                             ? "exclamationmark.triangle.fill"
                             : "arrow.trianglehead.2.clockwise",
-                        tint: viewModel.conflictCount > 0 ? .red : .orange
+                        tint: viewModel.conflictCount > 0 ? .red : .orange,
+                        // Only the sync arrows turn; a conflict triangle never spins.
+                        isWorking: viewModel.isSyncing && viewModel.conflictCount == 0
                     )
                 }
                 .buttonStyle(.pressable)
@@ -350,7 +352,7 @@ struct HomeView: View {
                 .accessibilityLabel(
                     viewModel.conflictCount > 0
                         ? "Conflicts, \(viewModel.conflictCount) need review"
-                        : "Unsynced, \(viewModel.unsyncedCount) submissions"
+                        : "Unsynced, \(viewModel.unsyncedCount) submissions\(viewModel.isSyncing ? ", syncing" : "")"
                 )
                 .accessibilityIdentifier("home-unsynced")
             }

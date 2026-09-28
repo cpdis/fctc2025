@@ -160,6 +160,8 @@ struct SummaryTile: View {
     let value: Int
     let systemImage: String
     let tint: Color
+    /// Turns the glyph while real work runs, such as a sync drain.
+    var isWorking = false
 
     /// The tile rounding. HomeView reuses it to clip the zoom transition source.
     static let cornerRadius: CGFloat = 26
@@ -172,6 +174,7 @@ struct SummaryTile: View {
                     .foregroundStyle(tint)
                     // Unsynced -> Conflicts swaps the glyph in place.
                     .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.rotate, options: .repeating, isActive: isWorking)
                     .frame(width: 28, height: 28)
                     .background(.white, in: .circle)
                     .accessibilityHidden(true)

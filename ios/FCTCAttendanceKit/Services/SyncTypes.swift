@@ -61,6 +61,10 @@ public enum SyncEvent: Hashable, Sendable {
     case authenticationRequired(id: UUID)
     case serviceFailed(message: String)
     case rosterRefreshed(SheetState)
+    /// A drain pass started (`true`) or finished (`false`). Row status cannot
+    /// carry this: a shared row keeps `.inFlight` after an unknown outcome, long
+    /// after any request has stopped. Screens show a working state only from here.
+    case syncActivity(isActive: Bool)
 }
 
 /// AsyncStream is a work-sharing sequence when several iterators consume the same
@@ -69,13 +73,33 @@ public enum SyncEvent: Hashable, Sendable {
 final class SyncEventBroadcaster: @unchecked Sendable {
     private let lock = NSLock()
     private var continuations: [UUID: AsyncStream<SyncEvent>.Continuation] = [:]
+    /// Whether a drain is running now. Unlike other events it is state, so a
+    /// screen that subscribes mid-drain is told at once.
+    private var isActive = false
 
     func stream() -> AsyncStream<SyncEvent> {
         let id = UUID()
         return AsyncStream(bufferingPolicy: .bufferingNewest(100)) { continuation in
-            lock.withLock { continuations[id] = continuation }
+            // Register and replay under one lock, so a concurrent change of
+            // activity cannot slip between them and leave the replay stale.
+            lock.withLock {
+                continuations[id] = continuation
+                if isActive { continuation.yield(.syncActivity(isActive: true)) }
+            }
             continuation.onTermination = { [weak self] _ in
                 self?.lock.withLock { self?.continuations[id] = nil }
+            }
+        }
+    }
+
+    /// Records drain activity and tells every subscriber when it changes.
+    /// Yielding inside the lock keeps activity events in order with the replay.
+    func setActivity(_ active: Bool) {
+        lock.withLock {
+            guard isActive != active else { return }
+            isActive = active
+            for listener in continuations.values {
+                listener.yield(.syncActivity(isActive: active))
             }
         }
     }

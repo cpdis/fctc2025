@@ -340,7 +340,15 @@ error. Delayed reads cannot replace a newer confirmed guest name.
 Motion comes from one shared vocabulary in `ios/FCTCAttendance/Views/Motion.swift`.
 Frequent actions such as checks and counts get fast, quiet feedback. Rare moments,
 such as the first Home appearance, may take longer. Reduce Motion keeps fades and
-color changes and removes travel and scale. For a visual before/after review, run the
+color changes and removes travel and scale.
+
+While a sync runs, the Outbox shows the system spinner in place of Retry and beside
+each row it is sending or checking, and the Home **Unsynced** tile turns its arrows.
+The signal comes from the sync engine itself, so it covers automatic syncs after a
+confirm as well as a manual Retry. A row whose last send had an unknown outcome reads
+"Checking saved changes" until the next sync checks its receipt.
+
+For a visual before/after review, run the
 opt-in screen tour. It visits each main screen with synthetic data and attaches one
 screenshot per screen:
 

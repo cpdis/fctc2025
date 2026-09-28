@@ -61,6 +61,41 @@ struct SyncEngineTests {
         #expect(await second.next() == .queued(id: id))
     }
 
+    @Test("A drain reports its activity, and a late subscriber still sees it",
+          .timeLimit(.minutes(1)))
+    func drainActivity() async throws {
+        let container = try makeContainer()
+        let transport = SuspendingTransport()
+        let engine = makeEngine(container: container, transport: transport)
+        _ = try await engine.enqueue(.fixture)
+        var early = engine.events.makeAsyncIterator()
+
+        let drain = Task { await engine.drain() }
+        await transport.waitUntilRequested()
+        #expect(await early.next() == .syncActivity(isActive: true))
+
+        // A screen opened mid-drain must still learn that work is running.
+        var late = engine.events.makeAsyncIterator()
+        #expect(await late.next() == .syncActivity(isActive: true))
+
+        await transport.resume(
+            returning: json("{\"ok\":true,\"written\":39,\"sheetRevision\":\"rev-2\"}")
+        )
+        await drain.value
+
+        var finished = false
+        while let event = await early.next() {
+            if event == .syncActivity(isActive: false) { finished = true; break }
+        }
+        #expect(finished)
+
+        // Once idle, a new subscriber receives no stale activity: the first
+        // event it sees is the probe sent after it subscribed.
+        var idle = engine.events.makeAsyncIterator()
+        engine.eventBroadcaster.yield(.serviceFailed(message: "probe"))
+        #expect(await idle.next() == .serviceFailed(message: "probe"))
+    }
+
     @Test("A confirmed submission writes and updates the cached run")
     func happyPath() async throws {
         let container = try makeContainer()
@@ -123,9 +158,9 @@ struct SyncEngineTests {
 
         await engine.drain()
 
-        #expect(await events.next() == .queued(id: id))
+        #expect(await events.nextIgnoringActivity() == .queued(id: id))
         #expect(
-            await events.next() == .parked(
+            await events.nextIgnoringActivity() == .parked(
                 id: id,
                 message: "The sheet is busy with another update. Wait a moment and try again."
             )
@@ -145,8 +180,8 @@ struct SyncEngineTests {
 
         await engine.drain()
 
-        _ = await events.next()
-        #expect(await events.next() == .authenticationRequired(id: id))
+        _ = await events.nextIgnoringActivity()
+        #expect(await events.nextIgnoringActivity() == .authenticationRequired(id: id))
         #expect(try fetchPending(container, id: id)?.status == .queued)
     }
 
@@ -271,8 +306,8 @@ struct SyncEngineTests {
 
         await engine.drain()
 
-        _ = await events.next() // queued
-        let event = await events.next()
+        _ = await events.nextIgnoringActivity() // queued
+        let event = await events.nextIgnoringActivity()
         let fetchedPending = try fetchPending(container, id: id)
         let pending = try #require(fetchedPending)
         #expect(pending.status == .conflict)
@@ -705,6 +740,18 @@ private func makeEngine(
         clock: clock,
         automaticallyDrains: false
     )
+}
+
+extension AsyncStream<SyncEvent>.Iterator {
+    /// The next event other than drain activity, which now brackets every
+    /// drain. Tests that assert a specific sequence of outcomes skip it.
+    mutating func nextIgnoringActivity() async -> SyncEvent? {
+        while let event = await next() {
+            if case .syncActivity = event { continue }
+            return event
+        }
+        return nil
+    }
 }
 
 private func fetchPending(

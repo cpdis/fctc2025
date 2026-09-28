@@ -49,6 +49,7 @@ struct OutboxView: View {
                         Button("Retry Now", systemImage: "arrow.clockwise") {
                             Task { await viewModel.retry() }
                         }
+                        .disabled(viewModel.isSyncing)
                         .accessibilityIdentifier("outbox-banner-retry")
                     } else if banner.kind == .authentication {
                         Button("Open Settings", systemImage: "gearshape") {
@@ -78,8 +79,15 @@ struct OutboxView: View {
                             NavigationLink { GuestOperationStatusView(runtime: runtime, id: operation.id) } label: { guestOperationLabel(operation) }
                         }
                     }
-                    Button("Check saved guest changes") { Task { await runtime.engine.drain() } }
-                        .accessibilityIdentifier("check-guest-operations")
+                    Button { Task { await runtime.engine.drain() } } label: {
+                        HStack {
+                            Text("Check saved guest changes")
+                            Spacer(minLength: 8)
+                            if viewModel.isSyncing { ProgressView() }
+                        }
+                    }
+                    .disabled(viewModel.isSyncing)
+                    .accessibilityIdentifier("check-guest-operations")
                 }
             }
             if outstanding.isEmpty && pendingGuestOperations.isEmpty {
@@ -100,13 +108,13 @@ struct OutboxView: View {
                             Button {
                                 selectedConflict = submission
                             } label: {
-                                OutboxRow(submission: submission)
+                                OutboxRow(submission: submission, isSyncing: viewModel.isSyncing)
                             }
                             .buttonStyle(.plain)
                             .accessibilityHint("Opens conflict resolution.")
                             .accessibilityIdentifier("outbox-conflict-\(submission.id)")
                         } else {
-                            OutboxRow(submission: submission)
+                            OutboxRow(submission: submission, isSyncing: viewModel.isSyncing)
                                 .accessibilityIdentifier("outbox-row-\(submission.id)")
                         }
                     }
@@ -130,12 +138,19 @@ struct OutboxView: View {
         .navigationTitle("Outbox")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                // The native spinner takes the Retry slot while any drain runs,
+                // including the automatic one after a confirm.
                 Button {
                     Task { await viewModel.retry() }
                 } label: {
-                    Label("Retry", systemImage: "arrow.clockwise")
+                    if viewModel.isSyncing {
+                        ProgressView()
+                    } else {
+                        Label("Retry", systemImage: "arrow.clockwise")
+                    }
                 }
-                .disabled(!viewModel.canRetry(outstanding))
+                .disabled(viewModel.isSyncing || !viewModel.canRetry(outstanding))
+                .accessibilityLabel(viewModel.isSyncing ? "Syncing" : "Retry")
                 .accessibilityIdentifier("outbox-retry")
             }
         }
@@ -190,16 +205,31 @@ struct OutboxView: View {
 
 private struct OutboxRow: View {
     let submission: PendingSubmissionSnapshot
+    /// Whether the engine is draining now. Row status alone cannot say this.
+    let isSyncing: Bool
+
+    /// The current drain will still send or check this row.
+    private var isWorking: Bool {
+        isSyncing && (submission.status == .queued || submission.status == .inFlight)
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundStyle(tint)
-                // The arrows turn while the row is actually sending.
-                .symbolEffect(.rotate, options: .repeating, isActive: submission.status == .inFlight)
-                .frame(width: 26)
-                .accessibilityHidden(true)
+            // The native spinner stands in for the status glyph while this
+            // row's sync is actually running, then the glyph returns.
+            Group {
+                if isWorking {
+                    ProgressView()
+                } else {
+                    Image(systemName: icon)
+                        .font(.title3)
+                        .foregroundStyle(tint)
+                }
+            }
+            .frame(width: 26, height: 24)
+            .transition(.opacity)
+            .animation(Motion.snappy, value: isWorking)
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(submission.expectedRun)
@@ -247,8 +277,13 @@ private struct OutboxRow: View {
 
     private var detail: String {
         switch submission.status {
-        case .queued: submission.verificationPending ? "Checking saved changes" : submission.lastError ?? "Waiting to sync"
-        case .inFlight: "Sending"
+        case .queued:
+            if submission.verificationPending { "Checking saved changes" }
+            else if isSyncing { "Syncing…" }
+            else { submission.lastError ?? "Waiting to sync" }
+        // A shared row keeps .inFlight after an unknown outcome. Only a live
+        // drain is sending it; otherwise it waits for its receipt check.
+        case .inFlight: isSyncing ? "Sending" : "Checking saved changes"
         case .conflict: submission.conflictMessage ?? "Sheet changes need review"
         case .done: "Synced"
         }
