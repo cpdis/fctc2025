@@ -120,23 +120,48 @@ enum UITestSupport {
             deviceName: "UI Test iPhone"
         )
         let persistence = UITestConfigPersistence(config: config)
+        return AppRuntime(
+            modelContainer: modelContainer,
+            configPersistence: persistence,
+            engineOverride: makeEngine(modelContainer: modelContainer),
+            configOverride: config
+        )
+    }
+
+    /// A fresh engine over a fresh fixture sheet.
+    private static func makeEngine(modelContainer: ModelContainer) -> SyncEngine {
         // "-ui-offline" simulates no connectivity by never draining automatically:
         // a first-write-fails fake races any refresh-triggered drain, which re-sends
         // and hides the queued row before the test can look at it. The outbox's
         // manual Retry is the recovery path under test.
         let offline = ProcessInfo.processInfo.arguments.contains("-ui-offline")
-        let engine = SyncEngine(
+        return SyncEngine(
             modelContainer: modelContainer,
             api: ProcessInfo.processInfo.arguments.contains("-ui-shared-guests") ? UITestSharedGuestAPI() : UITestSheetAPI(),
             retryPolicy: RetryPolicy(maxAttempts: 1),
             automaticallyDrains: !offline
         )
-        return AppRuntime(
-            modelContainer: modelContainer,
-            configPersistence: persistence,
-            engineOverride: engine,
-            configOverride: config
-        )
+    }
+
+    /// UI-test links, `fctc-attendance://ui-test/<hook>`, stand in for events a
+    /// test cannot cause itself: a notification or App Intent route arriving,
+    /// and a connection change swapping the engine. Returns true when it took
+    /// the URL; it takes nothing outside `-ui-testing`.
+    @MainActor
+    static func handleHook(_ url: URL, runtime: AppRuntime, routes: PendingRouteStore) -> Bool {
+        guard isEnabled, url.scheme == "fctc-attendance", url.host() == "ui-test" else { return false }
+        switch url.path() {
+        case "/route/today-checklist":
+            routes.set(.todayChecklist)
+        case "/route/missing-run":
+            // A reminder for a run the sheet does not have: it can never resolve.
+            routes.set(.checklist(rowIndex: 9_999, date: "Never", run: "Missing"))
+        case "/swap-engine":
+            runtime.apply(runtime.config, engineOverride: makeEngine(modelContainer: runtime.modelContainer))
+        default:
+            break
+        }
+        return true
     }
 }
 

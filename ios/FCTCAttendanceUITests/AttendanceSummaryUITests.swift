@@ -15,6 +15,13 @@ final class AttendanceSummaryUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 8))
     }
 
+    /// Birthdays live on the Events tab (R22). Every launch starts on Runs.
+    private func openEvents() {
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 8))
+        app.tab(.events).tap()
+        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+    }
+
     private func tap(_ element: XCUIElement) {
         for _ in 0..<8 {
             if element.exists && element.isHittable { break }
@@ -56,6 +63,7 @@ final class AttendanceSummaryUITests: XCTestCase {
 
     func testBirthdaysAppearBelowUnchangedMilestones() {
         launch()
+        openEvents()
         let birthday = app.descendants(matching: .any)["birthday-row-Aaron"].firstMatch
         let nextBirthday = app.descendants(matching: .any)["birthday-row-Col"].firstMatch
         for _ in 0..<5 {
@@ -95,6 +103,7 @@ final class AttendanceSummaryUITests: XCTestCase {
         app.terminate()
         app.launchArguments += ["-ui-no-birthdays"]
         app.launch()
+        openEvents()
         let empty = app.staticTexts["birthday-empty"]
         for _ in 0..<5 {
             if empty.exists && empty.isHittable { break }
@@ -106,6 +115,7 @@ final class AttendanceSummaryUITests: XCTestCase {
         app.terminate()
         app.launchArguments = ["-ui-testing", "-ui-shared-guests"]
         app.launch()
+        openEvents()
         for _ in 0..<5 {
             if empty.exists && empty.isHittable { break }
             app.swipeUp()
@@ -119,6 +129,7 @@ final class AttendanceSummaryUITests: XCTestCase {
         app.terminate()
         app.launchArguments += ["-ui-store-name", store]
         app.launch()
+        openEvents()
         let birthday = app.descendants(matching: .any)["birthday-row-Aaron"].firstMatch
         for _ in 0..<5 {
             if birthday.exists { break }
@@ -128,6 +139,7 @@ final class AttendanceSummaryUITests: XCTestCase {
         app.terminate()
         app.launchArguments += ["-ui-state-offline"]
         app.launch()
+        openEvents()
         for _ in 0..<5 {
             if birthday.exists { break }
             app.swipeUp()
@@ -138,6 +150,7 @@ final class AttendanceSummaryUITests: XCTestCase {
 
     func testLargeTextSummaryAndBirthdays() {
         launch(largeText: true)
+        openEvents()
         let birthday = app.descendants(matching: .any)["birthday-row-Aaron"].firstMatch
         for _ in 0..<8 {
             if birthday.exists && birthday.isHittable { break }

@@ -73,6 +73,16 @@ final class AppRuntime {
             .sorted { ($0.state?.seasonYear ?? 0) > ($1.state?.seasonYear ?? 0) }.first?.state
     }
 
+    /// The cached runs that belong to this connection's active season. The run
+    /// cache can hold other endpoints' and seasons' rows, so Runs, Events and
+    /// route handling all scope it the same way before reading it.
+    func activeRuns(in cachedRuns: [ScheduledRun]) -> [ScheduledRun] {
+        let endpoint = config.endpoint?.absoluteString
+        let ids = Set(RunCacheScope.runs(cachedRuns.map(RunSnapshot.init), endpoint: endpoint,
+                                        state: activeSheetState).map(\.id))
+        return cachedRuns.filter { ids.contains($0.cacheKey) && ($0.identity == nil || $0.endpointIdentity == endpoint) }
+    }
+
     func setAccent(_ choice: AccentChoice) {
         accent = choice
         appearanceStore.saveAccent(choice)

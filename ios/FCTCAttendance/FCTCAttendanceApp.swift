@@ -105,7 +105,10 @@ private struct AppRootView: View {
             }
         }
         .tint(runtime.accent.color)
-        .onOpenURL(perform: receiveSetupCode)
+        .onOpenURL { url in
+            if UITestSupport.handleHook(url, runtime: runtime, routes: pendingRoutes) { return }
+            receiveSetupCode(url)
+        }
         .alert(
             pendingSetup?.review.title ?? "",
             isPresented: binding(to: $pendingSetup),

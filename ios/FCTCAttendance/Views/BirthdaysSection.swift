@@ -50,7 +50,7 @@ private struct BirthdayRow: View {
     let birthday: UpcomingBirthday
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     /// Set on first appear so today's cake gives one small wiggle, not one per
-    /// return to Home.
+    /// return to the Events tab.
     @State private var celebrations = 0
 
     var body: some View {

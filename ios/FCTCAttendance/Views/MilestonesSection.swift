@@ -2,13 +2,10 @@
 //  MilestonesSection.swift
 //  FCTCAttendance
 //
-//  Who is near a landmark run, shown below Runs on the home screen.
+//  Who is near a landmark run, shown on the Events tab.
 //
 //  Passive by design: no tap target, no notification, no Settings control. The
 //  weekly email is the active nudge; this is the place to glance at.
-//
-//  Its own file rather than another block inside HomeView, which is already past
-//  the repo's 500-line guideline.
 //
 
 import FCTCAttendanceKit

@@ -5,7 +5,8 @@
 //  The Runs · Events · Dashboard tab shell (R19) and how pushed screens share
 //  the bottom edge with the tab bar (U11): the run picker and the checklist hide
 //  the tab bar so their bottom search field (and the picker's Review button)
-//  own that edge, and the tab bar returns when they pop.
+//  own that edge, and the tab bar returns when they pop. Also the root-owned
+//  routing (KTD14): per-tab stacks, routes landing on Runs, and engine swaps.
 //
 
 import XCTest
@@ -18,16 +19,114 @@ final class TabNavigationUITests: XCTestCase {
         launch()
         capture("tabs-runs")
 
-        tab("tab-events", index: 1).tap()
+        app.tab(.events).tap()
         XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
         capture("tabs-events")
 
-        tab("tab-dashboard", index: 2).tap()
+        app.tab(.dashboard).tap()
         XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
         capture("tabs-dashboard")
 
-        tab("tab-runs", index: 0).tap()
+        app.tab(.runs).tap()
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+    }
+
+    /// Runs keeps today's run and the tiles (R20); Milestones and Birthdays
+    /// moved to Events (R22).
+    func testLaunchShowsRunsWithTodaysRunAndTiles() {
+        launch(["-ui-today-run"])
+        XCTAssertTrue(app.tab(.runs).isSelected)
+        XCTAssertTrue(app.buttons["home-todays-run"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["home-this-week"].exists)
+        XCTAssertTrue(app.buttons["home-unsynced"].exists)
+        XCTAssertTrue(app.buttons["home-all-runs"].exists)
+        XCTAssertTrue(app.buttons["home-past-runs"].exists)
+        XCTAssertTrue(app.buttons["home-settings"].exists)
+        let milestone = app.descendants(matching: .any)["milestone-row-Aaron"]
+        let birthdays = app.descendants(matching: .any)["birthday-empty"]
+        XCTAssertFalse(milestone.exists, "Milestones still on Runs")
+        XCTAssertFalse(birthdays.exists, "Birthdays still on Runs")
+
+        app.tab(.events).tap()
+        XCTAssertTrue(milestone.waitForExistence(timeout: 5))
+        XCTAssertTrue(birthdays.exists)
+    }
+
+    /// Each tab has its own stack: a screen pushed on Runs survives a visit to
+    /// the other tabs.
+    func testSwitchingTabsKeepsRunsPushedScreen() {
+        launch()
+        app.buttons["home-unsynced"].tap()
+        XCTAssertTrue(app.navigationBars["Outbox"].waitForExistence(timeout: 5))
+
+        app.tab(.events).tap()
+        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+        app.tab(.dashboard).tap()
+        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
+        app.tab(.runs).tap()
+        XCTAssertTrue(app.navigationBars["Outbox"].waitForExistence(timeout: 5))
+
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+    }
+
+    /// A "today's checklist" route (App Intent) from Dashboard selects Runs,
+    /// pops its pushed Outbox and opens the checklist (R21, KTD14).
+    func testTodayRouteFromDashboardOpensChecklistOnRuns() {
+        launch(["-ui-today-run"])
+        app.buttons["home-unsynced"].tap()
+        XCTAssertTrue(app.navigationBars["Outbox"].waitForExistence(timeout: 5))
+        app.tab(.dashboard).tap()
+        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
+
+        openHook("route/today-checklist")
+        XCTAssertTrue(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 5))
+        settle()
+        capture("route-checklist")
+
+        // Back goes to the Runs root, not the Outbox the route replaced.
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tab(.runs).isSelected)
+        app.tab(.dashboard).tap()
+        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
+    }
+
+    /// A route that can never resolve must not block the next one.
+    func testUnresolvableRouteDoesNotBlockLaterRoutes() {
+        launch(["-ui-today-run"])
+        app.tab(.events).tap()
+        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+
+        openHook("route/missing-run")
+        // It lands on Runs and waits there for a run that never arrives.
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.navigationBars["Review & Confirm"].exists)
+
+        openHook("route/today-checklist")
+        XCTAssertTrue(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 5))
+    }
+
+    /// A connection change swaps the engine, and no tab may keep a screen
+    /// pushed for the old connection. Events and Dashboard push nothing yet,
+    /// so the pushed Outbox on Runs is the observable case.
+    func testEngineSwapReturnsEveryTabToItsRoot() {
+        launch()
+        app.buttons["home-unsynced"].tap()
+        XCTAssertTrue(app.navigationBars["Outbox"].waitForExistence(timeout: 5))
+        app.tab(.events).tap()
+        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+
+        openHook("swap-engine")
+        // The swap keeps the selected tab.
+        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tab(.events).isSelected)
+
+        app.tab(.runs).tap()
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.navigationBars["Outbox"].exists)
+        app.tab(.dashboard).tap()
+        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
     }
 
     /// Push, pop (Back button), re-push, pop (edge swipe): the tab bar hides on
@@ -126,11 +225,11 @@ final class TabNavigationUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 8))
     }
 
-    /// iPhone tab buttons can drop a SwiftUI `Tab`'s accessibility identifier on
-    /// iOS 26, so fall back to the button's position in the tab bar.
-    private func tab(_ identifier: String, index: Int) -> XCUIElement {
-        let byIdentifier = app.tabBars.buttons[identifier]
-        return byIdentifier.exists ? byIdentifier : app.tabBars.buttons.element(boundBy: index)
+    /// Fires a UI-test hook (`UITestSupport.handleHook`) in the running app.
+    /// Through the system, not `app.open`, which relaunches the app and would
+    /// wipe the very tab and stack state these tests check.
+    private func openHook(_ hook: String) {
+        XCUIDevice.shared.system.open(URL(string: "fctc-attendance://ui-test/\(hook)")!)
     }
 
     /// A hidden tab bar can stay in the accessibility tree off screen, so
@@ -157,5 +256,21 @@ final class TabNavigationUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+}
+
+/// The tab bar's buttons, in tab-bar order.
+enum AppTabButton: Int {
+    case runs, events, dashboard
+
+    var identifier: String { "tab-\(self)" }
+}
+
+extension XCUIApplication {
+    /// A tab bar button. iPhone tab buttons can drop a SwiftUI `Tab`'s
+    /// accessibility identifier on iOS 26, so fall back to its position.
+    func tab(_ tab: AppTabButton) -> XCUIElement {
+        let byIdentifier = tabBars.buttons[tab.identifier]
+        return byIdentifier.exists ? byIdentifier : tabBars.buttons.element(boundBy: tab.rawValue)
     }
 }

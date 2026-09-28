@@ -2,7 +2,9 @@
 //  HomeView.swift
 //  FCTCAttendance
 //
-//  The Reminders-style "list of lists" backed by the offline SwiftData cache.
+//  The Runs tab root (R20): the Reminders-style "list of lists" backed by the
+//  offline SwiftData cache. RootTabView owns its navigation path and its model,
+//  because notification and App Intent routes land here from any tab (KTD14).
 //
 
 import FCTCAttendanceKit
@@ -27,29 +29,21 @@ enum ChecklistPresentation: Hashable {
 
 struct HomeView: View {
     let runtime: AppRuntime
-    let pendingRoutes: PendingRouteStore
+    /// Owned by RootTabView, which reads `todayRun` to resolve routes.
+    let viewModel: HomeViewModel
+    /// The Runs tab's stack, owned by RootTabView so routes and engine swaps
+    /// can reset it.
+    @Binding var path: [HomeRoute]
 
     @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
     @Query private var guestOperations: [PendingGuestOperation]
-    @Query(sort: \Member.name) private var cachedMembers: [Member]
     @Query(
         filter: #Predicate<PendingSubmission> { $0.stateRaw != "done" },
         sort: \PendingSubmission.createdAt
     ) private var cachedSubmissions: [PendingSubmission]
-    @State private var viewModel: HomeViewModel
     @State private var recovery: [GuestRecoverySnapshot] = []
-    @State private var path: [HomeRoute] = []
-    @State private var deferredRoute: PendingAppRoute?
-    @State private var sharedScreenshotCount = 0
-    @State private var showingSharedScreenshotOffer = false
     /// Flips once per launch so the header cards stagger in on first sight only.
     @State private var hasEntered = false
-
-    init(runtime: AppRuntime, pendingRoutes: PendingRouteStore = .shared) {
-        self.runtime = runtime
-        self.pendingRoutes = pendingRoutes
-        _viewModel = State(initialValue: HomeViewModel(engine: runtime.engine))
-    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -179,8 +173,6 @@ struct HomeView: View {
                     }
                 }
 
-                // Always present, including before the first sync, where it falls
-                // through to its own empty state rather than vanishing.
                 if recovery.contains(where: { $0.status == .pending }) {
                     Section {
                         NavigationLink { GuestRecoveryView(runtime: runtime) } label: {
@@ -196,13 +188,6 @@ struct HomeView: View {
                         }
                     } footer: { Text("Names from this phone need review. You can recover them later in Settings.") }
                 }
-
-                MilestonesSection(
-                    totals: activeMemberTotals,
-                    emptyPhrase: runtime.milestoneEmptyPhrase
-                )
-
-                BirthdaysSection(birthdays: activeBirthdays)
 
                 if let banner = viewModel.syncBanner {
                     HomeSyncBanner(banner: banner, runtime: runtime) {
@@ -249,12 +234,8 @@ struct HomeView: View {
             .onAppear { hasEntered = true }
             .task {
                 updateFromCache()
-                handlePendingRoute()
-                checkSharedScreenshotInbox()
                 await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
                 updateFromCache()
-                handlePendingRoute()
-                checkSharedScreenshotInbox()
             }
             .onChange(of: viewModel.activeState) { _, state in
                 runtime.activeState = state
@@ -263,36 +244,15 @@ struct HomeView: View {
             }
             .onChange(of: cacheFingerprint) { _, _ in
                 updateFromCache()
-                handlePendingRoute()
             }
+            // RootTabView resets the path on a swap; the model follows the new
+            // engine here, next to the refresh it drives.
             .onChange(of: runtime.generation) { _, _ in
                 viewModel.replaceEngine(runtime.engine)
                 Task {
                     await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
                     updateFromCache()
-                    handlePendingRoute()
                 }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: PendingRouteStore.changed)) { _ in
-                handlePendingRoute()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .fctcAppDidActivate)) { _ in
-                handlePendingRoute()
-                checkSharedScreenshotInbox()
-            }
-            .alert(
-                "Import \(sharedScreenshotCount) shared screenshot\(sharedScreenshotCount == 1 ? "" : "s")?",
-                isPresented: $showingSharedScreenshotOffer
-            ) {
-                Button("Import") {
-                    guard let todayRun = viewModel.todayRun else { return }
-                    path.append(.checklist(todayRun, .sharedScreenshots))
-                }
-                Button("Dismiss", role: .cancel) {
-                    try? runtime.sharedScreenshotInbox.clear()
-                }
-            } message: {
-                Text("Open today's checklist and review the imported poll.")
             }
         }
     }
@@ -350,36 +310,12 @@ struct HomeView: View {
         }
     }
 
-    private var activeBirthdays: [MemberBirthday]? {
-        let state = runtime.activeSheetState
-        if let birthdays = state?.birthdays { return birthdays }
-        let seasonYear = state?.seasonYear ?? activeRuns.compactMap(\.seasonYear).max()
-        let cached = cachedMembers.compactMap {
-            $0.birthday(for: runtime.config.endpoint?.absoluteString, seasonYear: seasonYear)
-        }
-        let hasBirthdayCache = cachedMembers.contains {
-            $0.birthdayEndpointIdentity != nil && $0.birthdayEndpointIdentity == runtime.config.endpoint?.absoluteString
-                && (seasonYear == nil || $0.birthdaySeasonYear == seasonYear)
-        }
-        return hasBirthdayCache ? cached : nil
-    }
-
-    private var activeMemberTotals: [MemberTotal] {
-        guard let state = runtime.activeSheetState, !state.lifetimeTotals.isEmpty else {
-            return cachedMembers.map { MemberTotal(name: $0.name, runs: $0.lifetimeRuns) }
-        }
-        let roster = Set(state.roster.map(\.name))
-        return state.lifetimeTotals.filter { roster.contains($0.name) }
-    }
-
     private var pendingGuestOperations: [PendingGuestOperation] {
         guestOperations.filter { $0.endpointIdentity == runtime.config.endpoint?.absoluteString && $0.phase != .completed && $0.phase != .superseded }
     }
 
     private var activeRuns: [ScheduledRun] {
-        let ids = Set(RunCacheScope.runs(cachedRuns.map(RunSnapshot.init), endpoint: runtime.config.endpoint?.absoluteString,
-                                        state: runtime.activeSheetState).map(\.id))
-        return cachedRuns.filter { ids.contains($0.cacheKey) && ($0.identity == nil || $0.endpointIdentity == runtime.config.endpoint?.absoluteString) }
+        runtime.activeRuns(in: cachedRuns)
     }
 
     /// "94 of 163 runs recorded", or nil before the season has loaded.
@@ -404,41 +340,5 @@ struct HomeView: View {
             pendingGuestChanges: pendingGuestOperations.count,
             guestConflicts: pendingGuestOperations.filter { $0.phase == .conflict || $0.phase == .rejected }.count
         )
-    }
-
-    private func handlePendingRoute() {
-        let route = deferredRoute ?? pendingRoutes.consume()
-        guard let route else { return }
-        let target: RunSnapshot?
-        let presentation: ChecklistPresentation
-        switch route {
-        case .todayChecklist:
-            target = viewModel.todayRun
-            presentation = .standard
-        case .todayDictation:
-            target = viewModel.todayRun
-            presentation = .dictation
-        case .checklist(let rowIndex, let date, let run):
-            target = activeRuns.map(RunSnapshot.init).first {
-                $0.rowIndex == rowIndex && $0.date == date && $0.run == run
-            }
-            presentation = .standard
-        }
-        guard let target else {
-            deferredRoute = route
-            return
-        }
-        deferredRoute = nil
-        path = [.checklist(target, presentation)]
-    }
-
-    private func checkSharedScreenshotInbox() {
-        guard !showingSharedScreenshotOffer,
-              path.isEmpty, viewModel.todayRun != nil,
-              let count = try? runtime.sharedScreenshotInbox.list().count,
-              count > 0
-        else { return }
-        sharedScreenshotCount = count
-        showingSharedScreenshotOffer = true
     }
 }
