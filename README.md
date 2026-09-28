@@ -424,35 +424,130 @@ Revoke the old key, then re-enable the gate.
 
 ## Attendance app
 
-A native iOS app (SwiftUI, iOS 26) for recording attendance and actual kms right after
-a run — manually, from a WhatsApp poll screenshot (on-device OCR), or by voice — writing
-straight back into the **same Google Sheet this dashboard reads**. The sheet stays the
-canonical record; the app is a new *writer*, and this dashboard's weekly sync, parser and
+A native iOS app (SwiftUI, iOS 26) for recording attendance and actual kms right after a run.
+Record a run by hand, from a WhatsApp poll screenshot (on-device OCR), or by voice. The app
+writes straight back into the **same Google Sheet this dashboard reads**. The sheet stays the
+canonical record. The app is a new *writer*, and this dashboard's weekly sync, parser and
 build are untouched by it.
 
-- `ios/` — the app. The Xcode project is generated, not committed:
+- `ios/`: the app. The Xcode project is generated, not committed:
   `cd ios && xcodegen generate` (XcodeGen reads `ios/project.yml`). All non-UI logic
   lives in the `FCTCAttendanceKit` framework so it is unit-testable.
-- `apps-script/` — the Google Apps Script Web App the phone posts to (JSON + shared
+- `apps-script/`: the Google Apps Script Web App the phone posts to (JSON + shared
   secret, no OAuth in the app). Runbook: `apps-script/README.md`.
   Tests: `node --test apps-script/test`.
-- `fixtures/attendance/` — shared fixtures (season CSV snapshots, golden parity fixtures,
+- `fixtures/attendance/`: shared fixtures (season CSV snapshots, golden parity fixtures,
   OCR line dumps, voice transcripts + expected parse results). Schema:
   `fixtures/attendance/README.md`.
 
-Plan (architecture, API contract, design language, work units):
-`docs/plans/2026-08-14-001-feat-fctc-attendance-ios-app-plan.md`.
+Plans: the app (architecture, API contract, design language, work units) is in
+`docs/plans/2026-08-14-001-feat-fctc-attendance-ios-app-plan.md`. The tab bar, Events and
+Dashboard are in `docs/plans/2026-09-28-001-feat-dashboard-review-and-ios-dashboard-plan.md`.
 
-The app's home screen also carries a **Milestones** section, which is the passive
-counterpart to the weekly emails above. Both use the same definition of a landmark
-(the next positive multiple of 50) and the same attendance rule (only an `x` counts;
-see "The parser"), so they agree on every total once the current Apps Script is
-deployed. They differ in what they show:
-the email forecasts who is *likely* to get there this week and only considers people
-within three runs, while the app just lists the closest few with the runs they need,
-no forecast. The app reads live from the sheet through `getState`, so it reflects
-attendance recorded seconds ago; the email reads the weekly CSV export.
+### Tabs
+
+The app opens on a Liquid Glass tab bar with three tabs
+(`ios/FCTCAttendance/Views/RootTabView.swift`):
+
+- **Runs**: the This Week and Unsynced tiles, today's run, Season and Past Runs. Record
+  attendance here.
+- **Events**: what is coming up (see "Events tab").
+- **Dashboard**: the web dashboard's quick reference, drawn natively (see "Dashboard tab").
+
+Each tab keeps its own navigation stack. The run picker and the checklist hide the tab bar,
+so their bottom-bar search and Review button stay reachable. A reminder tap or an App Intent
+route always lands on Runs. The app selects Runs, pops it to its root and opens the checklist.
+The other tabs keep their stacks. A new connection (for example, a scanned setup code) returns
+every tab to its root.
+
+The app keeps its Reminders look on every tab: system colours, the accent the user picks in
+Settings, and SF Pro. Dashboard numbers use SF Pro Rounded bold. The web's Poster brand stays
+on the web.
+
+### Events tab
+
+Events reads the offline cache, so it works without a network. The kit's `EventsBoard` builds
+four lists:
+
+- **This week**: the club runs from today to Sunday, on the Perth calendar.
+- **Specials**: upcoming runs off a club weekday, or with an event in the label. The runs on
+  one date fold into one row with their options, for example "Xmas: Mara / Half / 10k". A
+  holiday special on a club weekday shows here, and it still counts as a club day for streaks.
+- **Milestones**: the members closest to their next 50 all-time runs.
+- **Birthdays**: today and the next 30 days.
+
+Each list has an empty line, for example "No specials scheduled."
+
+**Milestones** is the passive counterpart to the weekly emails above. Both use the same
+definition of a landmark (the next positive multiple of 50) and the same attendance rule (only
+an `x` counts; see "The parser"). They agree on every total once the current Apps Script is
+deployed. They differ in what they show. The email forecasts who is *likely* to get there this
+week and only considers people within three runs. The app lists the closest few with the runs
+they need, and makes no forecast. An all-time total is the member's runs before this season
+plus this season's runs, unsynced check-ins included. So the app reflects attendance recorded
+seconds ago, even offline. The email reads the weekly CSV export.
 See `docs/plans/2026-08-16-001-feat-milestones-ahead-section-plan.md`.
+
+**Birthdays** follows Milestones. It orders the rows by days remaining, then name, on Perth
+calendar dates. The sheet's `BIRTHDAY` row supplies day and month; no birth year or age is
+stored. A 29 February birthday shows on 28 February in non-leap years, and keeps its recorded
+date. Refreshed birthdays stay available offline. Older Apps Script versions still work; the
+birthday field appears after the updated script is deployed.
+See `docs/plans/2026-09-18-attendance-count-birthdays-plan.md`.
+
+### Dashboard tab
+
+The Dashboard shows the active season. The cards follow the approved mockup
+(`docs/reference/2026-09-28-dashboard-mockups/ios.html`), top to bottom:
+
+- **Headline**: runs this season, or km together, with a Runs/Km toggle. It compares with last
+  season on the same date ("+2 runs on 2025 by this date"). Its bars show runners per run for
+  the last 24 runs.
+- **Together** (member-km, against last season) beside **On a roll** (the longest current
+  club-day streak and its runner).
+- **The Wall**: runners against the runs of the last five weeks. Open it for the full Wall,
+  which scrolls sideways, opens at the latest run, and sorts by runs, streak or name.
+- **Vs last year**: cumulative member-km against last season, on a Jan to Dec axis.
+- **Every run**: runners per run for the last 18 runs. Guests stack on top in a lighter shade.
+- **Leaderboard**: by runs or by km.
+- **Run log**: every run, newest first, grouped by month. Search matches the run type, event,
+  place or a runner.
+
+Tap a runner (On a roll, a Wall name or cell, a leaderboard row, a run's runners) to open the
+**runner screen**. It shows runs, km, the current streak and rank, a season calendar of club
+days with the streak marked, club days made per weekday, and all-time runs with progress to
+the next milestone.
+
+The views live in `ios/FCTCAttendance/Views/Dashboard/`. The kit's `DashboardModel` builds every
+card, and `DashboardStore` decides when to rebuild it.
+
+### Where the numbers come from
+
+Events and the Dashboard compute every number on the phone, from the cached season. They work
+offline. `ios/FCTCAttendance/ActiveSeason.swift` gives both tabs the same inputs:
+
+- **Effective runs.** `EffectiveRuns` applies the outbox to the cached runs, oldest first.
+  Each submission replays its endpoint's own write path (the legacy merge or overwrite, or the
+  shared guest plan), so the result equals the sheet after sync. A check-in recorded offline
+  moves streaks, totals and milestones at once, and the headline says "Includes N unsynced".
+- **Lifetime priors.** `LifetimePriors` turn the sheet's lifetime totals into runs before this
+  season. An all-time total is the prior plus this season's effective runs.
+- **Last season.** It comes from a read-only snapshot. `SyncEngine.previousSeasonSnapshot()`
+  fetches the previous supported season once and stores only its cache row. It never changes
+  the live season, the run cache or the reminders. A legacy endpoint has no earlier season, so
+  Vs last year and the same-date comparisons stay hidden. Offline, before the first fetch, the
+  card reads "Last season not downloaded".
+- **Rules.** `RunLabel`, `ClubDays`, `MilestoneBoard` and `DashboardModel` are the Swift mirror
+  of the web's rules. The parity fixtures hold both stacks to the same numbers (see "Parity
+  fixtures").
+
+Each tab rebuilds its model only when a cheap fingerprint of its inputs changes. A render never
+fetches or decodes the cache.
+
+The checklist's streak line uses the same club-day rule and effective runs. It reads "N club
+days in a row".
+
+### Recording attendance
 
 The **Attendance** heading shows the number of checked members across the full
 draft, even during a search. When guests are present, a second line shows the total
@@ -463,14 +558,6 @@ nickname, or one wrong letter in a name of seven or more letters. A close but di
 name, such as "Tony" for `Toby`, is only a suggestion. Voice entry ignores a word at the
 start of a sentence unless it is a roster name or a nickname. A poll option with a
 negative word, such as "Can't make it", pre-checks nobody.
-
-The **Birthdays** section follows Milestones. It shows today through 30 days ahead,
-ordered by days remaining then name, using Perth calendar dates. The sheet's
-`BIRTHDAY` row supplies day and month; no birth year or age is stored. A 29 February
-birthday is shown on 28 February in non-leap years, retaining its recorded date.
-Refreshed birthdays remain available offline. Older Apps Script versions still
-work; the birthday field appears after the updated script is deployed.
-See `docs/plans/2026-09-18-attendance-count-birthdays-plan.md`.
 
 On a run's **Guests** screen, **Name a guest** assigns a saved person or a new
 name to one unnamed guest. The total stays the same. Swipe a selected guest to
@@ -483,25 +570,66 @@ error. Delayed reads cannot replace a newer confirmed guest name.
 
 Motion comes from one shared vocabulary in `ios/FCTCAttendance/Views/Motion.swift`.
 Frequent actions such as checks and counts get fast, quiet feedback. Rare moments,
-such as the first Home appearance, may take longer. Reduce Motion keeps fades and
-color changes and removes travel and scale.
+such as the first appearance of the Runs tab or the Dashboard cards, may take longer.
+Reduce Motion keeps fades and color changes and removes travel and scale.
 
 While a sync runs, the Outbox shows the system spinner in place of Retry and beside
-each row it is sending or checking, and the Home **Unsynced** tile turns its arrows.
+each row it is sending or checking, and the Runs tab's **Unsynced** tile turns its arrows.
 The signal comes from the sync engine itself, so it covers automatic syncs after a
 confirm as well as a manual Retry. A row whose last send had an unknown outcome reads
 "Checking saved changes" until the next sync checks its receipt.
 
-For a visual before/after review, run the
-opt-in screen tour. It visits each main screen with synthetic data and attaches one
-screenshot per screen:
+### UI tests and the screen tour
+
+Run the UI tests on the iPhone 17 Pro simulator:
+
+```bash
+cd ios && xcodebuild test -project FCTCAttendance.xcodeproj -scheme FCTCAttendance -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:FCTCAttendanceUITests -collect-test-diagnostics never
+```
+
+`-collect-test-diagnostics never` skips the verbose diagnostics (like a sysdiagnose) that
+xcodebuild collects after a failure. That step can take minutes. A whole-target run can skip a
+test that was just added; if the count is short, build again and rerun.
+
+Every UI test launches with `-ui-testing`, which replaces the sheet with an in-memory fake
+(`ios/FCTCAttendance/UITestSupport.swift`). More launch flags choose the fixture:
+
+| Flag | Sets up |
+|------|---------|
+| `-ui-shared-guests` | The shared (API v2) fake with this season and last (`UITestSharedGuestAPI.swift`). |
+| `-ui-offline` | No automatic outbox drain, so a queued row stays queued until Retry. |
+| `-ui-events` | Planned club runs from tomorrow to the Sunday after next, plus three Xmas races on one date. |
+| `-ui-dashboard` | A season of 30 club days with fixed streaks: Aaron 14, Col 10, Dan 2 (`UITestDashboardFixture.swift`). |
+| `-ui-last-season-offline` | Last season's fetch fails, so Vs last year reads "Last season not downloaded". |
+
+`-ui-events`, `-ui-dashboard` and `-ui-last-season-offline` need `-ui-shared-guests`.
+
+A test cannot tap a notification or scan a setup code. With `-ui-testing` on, the app takes
+these links instead (`UITestSupport.handleHook`):
+
+- `fctc-attendance://ui-test/route/today-checklist`: a "today's checklist" route arrives.
+- `fctc-attendance://ui-test/route/missing-run`: a route arrives for a run the sheet does not
+  have. It can never resolve.
+- `fctc-attendance://ui-test/swap-engine`: a connection change replaces the engine.
+
+Open a hook with `XCUIDevice.shared.system.open(url)`, not `app.open(url)`. `app.open`
+relaunches the app and loses the tab and stack state under test. On iPhone, tab buttons can
+ignore accessibility identifiers, so the tests' tab helper tries the identifier, then the tab
+index.
+
+For a visual before/after review, run the opt-in screen tour. It visits the three tab roots
+and each main screen with synthetic data, and attaches one screenshot per screen:
 
 ```bash
 cd ios && TEST_RUNNER_FCTC_SCREEN_TOUR=1 xcodebuild test -project FCTCAttendance.xcodeproj -scheme FCTCAttendance -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:FCTCAttendanceUITests/ScreenTourUITests -resultBundlePath ../review/tour.xcresult
 ```
 
 Export the shots with `xcrun xcresulttool export attachments --path ../review/tour.xcresult --output-path ../review/tour`.
-The default test run skips the tour.
+The tour captures the simulator's current appearance. Run it again after
+`xcrun simctl ui booted appearance dark` for dark shots. The tour uses the legacy fake, so
+Events and the Dashboard show little data. The default test run skips the tour.
+
+### Sheet rules and releases
 
 A birthday row below the attendance header does not count as a run. Keep its Date
 cell blank. Shared run IDs follow row insertions; older connections ask for a

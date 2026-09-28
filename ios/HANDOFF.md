@@ -1,5 +1,98 @@
 # iOS handoff
 
+## Dashboard review branch (28 September 2026)
+
+- Branch `dashboard-review`: 19 commits on `main` (from `e2d479d`), plus the docs commit.
+  Not pushed. Not on TestFlight: testers still have build 8.
+- Plan: `docs/plans/2026-09-28-001-feat-dashboard-review-and-ios-dashboard-plan.md`.
+  Approved mockups: `docs/reference/2026-09-28-dashboard-mockups/ios.html`.
+- No schema, entitlement or bundle change. The update keeps the sheet connection, saved
+  guests and pending attendance.
+
+### Tabs
+
+- The app root is a Liquid Glass tab bar: Runs · Events · Dashboard
+  (`Views/RootTabView.swift`). Each tab has its own navigation path.
+- Runs is the old Home without Milestones and Birthdays. The run picker and the checklist
+  hide the tab bar; the checklist search is pinned to the bottom bar (U11 spike result).
+- Routes (reminder tap, App Intent) are handled at the root. The newest route wins. It
+  selects Runs, pops it to root and opens the checklist. An engine swap resets every tab.
+- Events (`Views/EventsView.swift`, kit `EventsBoard`): This week, Specials grouped by
+  date, Milestones, Birthdays.
+- Dashboard (`Views/Dashboard/`): headline with a Runs/Km toggle, Together, On a roll, The
+  Wall (card and full scrolling Wall), Vs last year, Every run, Leaderboard, Run log, and a
+  runner screen (stats, club-day calendar, per-weekday bars, next milestone).
+- The look stays Reminders: system colours, the user's accent, SF Pro, numbers in SF Pro
+  Rounded bold. The checklist streak reads "N club days in a row".
+
+### Dashboard data flow
+
+```text
+@Query rows ──> ActiveSeason.fingerprint ──changed──> DashboardStore.update
+                                                        │
+  EffectiveRuns (cached season + outbox) ───────────────┤
+  LifetimePriors (lifetime totals before this season) ──┼──> DashboardModel ──> cards
+  previous-season snapshot (read-only, fetched once) ───┘
+```
+
+- `ActiveSeason` (app target) reads the active season's cache once per data change. Events
+  reads the same inputs.
+- `EffectiveRuns` applies queued, in-flight and confirmed-but-unrefreshed shared rows in
+  creation order, with each endpoint's own write path. The headline shows "Includes N
+  unsynced" when it applied any.
+- `DashboardStore` rebuilds `DashboardModel` only when the fingerprint changes. It calls
+  `SyncEngine.previousSeasonSnapshot()` once, after the live season is cached. The snapshot
+  upserts only last season's `SharedSheetCache` row. It never reconciles, never sets
+  `latestState` and never reschedules reminders. Legacy endpoints return nil, and the Vs
+  last year card is hidden. A failed first fetch shows "Last season not downloaded".
+- The engine's cold-launch fallback now picks the cached season with the highest year, so
+  the snapshot row can never become the season new runs write to.
+
+### Tests
+
+- Kit: 418 tests pass. New suites: `RunLabelTests`, `ClubDaysTests`, `DashboardModelTests`,
+  `ParityFixtureTests`, `WritePathCharacterizationTests`, `EffectiveRunsTests`,
+  `SeasonSnapshotTests`, `EventsBoardTests`, `DashboardStoreTests`.
+- Parity: `ParityFixtureTests` reads `fixtures/attendance/parity/<season>.json`, the files the
+  web writes with `scripts/build-parity-fixtures.js`. For every golden run it checks the
+  `RunLabel` parse, then totals, member-km, club days, current and best streaks and the
+  milestone shortlist. A rule change on either stack fails one side until both match.
+- UI: 59 pass, 1 skipped (the opt-in screen tour). New: `TabNavigationUITests` (10),
+  `DashboardUITests` (6), and 3 Events cases in `AttendanceSummaryUITests`.
+- New UI-test launch flags: `-ui-events`, `-ui-dashboard`, `-ui-last-season-offline`. New
+  hooks: `fctc-attendance://ui-test/route/today-checklist`, `/route/missing-run`,
+  `/swap-engine`. The README section "UI tests and the screen tour" describes them. Run UI
+  tests with `-collect-test-diagnostics never`.
+
+### Known follow-ups
+
+- Historic navigation sets `latestState` to an older season. A warm engine's `addRun` or
+  `addMember` could then target it (pre-existing).
+- `CatchUpPlanner` still reads cached runs, so a past run recorded offline can be offered
+  again until the sync lands.
+- Provisional guest ids can overcount +1s by one until the next refresh. An in-flight refresh
+  can race the overlay.
+- On a legacy endpoint, a cold launch can undercount lifetime priors by one until the first
+  refresh (pre-existing).
+- Runs still fetches and decodes the cache per render (`HomeView.activeRuns`,
+  `RunPickerView.cacheFingerprint`, `RootTabView.routeTargets`). Events and Dashboard do not.
+- The screen tour uses the legacy fake without `-ui-events` or `-ui-dashboard`, so its Events
+  and Dashboard shots are sparse.
+- Tie order sorts by UTF-16 on iOS and by `localeCompare` on the web (display order only).
+- Behaviour changes to call out in the notes: a route switches to Runs at once, and scanning
+  a setup code in Settings returns to the Runs root.
+- No Instruments pass is recorded for the Dashboard (plan U17 verification).
+
+### Next TestFlight build (9)
+
+- Colin redeploys Apps Script first (`clasp push`, then `clasp deploy -i <existing-id>`),
+  so the phones get the x-only attendance rule.
+- Write `ios/testflight-build-9.txt` before archiving. Open with a Seuss-style rhyme, as
+  build 8 does, then the plain notes for Aaron and Grant (tabs, Events, Dashboard, offline
+  stats, the club-day streak).
+- Set the notes and groups on build 9 by its exact build number. `ios/Tools/testflight-notes.py`
+  picks the latest upload and always attaches FCTC Friends.
+
 ## Private TestFlight build 8 (28 September 2026)
 
 - Version 0.1.0 build 8 from `release/testflight-build-7` (5858adb). It adds the
