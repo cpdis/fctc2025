@@ -20,7 +20,7 @@
 - Version 0.1.0 build 7, built from local branch `release/testflight-build-7`.
   It merges `ui-refinements` with `fix/discarded-submission-requeue`,
   `fix/name-match-false-positives` and `fix/setup-link-deployment-id`.
-  Nothing is pushed.
+  Landed on `main` by pull request on 28 September 2026.
 - Build `dec0d81b-9b35-4828-9785-749570667a25` is VALID. Internal state is
   `IN_BETA_TESTING`, and only FCTC Internal (Colin's two accounts) has it.
   External state is `READY_FOR_BETA_SUBMISSION`, so FCTC Friends has no access.

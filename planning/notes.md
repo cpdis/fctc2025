@@ -12,11 +12,11 @@
 
 ### Current State
 - Build 8 (0.1.0) is live for Colin, Aaron and Grant. Full suite on its commit: 365 tests, 364 passed, 1 skipped (tour).
-- Nothing is pushed. `release/testflight-build-7` holds the shipped code; `ui-refinements` and the three `fix/*` branches are its inputs.
+- Landed on `main` by pull request from `release/testflight-build-7` on 2026-09-28. `ui-refinements` and the three `fix/*` branches were its inputs and are fully merged.
 - Before/after review page: `review/ui-refinements/index.html` (gitignored).
 
 ### Next Steps
-- [ ] Decide how to land the work: merge `release/testflight-build-7` (or its inputs) into `fix-spreadsheet-sync`/`main`, then push when ready.
+- [x] Land the work: pull request from `release/testflight-build-7` into `main` (2026-09-28).
 - [ ] Remove the three agent worktrees under `.claude/worktrees/` (command in the 2026-09-28 worknote; the safety hook blocked it).
 - [ ] Fix `ios/Tools/testflight-notes.py`: take an exact build number and a group list; today it picks the latest upload and always attaches FCTC Friends.
 - [ ] Open review findings: background-drain cancellation strands unsent rows; another endpoint's guest operation blocks the guest queue; shared `addRun` targets the last-refreshed season; a deferred route blocks later routes; the server writes no receipt for early rejections; per-render SwiftData fetch and JSON decode in `AppRuntime.activeSheetState` and ChecklistView.
