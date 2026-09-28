@@ -41,6 +41,12 @@ targets:
     platform: iOS
     sources:
       - path: FCTCAttendance
+        # Editor/agent tool caches (for example .impeccable/hook.cache.json) are
+        # not app sources. Without this, two caches in one target collide as
+        # bundle resources and fail the build.
+        excludes:
+          - ".impeccable"
+          - "**/.impeccable"
     dependencies:
       - target: FCTCAttendanceKit
         embed: true
@@ -51,7 +57,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance
         PRODUCT_NAME: FCTC Attendance
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "6"
+        CURRENT_PROJECT_VERSION: "8"
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1" # iPhone only
         SUPPORTS_MACCATALYST: NO
@@ -114,6 +120,7 @@ targets:
     platform: iOS
     sources:
       - path: FCTCAttendanceShare
+        excludes: [".impeccable", "**/.impeccable"]
       # Compile the Foundation-only App Group inbox seam into both modules. This
       # keeps the extension small and gives both sides one path definition.
       - path: FCTCAttendanceKit/Services/SharedScreenshotInbox.swift
@@ -122,7 +129,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.cpdis.fctc-attendance.share
         PRODUCT_NAME: FCTC Attendance Share
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "6"
+        CURRENT_PROJECT_VERSION: "8"
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
@@ -150,6 +157,7 @@ targets:
     platform: iOS
     sources:
       - path: FCTCAttendanceKit
+        excludes: [".impeccable", "**/.impeccable"]
     dependencies:
       - sdk: Security.framework
     settings:
@@ -163,13 +171,14 @@ targets:
         # requires version keys in it (upload rejection 90057).
         GENERATE_INFOPLIST_FILE: YES
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "6"
+        CURRENT_PROJECT_VERSION: "8"
 
   FCTCAttendanceKitTests:
     type: bundle.unit-test
     platform: iOS
     sources:
       - path: FCTCAttendanceKitTests
+        excludes: [".impeccable", "**/.impeccable"]
       # U5 (orchestrator grant): the shared fixtures ship inside the test bundle, so
       # Swift tests read them via `Bundle(for:)` instead of `#filePath` — which breaks
       # the moment tests run from a build product rather than the source tree. A folder
@@ -189,6 +198,7 @@ targets:
     platform: iOS
     sources:
       - path: FCTCAttendanceUITests
+        excludes: [".impeccable", "**/.impeccable"]
     dependencies:
       - target: FCTCAttendance
     settings:

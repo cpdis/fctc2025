@@ -20,7 +20,12 @@
 //      commas, conjunctions and lowercase filler. "Laura E" and "Kate B" survive as
 //      one name each; "So today we had" and "turned up at the last minute" do not.
 //
-//  Nothing here knows the roster — matching is `NameMatcher`'s job downstream.
+//  SENTENCE STARTS. Speech punctuation (`addsPunctuation`) capitalises the first
+//  word of every sentence, so there a capital proves nothing ("Great session. Sam
+//  came." once pre-checked Grant). A sentence-initial word counts as a name only
+//  when the roster recognizes it exactly: a sheet name, a sheet first name or a
+//  nickname (`NameMatcher.recognizes`). Mid-sentence capitals still count, and the
+//  matcher judges them downstream. With no roster, capitalisation alone decides.
 //
 
 import Foundation
@@ -30,9 +35,11 @@ public struct VoiceTranscriptScanner: Sendable {
     public init() {}
 
     /// Parse a transcript into entities. Never throws; "found nothing" is `.empty`.
-    public func scan(transcript: String) -> ExtractedEntities {
+    /// `roster` vouches for sentence-initial words (see SENTENCE STARTS above).
+    public func scan(transcript: String, roster: [String] = []) -> ExtractedEntities {
         let tokens = Self.tokenize(transcript)
         guard !tokens.isEmpty else { return .empty }
+        let vouch = roster.isEmpty ? nil : NameMatcher(roster: roster)
 
         var spans: [(start: Int, end: Int)] = []
 
@@ -54,7 +61,8 @@ public struct VoiceTranscriptScanner: Sendable {
                     tokens,
                     from: guests.end,
                     limit: guests.count,
-                    skipping: distanceSpan
+                    skipping: distanceSpan,
+                    vouch: vouch
                 )
                 if !named.names.isEmpty {
                     guestNames = named.names
@@ -63,7 +71,7 @@ public struct VoiceTranscriptScanner: Sendable {
             }
         }
 
-        let names = Self.collectNames(tokens, masking: spans)
+        let names = Self.collectNames(tokens, masking: spans, vouch: vouch)
         return ExtractedEntities(
             names: names,
             plusOnes: plusOnes,
@@ -134,6 +142,9 @@ public struct VoiceTranscriptScanner: Sendable {
         let numeric: String
         /// Ends a name run: the speaker paused here.
         let breaksRun: Bool
+        /// First word of the transcript or of a sentence (after `.`, `!` or `?`).
+        /// Speech punctuation capitalises these whatever they are.
+        let startsSentence: Bool
 
         var hasDigits: Bool {
             numeric.contains(where: { $0.isNumber })
@@ -162,13 +173,16 @@ public struct VoiceTranscriptScanner: Sendable {
                 }
             }
             let breaksRun = word.last.map { ",;:.!?".contains($0) } ?? false
+            let startsSentence = index == 0
+                || (words[index - 1].last.map { ".!?".contains($0) } ?? false)
             tokens.append(
                 VoiceToken(
                     index: index,
                     text: word,
                     core: core,
                     numeric: numeric,
-                    breaksRun: breaksRun
+                    breaksRun: breaksRun,
+                    startsSentence: startsSentence
                 )
             )
         }
@@ -349,7 +363,8 @@ public struct VoiceTranscriptScanner: Sendable {
         _ tokens: [VoiceToken],
         from start: Int,
         limit: Int,
-        skipping skip: (start: Int, end: Int)?
+        skipping skip: (start: Int, end: Int)?,
+        vouch: NameMatcher?
     ) -> (names: [String], end: Int) {
         var names: [String] = []
         var index = start
@@ -361,9 +376,9 @@ public struct VoiceTranscriptScanner: Sendable {
                 index += 1
                 continue
             }
-            guard isNameToken(token) else { break }
+            guard isNameToken(token, vouch: vouch) else { break }
             var run: [String] = []
-            while index < tokens.count, isNameToken(tokens[index]) {
+            while index < tokens.count, isNameToken(tokens[index], vouch: vouch) {
                 run.append(strip(tokens[index].text))
                 let stop = tokens[index].breaksRun
                 index += 1
@@ -379,7 +394,8 @@ public struct VoiceTranscriptScanner: Sendable {
 
     static func collectNames(
         _ tokens: [VoiceToken],
-        masking spans: [(start: Int, end: Int)]
+        masking spans: [(start: Int, end: Int)],
+        vouch: NameMatcher?
     ) -> [String] {
         func isMasked(_ index: Int) -> Bool {
             spans.contains { index >= $0.start && index < $0.end }
@@ -400,7 +416,7 @@ public struct VoiceTranscriptScanner: Sendable {
                 closeRun()
                 continue
             }
-            if isNameToken(token) {
+            if isNameToken(token, vouch: vouch) {
                 run.append(strip(token.text))
                 if token.breaksRun { closeRun() }
             } else {
@@ -417,11 +433,15 @@ public struct VoiceTranscriptScanner: Sendable {
         return deduped
     }
 
-    static func isNameToken(_ token: VoiceToken) -> Bool {
+    /// A capitalised word that is not filler, a connector or a number. At a sentence
+    /// start the capital is punctuation's doing, so `vouch` (the roster) must
+    /// recognize the word exactly; with no roster the capital is trusted as before.
+    static func isNameToken(_ token: VoiceToken, vouch: NameMatcher?) -> Bool {
         guard let head = token.text.first, head.isLetter, head.isUppercase else { return false }
         guard !token.core.isEmpty else { return false }
         if stopWords.contains(token.core) || connectors.contains(token.core) { return false }
         if units[token.core] != nil || tens[token.core] != nil { return false }
+        if token.startsSentence, let vouch { return vouch.recognizes(token.core) }
         return true
     }
 

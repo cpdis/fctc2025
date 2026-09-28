@@ -403,6 +403,33 @@ struct ViewModelTests {
         #expect(await second.next() == event)
     }
 
+    @Test("Outbox and Home show sync activity only while the engine drains")
+    func syncActivityTracksDrains() async {
+        let client = ViewModelSyncClient()
+        let outbox = OutboxViewModel(engine: client)
+        let home = HomeViewModel(engine: client)
+        #expect(!outbox.isSyncing)
+        #expect(!home.isSyncing)
+
+        await client.emit(.syncActivity(isActive: true))
+        await waitUntil { outbox.isSyncing && home.isSyncing }
+        #expect(outbox.isSyncing)
+        #expect(home.isSyncing)
+
+        await client.emit(.syncActivity(isActive: false))
+        await waitUntil { !outbox.isSyncing && !home.isSyncing }
+        #expect(!outbox.isSyncing)
+        #expect(!home.isSyncing)
+
+        // A replaced connection must not inherit the old engine's spinner.
+        await client.emit(.syncActivity(isActive: true))
+        await waitUntil { outbox.isSyncing && home.isSyncing }
+        outbox.replaceEngine(ViewModelSyncClient())
+        home.replaceEngine(ViewModelSyncClient())
+        #expect(!outbox.isSyncing)
+        #expect(!home.isSyncing)
+    }
+
     @Test("Settings load, save, QR import, and refresh use their protocol seams")
     func settingsActions() async throws {
         let persistence = MemoryConfigPersistence(

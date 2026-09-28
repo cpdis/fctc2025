@@ -1,0 +1,20 @@
+{
+  "fixture": "voice-4.transcript.txt",
+  "kind": "voice-transcript",
+  "season": 2026,
+  "notes": [
+    "Punctuated speech: the recognizer adds full stops, so every sentence starts with a",
+    "capital. A capital there is no evidence of a name.",
+    "'Great' and 'Cold' start sentences and are not roster words, so they are not names.",
+    "Before the fix they fuzzy-matched Grant and Col and were pre-checked.",
+    "'Colin' also starts a sentence, but the nickname table knows it -> 'Col'.",
+    "'Cold' follows the guest clause and must not become a guest name either.",
+    "'Tony' is one letter from 'Toby'. A short near-miss is a suggestion, never a pre-check."
+  ],
+  "names": ["Col", "Sam"],
+  "plusOnes": 1,
+  "distanceKm": 8.7,
+  "guestNames": [],
+  "ambiguous": [],
+  "unmatchedRaw": ["Tony"]
+}

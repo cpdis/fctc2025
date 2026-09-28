@@ -33,9 +33,12 @@ public struct PollLineScanner: Sendable {
         "both", "either", "neither", "in", "out",
     ]
 
-    /// Options that do NOT mean "coming". Everything else (Yes, a day name) does.
-    static let negativeLabels: Set<String> = [
+    /// Words that make an option mean "not coming". An option with none of them
+    /// (Yes, a day name) is affirmative. Contractions are written without the
+    /// apostrophe, the way `isAffirmative` folds them ("Can't" → "cant").
+    static let negativeWords: Set<String> = [
         "no", "nope", "maybe", "unsure", "neither", "out", "cant", "cannot", "sorry",
+        "not", "wont",
     ]
 
     /// Whole lines that are always WhatsApp chrome, wherever they appear.
@@ -183,9 +186,13 @@ public struct PollLineScanner: Sendable {
         return true
     }
 
-    /// Does a vote for this option mean "I'm coming"?
+    /// Does a vote for this option mean "I'm coming"? Affirmative voters are
+    /// pre-checked, so this fails closed: ONE negative word anywhere in the label
+    /// ("Can't make it", "Sorry, no") makes the whole option negative. Apostrophes
+    /// go first, or normalization would split "Can't" into "can t" and miss "cant".
     static func isAffirmative(_ label: String) -> Bool {
-        !negativeLabels.contains(NormalizedName(label).core)
+        let words = NormalizedName(label.filter { $0 != "'" && $0 != "’" }).tokens
+        return !words.contains(where: negativeWords.contains)
     }
 
     /// Strip symbols (✓) and edge punctuation from one word or line.

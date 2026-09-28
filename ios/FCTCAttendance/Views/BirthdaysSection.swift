@@ -49,6 +49,9 @@ struct BirthdaysSection: View {
 private struct BirthdayRow: View {
     let birthday: UpcomingBirthday
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// Set on first appear so today's cake gives one small wiggle, not one per
+    /// return to Home.
+    @State private var celebrations = 0
 
     var body: some View {
         let layout = dynamicTypeSize.isAccessibilitySize
@@ -58,8 +61,15 @@ private struct BirthdayRow: View {
             Text(birthday.name)
             if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
             VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 2) {
-                Text(relativeDay)
-                    .foregroundStyle(birthday.daysUntil == 0 ? Color.accentColor : .secondary)
+                if birthday.daysUntil == 0 {
+                    Label("Today", systemImage: "birthday.cake.fill")
+                        .foregroundStyle(Color.accentColor)
+                        .symbolEffect(.wiggle, value: celebrations)
+                        .onAppear { if celebrations == 0 { celebrations = 1 } }
+                } else {
+                    Text(relativeDay)
+                        .foregroundStyle(.secondary)
+                }
                 Text(recordedDate)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -68,21 +78,18 @@ private struct BirthdayRow: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// Future days only; today renders as the cake label above.
     private var relativeDay: String {
-        switch birthday.daysUntil {
-        case 0: "Today"
-        case 1: "Tomorrow"
-        default: "In \(birthday.daysUntil) days"
-        }
+        birthday.daysUntil == 1 ? "Tomorrow" : "In \(birthday.daysUntil) days"
     }
 
     private var recordedDate: String {
         // Leap-year reference preserves the recorded 29 Feb on non-leap years.
         let date = BirthdayBoard.calendar.date(from: DateComponents(year: 2000, month: birthday.month, day: birthday.day))!
-        let formatter = DateFormatter()
-        formatter.calendar = BirthdayBoard.calendar
-        formatter.timeZone = BirthdayBoard.calendar.timeZone
-        formatter.setLocalizedDateFormatFromTemplate("dMMM")
-        return formatter.string(from: date)
+        // A value-type format style: no DateFormatter built on every body pass.
+        let style = Date.FormatStyle(calendar: BirthdayBoard.calendar, timeZone: BirthdayBoard.calendar.timeZone)
+            .day()
+            .month(.abbreviated)
+        return date.formatted(style)
     }
 }

@@ -17,6 +17,8 @@ public final class HomeViewModel {
     public private(set) var syncBanner: SyncBanner?
     public private(set) var isInitialLoading = false
     public private(set) var initialLoadFailed = false
+    /// True while the engine drains, so the Unsynced tile can show real work.
+    public private(set) var isSyncing = false
 
     public var lastSyncMessage: String? { syncBanner?.message }
 
@@ -40,6 +42,7 @@ public final class HomeViewModel {
         syncBanner = nil
         isInitialLoading = false
         initialLoadFailed = false
+        isSyncing = false
         observeEvents()
     }
 
@@ -124,6 +127,8 @@ public final class HomeViewModel {
                 syncBanner = SyncBanner(kind: .authentication, message: UserFacingError.authentication)
             case .failed(_, let message), .serviceFailed(let message):
                 syncBanner = SyncBanner(kind: .error, message: message)
+            case .syncActivity(let isActive):
+                isSyncing = isActive
             case .queued, .rosterRefreshed:
                 break
             }

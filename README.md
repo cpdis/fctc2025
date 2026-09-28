@@ -320,6 +320,12 @@ The **Attendance** heading shows the number of checked members across the full
 draft, even during a search. When guests are present, a second line shows the total
 people, including named and unnamed guests. Both counts update as the draft changes.
 
+Screenshot and voice entry pre-check a member only on a sure match: an exact name, a
+nickname, or one wrong letter in a name of seven or more letters. A close but different
+name, such as "Tony" for `Toby`, is only a suggestion. Voice entry ignores a word at the
+start of a sentence unless it is a roster name or a nickname. A poll option with a
+negative word, such as "Can't make it", pre-checks nobody.
+
 The **Birthdays** section follows Milestones. It shows today through 30 days ahead,
 ordered by days remaining then name, using Perth calendar dates. The sheet's
 `BIRTHDAY` row supplies day and month; no birth year or age is stored. A 29 February
@@ -337,6 +343,28 @@ correction. Choose **Save name** or **Keep saved name**. Pending changes stay in
 Outbox until their original save is confirmed. A queued change shows its saved
 error. Delayed reads cannot replace a newer confirmed guest name.
 
+Motion comes from one shared vocabulary in `ios/FCTCAttendance/Views/Motion.swift`.
+Frequent actions such as checks and counts get fast, quiet feedback. Rare moments,
+such as the first Home appearance, may take longer. Reduce Motion keeps fades and
+color changes and removes travel and scale.
+
+While a sync runs, the Outbox shows the system spinner in place of Retry and beside
+each row it is sending or checking, and the Home **Unsynced** tile turns its arrows.
+The signal comes from the sync engine itself, so it covers automatic syncs after a
+confirm as well as a manual Retry. A row whose last send had an unknown outcome reads
+"Checking saved changes" until the next sync checks its receipt.
+
+For a visual before/after review, run the
+opt-in screen tour. It visits each main screen with synthetic data and attaches one
+screenshot per screen:
+
+```bash
+cd ios && TEST_RUNNER_FCTC_SCREEN_TOUR=1 xcodebuild test -project FCTCAttendance.xcodeproj -scheme FCTCAttendance -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:FCTCAttendanceUITests/ScreenTourUITests -resultBundlePath ../review/tour.xcresult
+```
+
+Export the shots with `xcrun xcresulttool export attachments --path ../review/tour.xcresult --output-path ../review/tour`.
+The default test run skips the tour.
+
 A birthday row below the attendance header does not count as a run. Keep its Date
 cell blank. Shared run IDs follow row insertions; older connections ask for a
 refresh if their saved row coordinate no longer matches the run.
@@ -346,9 +374,13 @@ production Apps Script deployment ID and update it with `clasp deploy -i`; a pla
 deploy changes the phone endpoint. Generate private setup pages with
 `apps-script/make-setup-qr.js`. The code is a `fctc-attendance://setup?…` link the app
 claims, so scanning it with the iPhone Camera opens the app and asks the person to
-confirm the endpoint before connecting. The app validates HTTPS setup payloads and
-stores the shared secret in Keychain. For a new season, add the sheet tab and change the
-`SEASON_SHEET_NAME` script property; each phone refreshes itself through `getState`.
+confirm before connecting. Every Apps Script endpoint shares one host, so the prompt
+shows the deployment ID (for example `AKfy…x9Qc`) and the device name. If the code
+points at a different sheet, the prompt says it replaces the current connection and
+counts the waiting submissions that stay in Outbox for review. The app validates
+HTTPS setup payloads and stores the shared secret in Keychain. For a new season, add
+the sheet tab and change the `SEASON_SHEET_NAME` script property; each phone refreshes
+itself through `getState`.
 
 ## Deployment
 

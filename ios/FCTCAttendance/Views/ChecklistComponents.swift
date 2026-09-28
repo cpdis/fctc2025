@@ -9,6 +9,8 @@ struct MemberCheckRow: View {
     let stats: MemberStats
     let action: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var isChecked: Bool { provenance != nil }
 
     var body: some View {
@@ -25,11 +27,16 @@ struct MemberCheckRow: View {
 
                 if let provenance, provenance != .manual {
                     ProvenanceBadge(kind: ProvenanceBadgeKind(provenance))
+                        .transition(badgeTransition)
                 } else if isSuggested {
                     ProvenanceBadge(kind: .suggested)
+                        .transition(badgeTransition)
                 }
             }
             .contentShape(.rect)
+            // Applied suggestions settle their badges in place instead of popping.
+            .animation(Motion.snappy, value: provenance)
+            .animation(Motion.snappy, value: isSuggested)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
@@ -52,6 +59,10 @@ struct MemberCheckRow: View {
             }
             .disabled(true)
         }
+    }
+
+    private var badgeTransition: AnyTransition {
+        .settle(scale: 0.9, anchor: .trailing, reduceMotion: reduceMotion)
     }
 
     private var lastAttendedLabel: String {
@@ -81,22 +92,35 @@ struct ModalityButtonLabel: View {
     }
 }
 
+/// The Reminders-style check shared by the checklist and proposal triage.
+/// Organisers tap it dozens of times per run, so the motion stays under a
+/// quarter second and the filled state is legible from the first frame.
 struct CircularCheck: View {
     let isChecked: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
             Circle()
-                .fill(isChecked ? Color.accentColor : .clear)
+                .stroke(Color.secondary.opacity(0.45), lineWidth: 1.5)
+                .opacity(isChecked ? 0 : 1)
+            // The fill grows out from inside the ring, so a check lands like a
+            // press rather than a color swap.
             Circle()
-                .stroke(isChecked ? Color.accentColor : Color.secondary.opacity(0.45), lineWidth: 1.5)
-            if isChecked {
-                Image(systemName: "checkmark")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
-            }
+                .fill(Color.accentColor)
+                .scaleEffect(isChecked || reduceMotion ? 1 : 0.4)
+                .opacity(isChecked ? 1 : 0)
+            // Checking draws the tick on and unchecking wipes it off. The
+            // opacity keeps the tick hidden if a symbol lacks draw data.
+            Image(systemName: "checkmark")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .symbolEffect(.drawOff, options: .speed(1.8), isActive: !isChecked)
+                .opacity(isChecked ? 1 : 0)
         }
         .frame(width: 24, height: 24)
+        .animation(Motion.snappy, value: isChecked)
         .accessibilityHidden(true)
     }
 }

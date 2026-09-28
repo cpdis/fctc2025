@@ -12,6 +12,9 @@ public final class OutboxViewModel {
     public private(set) var isResolving = false
     public private(set) var errorMessage: String?
     public private(set) var syncBanner: SyncBanner?
+    /// True while the engine is draining, whether a Retry or an automatic drain
+    /// started it. The only honest source for a "working" indicator.
+    public private(set) var isSyncing = false
 
     @ObservationIgnored private var engine: any SyncEngineClient
     @ObservationIgnored private let eventMonitor = SyncEventMonitor()
@@ -23,6 +26,8 @@ public final class OutboxViewModel {
 
     public func replaceEngine(_ engine: any SyncEngineClient) {
         self.engine = engine
+        // The old engine's drain no longer matters; the new one replays its own.
+        isSyncing = false
         observeEvents()
     }
 
@@ -102,6 +107,8 @@ public final class OutboxViewModel {
             case .written:
                 self?.errorMessage = nil
                 self?.syncBanner = nil
+            case .syncActivity(let isActive):
+                self?.isSyncing = isActive
             case .queued, .rosterRefreshed:
                 break
             }

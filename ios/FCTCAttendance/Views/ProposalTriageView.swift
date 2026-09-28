@@ -208,7 +208,7 @@ struct ProposalTriageView: View {
             }
         } label: {
             HStack(spacing: 12) {
-                TriageCheck(isChecked: selected)
+                CircularCheck(isChecked: selected)
                 MemberAvatarView(name: selections[proposal.id] ?? proposal.raw)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(selections[proposal.id] ?? proposal.raw)
@@ -338,6 +338,10 @@ struct ProposalTriageView: View {
             HStack {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(selected ? Color.accentColor : Color.secondary)
+                    // The radio morphs between states, so moving a choice from
+                    // one candidate to another reads as one motion.
+                    .contentTransition(.symbolEffect(.replace))
+                    .animation(Motion.snappy, value: selected)
                 MemberAvatarView(name: candidate)
                 Text(title)
                     .foregroundStyle(.primary)
@@ -364,6 +368,8 @@ struct ProposalTriageView: View {
                 systemImage: selections[proposal.id] == nil ? "minus.circle.fill" : "minus.circle"
             )
             .foregroundStyle(.secondary)
+            .contentTransition(.symbolEffect(.replace))
+            .animation(Motion.snappy, value: selections[proposal.id] == nil)
         }
         .buttonStyle(.plain)
         .disabled(selections[proposal.id] == nil && !guestProposalIDs.contains(proposal.id))
@@ -424,28 +430,5 @@ private struct ProposalBuckets {
                 suggestions.append(proposal)
             }
         }
-    }
-}
-
-private struct TriageCheck: View {
-    let isChecked: Bool
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(isChecked ? Color.accentColor : .clear)
-            Circle()
-                .stroke(
-                    isChecked ? Color.accentColor : Color.secondary.opacity(0.45),
-                    lineWidth: 1.5
-                )
-            if isChecked {
-                Image(systemName: "checkmark")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
-            }
-        }
-        .frame(width: 24, height: 24)
-        .accessibilityHidden(true)
     }
 }

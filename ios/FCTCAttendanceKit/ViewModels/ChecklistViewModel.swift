@@ -331,7 +331,7 @@ public final class ChecklistViewModel {
                 self?.errorMessage = UserFacingError.conflict
             case .authenticationRequired:
                 self?.errorMessage = UserFacingError.authentication
-            case .queued, .written, .rosterRefreshed:
+            case .queued, .written, .rosterRefreshed, .syncActivity:
                 break
             }
         }

@@ -1,0 +1,19 @@
+Ticks draw themselves and the counters now roll,
+The Outbox now spins while it syncs to its goal.
+Say "Great!" in dictation, and Grant stays unticked,
+For names that sound close now wait to be picked.
+
+Filament Coffee Track Club — motion, sync status and safer names
+
+Private build for Colin. Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on the phone.
+
+Please check:
+• Home: the title, tiles and Today card slide in once. Tap a tile: it presses down and zooms into This Week or the Outbox.
+• Checklist: ticks fill and draw themselves, and the count rolls. Import Poll and Dictate press down.
+• Outbox: tap Retry while items wait. A spinner replaces Retry and shows beside each row being sent. The Unsynced arrows on Home turn during a sync.
+• Dictate "Great run today. Aaron came." Only Aaron is ticked.
+• Close names such as Tony and Toby are suggestions, not ticks. Voters for a "Can't" poll option are not ticked.
+• Settings: the version and build show at the bottom. The accent and icon rings slide.
+• A setup link now names the sheet and says Update or Replace before it changes anything.
+
+Share feedback through TestFlight.

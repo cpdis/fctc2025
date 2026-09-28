@@ -121,8 +121,10 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
             return
         }
         isDraining = true
+        eventBroadcaster.setActivity(true)
         defer {
             isDraining = false
+            eventBroadcaster.setActivity(false)
             if drainRequested {
                 drainRequested = false
                 scheduleDrain(force: true)

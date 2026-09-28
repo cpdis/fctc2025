@@ -15,6 +15,9 @@ struct SettingsView: View {
     @State private var viewModel: SettingsViewModel
     @State private var showingSetupScanner = false
     @State private var currentAlternateIcon: String?
+    /// The selection rings slide between choices rather than jumping.
+    @Namespace private var selectionRing
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(runtime: AppRuntime, configurationRequired: Bool = false) {
         self.runtime = runtime
@@ -134,6 +137,14 @@ struct SettingsView: View {
                         .foregroundStyle(.green)
                 }
             }
+
+            // Always last, so it sits at the bottom of the form.
+            Section {} footer: {
+                Text(appVersion)
+                    .monospacedDigit()
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("settings-app-version")
+            }
         }
         .navigationTitle(configurationRequired ? "Set Up FCTC" : "Settings")
         .navigationBarTitleDisplayMode(configurationRequired ? .large : .inline)
@@ -174,7 +185,7 @@ struct SettingsView: View {
         let selected = currentAlternateIcon == assetName
         return Button {
             UIApplication.shared.setAlternateIconName(assetName)
-            currentAlternateIcon = assetName
+            withAnimation(Motion.snappy) { currentAlternateIcon = assetName }
         } label: {
             VStack(spacing: 6) {
                 Image(preview)
@@ -186,6 +197,7 @@ struct SettingsView: View {
                         if selected {
                             RoundedRectangle(cornerRadius: 12)
                                 .strokeBorder(.tint, lineWidth: 3)
+                                .matchedGeometryEffect(id: ringID("app-icon", title), in: selectionRing)
                         }
                     }
                 Text(title)
@@ -206,7 +218,8 @@ struct SettingsView: View {
         HStack(spacing: 0) {
             ForEach(AccentChoice.allCases, id: \.self) { choice in
                 Button {
-                    runtime.setAccent(choice)
+                    // Animating the choice also eases the app-wide tint change.
+                    withAnimation(Motion.snappy) { runtime.setAccent(choice) }
                 } label: {
                     ZStack {
                         Circle()
@@ -216,6 +229,7 @@ struct SettingsView: View {
                             Circle()
                                 .strokeBorder(.primary.opacity(0.35), lineWidth: 2.5)
                                 .frame(width: 36, height: 36)
+                                .matchedGeometryEffect(id: ringID("accent", choice.rawValue), in: selectionRing)
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -228,6 +242,21 @@ struct SettingsView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    /// One shared id lets a ring slide to the new choice. Under Reduce Motion
+    /// each choice gets its own id, so nothing matches and the rings cross-fade.
+    private func ringID(_ group: String, _ choice: String) -> String {
+        reduceMotion ? "\(group)-\(choice)" : group
+    }
+
+    /// "Version 0.1.0 (6)": the marketing version and build, so a TestFlight
+    /// report names the exact build.
+    private var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "Unknown"
+        let build = info?["CFBundleVersion"] as? String ?? "Unknown"
+        return "Version \(version) (\(build))"
     }
 
     private func save() {

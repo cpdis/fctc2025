@@ -117,19 +117,20 @@ struct RunPickerView: View {
                 }
                 .accessibilityIdentifier("add-run")
             }
-        }
-        .safeAreaInset(edge: .bottom) {
+            // Search and the one primary action share the bottom glass toolbar,
+            // per the HIG: search at the bottom, a single prominent action on the
+            // trailing side. The Default badge marks which run Review opens.
+            DefaultToolbarItem(kind: .search, placement: .bottomBar)
             if let selected = viewModel.selectedRun {
-                NavigationLink(value: HomeRoute.checklist(selected, .standard)) {
-                    Label("Review \(selected.date)", systemImage: "checklist")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
+                ToolbarSpacer(.fixed, placement: .bottomBar)
+                ToolbarItem(placement: .bottomBar) {
+                    NavigationLink(value: HomeRoute.checklist(selected, .standard)) {
+                        Text("Review")
+                    }
+                    .buttonStyle(.glassProminent)
+                    .accessibilityLabel("Review \(selected.date)")
+                    .accessibilityIdentifier("review-default-run")
                 }
-                .buttonStyle(.borderedProminent)
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .background(.bar)
-                .accessibilityIdentifier("review-default-run")
             }
         }
         .sheet(isPresented: $showingAddRun) {
@@ -183,16 +184,16 @@ private struct RunRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            // Status follows the date it describes. At the trailing edge it sat on
+            // the first line while the chevron centres on the row, so the two never
+            // lined up; centred there, it squeezed the detail line onto two lines.
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(run.date)
                     .font(.headline)
-                Spacer(minLength: 8)
                 if run.hasRecordedAttendance {
-                    Label("Recorded", systemImage: "checkmark.circle.fill")
-                        .font(.caption)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.subheadline)
                         .foregroundStyle(.green)
-                        .labelStyle(.iconOnly)
-                        .accessibilityLabel("Attendance recorded")
                 } else if isDefault {
                     Text("Default")
                         .font(.caption.weight(.medium))

@@ -106,6 +106,18 @@ function guestReadStore_() {
       attendance.forEach(function (a) {
         if (guestRunKey(a) === guestRunKey(identity) && a.state === 'present' && a.classification === 'guest' && named.indexOf(a.guestId) < 0) named.push(a.guestId);
       });
+      // Direct sheet edits can move a guest into a member column while leaving
+      // their shared record unchanged. Diagnose the stored row, not the phone's
+      // request. Never infer a promotion from a name or silently add headcount.
+      if (run.plusOnes < named.length) {
+        var names = guests.filter(function (g) { return named.indexOf(g.guestId) >= 0; })
+          .map(function (g) { return g.displayName; });
+        guestFail_('invalid_allocation', ctx.seasonYear + ' ' + run.date + ' ' + run.run + ' (row ' + run.rowIndex +
+          "): +1's is " + run.plusOnes + ', but saved named guests total ' + named.length + ' (' + names.join(', ') +
+          '). Ask the organiser to reconcile the guest records with the sheet.', Object.assign({}, identity, {
+            rowIndex: run.rowIndex, plusOnes: run.plusOnes, namedGuestCount: named.length
+          }));
+      }
       var allocation = guestRequire_(GuestOps.validateAllocation({ namedGuestIds: named, unnamedGuests: run.plusOnes - named.length }, guests));
       return Object.assign({}, run, identity, allocation.allocation, { seasonYear: ctx.seasonYear });
     });

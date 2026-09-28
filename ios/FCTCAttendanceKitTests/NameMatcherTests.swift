@@ -194,6 +194,56 @@ struct NameMatcherRuleTests {
         #expect(candidates == ["Dan", "Dan B"])
     }
 
+    /// Different people and plain words one or two letters away from a short roster
+    /// name. Jaro-Winkler scores all of these at 0.85 or more, so they used to be
+    /// pre-checked. Each must now reach the organiser as a suggestion instead.
+    @Test("A near-miss on a short name is only suggested, never pre-checked", arguments: [
+        ("Tony", "Toby"),
+        ("Tony Smith", "Toby"),
+        ("Anne", "Anna"),
+        ("Rowan", "Rohan"),
+        ("Jake", "Jack"),
+        ("Shaun", "Shane"),
+        ("Great", "Grant"),
+        ("Cold", "Col"),
+        ("Cool", "Col"),
+        ("Same", "Sam"),
+        ("Calm", "Cam"),
+        ("Camp", "Cam"),
+        ("Cott", "Scott"),
+    ])
+    func shortNearMisses(raw: String, nearest: String) {
+        let match = Self.matcher.match(raw)
+        #expect(match.autoCheckName == nil, "\(raw) must not pre-check \(nearest)")
+        #expect(match.needsHuman)
+        #expect(match.offeredNames.contains(nearest), "\(raw) should still offer \(nearest)")
+    }
+
+    @Test("A near-miss that sits between two roster names is a suggestion list, not a pick")
+    func fuzzyClusterIsNotACollision() {
+        guard case .unmatched(let suggestions) = Self.matcher.match("Dang") else {
+            Issue.record("Dang has no exact evidence for either Dan, so it must not ask for a pick")
+            return
+        }
+        #expect(suggestions == ["Dan", "Dan B"])
+    }
+
+    @Test("Only exact roster words are recognized without fuzzy help", arguments: [
+        ("Sam", true),
+        ("sam", true),
+        ("Kate", true),     // first name of `Kate B`
+        ("Alex", true),     // first name shared by three members
+        ("Colin", true),    // nickname table
+        ("Deano", true),
+        ("Great", false),
+        ("Cold", false),
+        ("Tony", false),
+        ("", false),
+    ])
+    func recognizesExactWords(word: String, expected: Bool) {
+        #expect(Self.matcher.recognizes(word) == expected)
+    }
+
     @Test("Nothing outside the roster is ever pre-checked", arguments: [
         "Priya B", "Priya", "Zeb", "Bartholomew", "",
     ])
@@ -230,6 +280,16 @@ struct NameMatcherRuleTests {
         #expect(score <= 1.0)
     }
 
+    @Test("One slip in a long name still pre-checks, one slip in a short name does not")
+    func editEvidenceScalesWithLength() {
+        // "tarquln" → "tarquin": 1 edit in 7 letters, normalized Levenshtein 0.857.
+        #expect(Self.matcher.match("Tarquln").autoCheckName == "Tarquin")
+        // "clalre" → "claire": 1 edit in 6 letters, 0.833. Suggested, not pre-checked.
+        let sixLetters = Self.matcher.match("Clalre")
+        #expect(sixLetters.autoCheckName == nil)
+        #expect(sixLetters.offeredNames == ["Claire"])
+    }
+
     @Test("An empty roster can never produce a match or a suggestion")
     func emptyRoster() {
         let empty = NameMatcher(roster: [])
@@ -258,7 +318,9 @@ struct NameMatcherRuleTests {
     func customNicknames() {
         let matcher = NameMatcher(roster: Roster.season2026, nicknames: ["chartreuse": "Chartt"])
         #expect(matcher.match("Chartreuse").autoCheckName == "Chartt")
-        // …and the built-in mappings are gone when you replace the table.
-        #expect(matcher.match("Colin").autoCheckName == "Col")
+        // …and the built-in mappings are gone when you replace the table: without
+        // "colin" → `Col`, a long form is only a near-miss, so it is suggested.
+        #expect(matcher.match("Colin").autoCheckName == nil)
+        #expect(matcher.match("Colin").offeredNames == ["Col"])
     }
 }

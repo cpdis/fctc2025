@@ -147,16 +147,23 @@ struct VoiceEntryView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 30)
             .frame(maxWidth: .infinity)
+            // Permission, processing, and failure states cross-fade rather
+            // than cut, since each swap replaces most of the screen.
+            .animation(Motion.crossFade, value: viewModel.phase)
         }
         .navigationTitle("Dictate Attendance")
         .navigationBarTitleDisplayMode(.inline)
     }
+
+    private var isRecording: Bool { viewModel.phase == .recording }
 
     private var header: some View {
         VStack(spacing: 8) {
             Image(systemName: "waveform.circle.fill")
                 .font(.system(size: 52))
                 .foregroundStyle(.tint)
+                // The waveform ripples only while the microphone is live.
+                .symbolEffect(.variableColor.iterative, options: .repeating, isActive: isRecording)
                 .accessibilityHidden(true)
             Text("Say who ran")
                 .font(.title2.weight(.semibold))
@@ -175,10 +182,12 @@ struct VoiceEntryView: View {
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 Spacer()
-                if viewModel.phase == .recording {
-                    Circle()
-                        .fill(.red)
-                        .frame(width: 8, height: 8)
+                if isRecording {
+                    Image(systemName: "circle.fill")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.red)
+                        .symbolEffect(.pulse, options: .repeating)
+                        .transition(.opacity)
                         .accessibilityLabel("Recording")
                 }
             }
@@ -227,17 +236,22 @@ struct VoiceEntryView: View {
             }
         } label: {
             ZStack {
+                if isRecording {
+                    RecordingPulse()
+                }
                 Circle()
-                    .fill(viewModel.phase == .recording ? Color.red : Color.accentColor)
+                    .fill(isRecording ? Color.red : Color.accentColor)
                     .frame(width: 104, height: 104)
                     .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
-                Image(systemName: viewModel.phase == .recording ? "stop.fill" : "mic.fill")
+                Image(systemName: isRecording ? "stop.fill" : "mic.fill")
                     .font(.system(size: 38, weight: .semibold))
                     .foregroundStyle(.white)
+                    .contentTransition(.symbolEffect(.replace))
             }
+            .animation(Motion.snappy, value: isRecording)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(viewModel.phase == .recording ? "Stop recording" : recordLabel)
+        .buttonStyle(PressableButtonStyle(pressedScale: 0.94))
+        .accessibilityLabel(isRecording ? "Stop recording" : recordLabel)
         .accessibilityIdentifier("voice-record")
     }
 
@@ -246,7 +260,10 @@ struct VoiceEntryView: View {
     }
 
     private var highlightedTranscript: Text {
-        let tokens = VoiceTranscriptAnnotator().annotate(viewModel.transcript)
+        let tokens = VoiceTranscriptAnnotator().annotate(
+            viewModel.transcript,
+            roster: viewModel.roster
+        )
         var transcript = AttributedString()
         for entry in tokens.enumerated() {
             let suffix = entry.offset == tokens.count - 1 ? "" : " "
@@ -307,6 +324,36 @@ struct VoiceEntryView: View {
             } catch {
                 addPersonError = UserFacingError.sync(error)
             }
+        }
+    }
+}
+
+/// A ring that radiates from the record button while the microphone is live.
+/// Continuous motion earns its place here: it is the "still listening" signal,
+/// and it stops the moment recording does. Reduce Motion gets a steady halo.
+private struct RecordingPulse: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        if reduceMotion {
+            // Laid out at the button's size and scaled up, so the halo never
+            // grows the stack and shifts the button when recording starts.
+            Circle()
+                .fill(Color.red.opacity(0.18))
+                .frame(width: 104, height: 104)
+                .scaleEffect(124.0 / 104.0)
+        } else {
+            Circle()
+                .stroke(Color.red.opacity(0.5), lineWidth: 3)
+                .frame(width: 104, height: 104)
+                // Expand and fade out, then snap back unseen and repeat.
+                .phaseAnimator([false, true]) { ring, expanded in
+                    ring
+                        .scaleEffect(expanded ? 1.5 : 1)
+                        .opacity(expanded ? 0 : 1)
+                } animation: { expanded in
+                    expanded ? .easeOut(duration: 1.3) : nil
+                }
         }
     }
 }

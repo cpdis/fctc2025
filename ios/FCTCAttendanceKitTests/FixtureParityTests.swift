@@ -69,6 +69,8 @@ struct PollFixtureParityTests {
     }
 }
 
+/// Voice scans get the roster, as they do in the app: it vouches for sentence-initial
+/// words, which speech punctuation always capitalises.
 @Suite("Fixture parity — voice transcripts")
 struct VoiceFixtureParityTests {
 
@@ -76,7 +78,7 @@ struct VoiceFixtureParityTests {
     func parses(stem: String) throws {
         let expected = try Fixtures.expected(stem)
         let transcript = try Fixtures.text("\(stem).transcript.txt")
-        let entities = VoiceTranscriptScanner().scan(transcript: transcript)
+        let entities = VoiceTranscriptScanner().scan(transcript: transcript, roster: Roster.season2026)
 
         #expect(expected.kind == "voice-transcript")
         #expect(entities.plusOnes == expected.plusOnes)
@@ -93,7 +95,7 @@ struct VoiceFixtureParityTests {
     func matches(stem: String) throws {
         let expected = try Fixtures.expected(stem)
         let transcript = try Fixtures.text("\(stem).transcript.txt")
-        let entities = VoiceTranscriptScanner().scan(transcript: transcript)
+        let entities = VoiceTranscriptScanner().scan(transcript: transcript, roster: Roster.season2026)
         let outcome = Roster.matcher.outcome(for: entities.names)
 
         #expect(Set(outcome.matched) == Set(expected.names))
@@ -106,7 +108,7 @@ struct VoiceFixtureParityTests {
     func guestsAreNotRosterNames(stem: String) throws {
         let expected = try Fixtures.expected(stem)
         let transcript = try Fixtures.text("\(stem).transcript.txt")
-        let entities = VoiceTranscriptScanner().scan(transcript: transcript)
+        let entities = VoiceTranscriptScanner().scan(transcript: transcript, roster: Roster.season2026)
 
         for guest in expected.guestNames ?? [] {
             #expect(!entities.names.contains(guest))

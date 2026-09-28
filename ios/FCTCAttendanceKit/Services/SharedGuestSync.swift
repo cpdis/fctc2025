@@ -108,8 +108,12 @@ extension SyncEngine {
             let replacement = try saveGuestOperation(operation, state: state)
             provisional.operationId = replacement.id; old.phase = .superseded
         }
-        // No operation bytes exist until identity dependencies are resolved.
-        for pending in try modelContext.fetch(FetchDescriptor<PendingSubmission>()) where pending.namedGuestIds?.contains(provisionalId) == true && pending.sharedOperationData == nil {
+        // Resume only rows that `resolveDependencies` parked on this identity.
+        // Discarded or superseded rows keep their guest IDs as history, but
+        // `.done` is final. No operation bytes exist until the park is lifted.
+        for pending in try modelContext.fetch(FetchDescriptor<PendingSubmission>())
+        where pending.status == .conflict && pending.conflictReason == "identity_ambiguous"
+            && pending.namedGuestIds?.contains(provisionalId) == true && pending.sharedOperationData == nil {
             pending.status = .queued; pending.lastError = nil; pending.clearConflict()
         }
         try modelContext.save(); startAutomaticDrainIfNeeded()

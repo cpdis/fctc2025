@@ -47,7 +47,7 @@ public struct HeuristicExtractor: NameExtractor {
     public func extract(text: String, context: ExtractionContext = .voice) -> ExtractionResult {
         switch context.mode {
         case .voice:
-            let entities = voice.scan(transcript: text)
+            let entities = voice.scan(transcript: text, roster: context.roster)
             return ExtractionResult(
                 entities: entities,
                 warnings: entities.isEmpty ? [.nothingFound] : [],

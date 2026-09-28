@@ -9,7 +9,6 @@
 
 import CoreGraphics
 import FCTCAttendanceKit
-import ImageIO
 import PhotosUI
 import SwiftUI
 import UIKit
@@ -26,6 +25,7 @@ struct ScreenshotImportView: View {
     let onCancel: () -> Void
 
     @AppStorage(Self.coachPreferenceKey) private var hideCoach = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingCoach: Bool
     @State private var doNotShowAgain = true
     @State private var pickerItems: [PhotosPickerItem] = []
@@ -42,6 +42,7 @@ struct ScreenshotImportView: View {
     @State private var recognitionTask: Task<Void, Never>?
     @State private var photoLoadGeneration = UUID()
     @State private var recognitionGeneration = UUID()
+    @State private var coachHasEntered = false
 
     init(
         roster: [String],
@@ -116,18 +117,22 @@ struct ScreenshotImportView: View {
                             .multilineTextAlignment(.center)
                     }
 
+                    // The steps arrive in reading order: the coach is seen
+                    // rarely, so a short stagger costs nothing.
                     CoachStep(
                         number: 1,
                         symbol: "hand.tap",
                         title: "Open the poll",
                         detail: "Tap View votes to open the voter list."
                     )
+                    .staggeredEntrance(1, hasEntered: coachHasEntered)
                     CoachStep(
                         number: 2,
                         symbol: "camera.viewfinder",
                         title: "Screenshot the list",
                         detail: "Take several screenshots when the names do not fit on one screen."
                     )
+                    .staggeredEntrance(2, hasEntered: coachHasEntered)
 
                     Toggle("Don't show again", isOn: $doNotShowAgain)
                         .padding(.top, 4)
@@ -145,6 +150,7 @@ struct ScreenshotImportView: View {
             }
             .navigationTitle("Import a poll")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear { coachHasEntered = true }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancel)
@@ -197,8 +203,10 @@ struct ScreenshotImportView: View {
                                                 .stroke(Color(uiColor: .separator), lineWidth: 0.5)
                                         }
                                         .accessibilityLabel("Selected screenshot")
+                                        .transition(.settle(scale: 0.92, reduceMotion: reduceMotion))
                                 }
                             }
+                            .animation(Motion.snappy, value: displayedScreenshots.map(\.id))
                         }
                         .scrollIndicators(.hidden)
 
@@ -209,6 +217,8 @@ struct ScreenshotImportView: View {
                                 HStack {
                                     ProgressView()
                                     Text("Reading \(recognizedCount) of \(screenshotCount)…")
+                                        .contentTransition(.numericText(value: Double(recognizedCount)))
+                                        .animation(Motion.snappy, value: recognizedCount)
                                 }
                                 .frame(maxWidth: .infinity)
                             } else {
@@ -397,78 +407,6 @@ struct ScreenshotImportView: View {
             guard recognitionGeneration == generation else { return }
             errorMessage = UserFacingError.screenshot(error)
         }
-    }
-}
-
-private struct ImportedScreenshot: Identifiable, @unchecked Sendable {
-    let id: UUID
-    let image: CGImage
-    let thumbnail: CGImage
-
-    init(image: CGImage, id: UUID = UUID()) {
-        self.id = id
-        self.image = image
-        thumbnail = (try? Self.resize(image, maximumDimension: 224)) ?? image
-    }
-
-    static func prepare(data: Data) async throws -> ImportedScreenshot {
-        try await Task.detached(priority: .userInitiated) {
-            try prepareSynchronously(data: data)
-        }.value
-    }
-
-    static func prepare(fileURL: URL) async throws -> ImportedScreenshot {
-        try await Task.detached(priority: .userInitiated) {
-            let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
-            return try prepareSynchronously(data: data)
-        }.value
-    }
-
-    private static func prepareSynchronously(data: Data) throws -> ImportedScreenshot {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let decoded = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-            throw ScreenshotImportError.unreadableImage
-        }
-        let prepared = try PollScreenshotParser.prepareForRecognition(decoded)
-        return ImportedScreenshot(image: prepared)
-    }
-
-    private static func resize(
-        _ image: CGImage,
-        maximumDimension: Int
-    ) throws -> CGImage {
-        let scale = min(
-            Double(maximumDimension) / Double(image.width),
-            Double(maximumDimension) / Double(image.height),
-            1
-        )
-        let width = max(1, Int((Double(image.width) * scale).rounded(.down)))
-        let height = max(1, Int((Double(image.height) * scale).rounded(.down)))
-        guard let context = CGContext(
-            data: nil,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else {
-            throw PollScreenshotParserError.imagePreparationFailed
-        }
-        context.interpolationQuality = .medium
-        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-        guard let thumbnail = context.makeImage() else {
-            throw PollScreenshotParserError.imagePreparationFailed
-        }
-        return thumbnail
-    }
-}
-
-private enum ScreenshotImportError: LocalizedError {
-    case unreadableImage
-
-    var errorDescription: String? {
-        "One selected screenshot could not be read."
     }
 }
 

@@ -4,12 +4,15 @@
 //
 //  U5 — normalization, fuzzy scoring, the nickname table and the ambiguity rule.
 //
-//  Contract (from the plan, unchanged since U1):
+//  Contract (from the plan):
 //   • The SHEET's short names are the canonical keys. The nickname table maps
 //     long-forms and OCR/ASR variants ONTO them ("Colin" → `Col`,
 //     "Alex Kravchenko" → `Alex Kr`), never the reverse.
 //   • Confidence tiers: ≥ autoCheck → check it; suggest…autoCheck → "did you mean…";
 //     below suggest → unmatched (offer add-as-new).
+//   • An auto-check silently marks a member present, so a fuzzy hit must clear the
+//     auto-check bar on EDIT DISTANCE, not just Jaro-Winkler. A near-miss on a short
+//     name (Tony/Toby, "Great"/Grant) is only ever a suggestion.
 //   • AMBIGUITY RULE (load-bearing): the 2026 roster has near-collisions
 //     (`Alex 👑` / `Alex B` / `Alex Kr`, `Dan` / `Dan B`, `Laura E` / `Laura K`).
 //     A first-name-only hit must return ALL candidates and auto-pick NONE.
@@ -22,7 +25,8 @@
 //   3. Exact key                             → matched   ("Dan B" → `Dan B`)
 //   4. Nickname redirect, then retry 1-3     → …         ("Colin" → "Col" → `Col`)
 //   5. Qualifier prefix                      → matched   ("Alex Kravchenko" → `Alex Kr`)
-//   6. Fuzzy scoring + the 0.1 ambiguity band
+//   6. Fuzzy scoring + the 0.1 ambiguity band (Jaro-Winkler may suggest; only
+//      normalized Levenshtein may auto-check — see `scoredMatch`)
 //
 
 import Foundation
@@ -66,7 +70,7 @@ extension NameMatch {
 
 public struct NameMatcher: Sendable {
 
-    /// Score at or above which a hit is pre-checked automatically.
+    /// Edit-distance score at or above which a fuzzy hit is pre-checked automatically.
     public static let autoCheckThreshold = 0.85
     /// Score at or above which a hit is offered as "did you mean…".
     public static let suggestThreshold = 0.60
@@ -96,6 +100,17 @@ public struct NameMatcher: Sendable {
     /// Resolve a batch, preserving input order. Convenience for the parsers.
     public func match(all raws: [String]) -> [(raw: String, match: NameMatch)] {
         raws.map { ($0, match($0)) }
+    }
+
+    /// True when one word names a member with no fuzzy help: a roster key ("Sam"),
+    /// a roster first name ("Kate" for `Kate B`) or a nickname key ("Colin").
+    /// The voice scanner uses this for sentence-initial words, where speech
+    /// punctuation makes the capital letter meaningless.
+    public func recognizes(_ word: String) -> Bool {
+        let core = NormalizedName(word).core
+        guard !core.isEmpty else { return false }
+        if nicknames[core] != nil { return true }
+        return normalizedRoster.contains { $0.core == core || $0.first == core }
     }
 
     /// The subset of `raws` that is safe to pre-check, deduped, in roster order.
@@ -159,18 +174,39 @@ public struct NameMatcher: Sendable {
         return scoredMatch(for: query)
     }
 
+    /// One roster name scored against the query over three channels (full name,
+    /// compacted name, first token), two ways.
+    private struct Scored {
+        let index: Int
+        /// Forgiving: Jaro-Winkler or edit distance, whichever is higher. It ranks
+        /// candidates and sets the suggestion tier.
+        let score: Double
+        /// Strict: normalized Levenshtein only. The ONLY score that can auto-check.
+        let evidence: Double
+    }
+
+    /// Why two scores: Jaro-Winkler's shared-prefix bonus makes DIFFERENT short names
+    /// look alike (Tony/Toby 0.87, Anne/Anna 0.88, "Great"/Grant 0.89, "Cold"/Col
+    /// 0.94). Edit distance at the same 0.85 bar allows one slip in a name of seven
+    /// or more letters ("Tarquln" → `Tarquin`) and none in a shorter one. So a short
+    /// name auto-checks only on an exact, compacted, first-token, nickname or
+    /// qualifier hit; a fuzzy near-miss is a suggestion the organiser reviews.
     private func scoredMatch(for query: NormalizedName) -> NameMatch {
-        var scored: [(index: Int, score: Double)] = []
+        var scored: [Scored] = []
         scored.reserveCapacity(normalizedRoster.count)
         for (index, candidate) in normalizedRoster.enumerated() {
-            let score = max(
-                StringDistance.similarity(query.core, candidate.core),
-                max(
-                    StringDistance.similarity(query.compact, candidate.compact),
-                    StringDistance.similarity(query.first, candidate.first)
-                )
-            )
-            scored.append((index, score))
+            let channels = [
+                (query.core, candidate.core),
+                (query.compact, candidate.compact),
+                (query.first, candidate.first),
+            ]
+            scored.append(Scored(
+                index: index,
+                score: channels.map { StringDistance.similarity($0, $1) }.max() ?? 0,
+                // `resolve` rejects an empty query, so no pair is empty-vs-empty
+                // (which normalizedLevenshtein would score 1).
+                evidence: channels.map { StringDistance.normalizedLevenshtein($0, $1) }.max() ?? 0
+            ))
         }
         // Highest score first; ties keep roster (sheet) order.
         scored.sort { lhs, rhs in
@@ -190,17 +226,19 @@ public struct NameMatcher: Sendable {
             .sorted { $0.index < $1.index }
             .map { roster[$0.index] }
 
+        let autoCheckStrength = top.evidence >= Self.autoCheckThreshold
+
         if contenders.count >= 2 {
             // A tight cluster at auto-check strength is a real collision: ask.
-            if top.score >= Self.autoCheckThreshold {
+            if autoCheckStrength {
                 return .ambiguous(candidates: contenders)
             }
-            // A tight cluster of weak scores is noise, not a collision: nothing is
-            // close enough to name, so offer add-as-new with the cluster as hints.
+            // A tight cluster without edit-distance evidence is noise, not a
+            // collision ("Dang" is neither Dan): offer the cluster as hints.
             return .unmatched(suggestions: Array(contenders.prefix(5)))
         }
 
-        if top.score >= Self.autoCheckThreshold {
+        if autoCheckStrength {
             return .matched(name: roster[top.index], score: top.score)
         }
         return .suggestion(name: roster[top.index], score: top.score)

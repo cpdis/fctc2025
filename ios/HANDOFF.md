@@ -1,5 +1,40 @@
 # iOS handoff
 
+## Private TestFlight build 8 (28 September 2026)
+
+- Version 0.1.0 build 8 from `release/testflight-build-7` (5858adb). It adds the
+  post-build-7 fixes: standard push from the Home tiles (zoom removed), a 44 pt
+  Settings gear, run status beside the date, and Review in the bottom toolbar
+  with search.
+- Build `ed201c2a-58b6-4c09-b71f-4095b6f25557` is VALID. It went to FCTC Internal
+  first, then Colin released it to FCTC Friends (Aaron and Grant). Beta App Review
+  is APPROVED; internal and external states are both `IN_BETA_TESTING`, with
+  automatic tester notification. FCTC External has no access.
+- The notes were rewritten for Aaron and Grant to cover every change since
+  build 6, their last build. They match `ios/testflight-build-8.txt`.
+- Verification: 365 tests, 364 passed, 1 skipped (screen tour), 0 failed. Archive
+  signed with Apple Distribution; app and share extension report 0.1.0 (8).
+
+## Private TestFlight build 7 (28 September 2026)
+
+- Version 0.1.0 build 7, built from local branch `release/testflight-build-7`.
+  It merges `ui-refinements` with `fix/discarded-submission-requeue`,
+  `fix/name-match-false-positives` and `fix/setup-link-deployment-id`.
+  Landed on `main` by pull request on 28 September 2026.
+- Build `dec0d81b-9b35-4828-9785-749570667a25` is VALID. Internal state is
+  `IN_BETA_TESTING`, and only FCTC Internal (Colin's two accounts) has it.
+  External state is `READY_FOR_BETA_SUBMISSION`, so FCTC Friends has no access.
+- Notes were set on build 7 by number, not by `testflight-notes.py`. That script
+  attaches every build to FCTC Friends and picks the latest upload, not an exact
+  build. The en-AU notes match `ios/testflight-build-7.txt`.
+- No schema, config-storage, entitlement or bundle change, so the update keeps the
+  sheet connection, saved guests and pending attendance.
+- Verification: 365 tests on the release branch (324 Kit, 41 UI); 364 passed,
+  1 skipped (the opt-in screen tour), 0 failed. Archive signed with Apple
+  Distribution; app and share extension both report 0.1.0 (7).
+- Build fix: `project.yml` now excludes `.impeccable` tool caches. Two caches in one
+  target had failed the build with "Multiple commands produce hook.cache.json".
+
 ## Shared guests (September 2026)
 
 Work is on `codex/shared-guest-attendance`. The September plan supersedes the old

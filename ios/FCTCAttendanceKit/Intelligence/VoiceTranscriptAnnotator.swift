@@ -29,11 +29,13 @@ public struct VoiceTranscriptAnnotator: Sendable {
         self.parser = parser
     }
 
-    public func annotate(_ transcript: String) -> [VoiceTranscriptToken] {
+    /// Pass the same roster the proposals use, so the highlight and the triage list
+    /// agree on which sentence-initial words are names.
+    public func annotate(_ transcript: String, roster: [String] = []) -> [VoiceTranscriptToken] {
         let tokens = VoiceTranscriptScanner.tokenize(transcript)
         guard !tokens.isEmpty else { return [] }
 
-        let entities = parser.parse(transcript: transcript)
+        let entities = parser.parse(transcript: transcript, roster: roster)
         var nameIndices = Set<Int>()
         for name in entities.names + entities.guestNames {
             let parts = NormalizedName(name).tokens
