@@ -4,7 +4,6 @@ import {
   YEAR_LIST,
   LATEST_YEAR,
   ALL_TIME,
-  YEAR_OPTIONS,
   clubWeekdays,
   isAllTime,
   resolveYear,
@@ -49,11 +48,6 @@ describe('years config', () => {
       expect(isAllTime(ALL_TIME)).toBe(true)
       expect(isAllTime(2025)).toBe(false)
       expect(isAllTime(LATEST_YEAR)).toBe(false)
-    })
-
-    it('YEAR_OPTIONS lists every year plus All time last', () => {
-      expect(YEAR_OPTIONS.map((o) => o.value)).toEqual([...YEAR_LIST, ALL_TIME])
-      expect(YEAR_OPTIONS[YEAR_OPTIONS.length - 1]).toEqual({ value: ALL_TIME, label: 'All time' })
     })
   })
 

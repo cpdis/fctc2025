@@ -11,6 +11,8 @@
    Rules here are unlayered, so they beat Tailwind's layered
    utilities. Keep them on poster class names, never bare elements,
    so they cannot restyle a Tailwind component inside the poster.
+   The one exception is the page around the poster: the body's
+   paper and the root's color-scheme, which sit outside it.
    ============================================================ */
 
 /* Same @fontsource packages as the hub, so Vite emits the files under
@@ -88,14 +90,26 @@
   --special-band: rgba(255, 210, 63, 0.14);
 }
 
-/* The page behind the poster (overscroll, safe areas) uses the same paper.
-   index.css paints body in Wrapped's cream otherwise. Values are --crema and
+/* ---- the page around the poster ----
+   The paper behind the poster (overscroll, safe areas, and the first paint
+   before React mounts) follows data-theme too. Wrapped paints its own navy
+   on body and html inline, so this never shows there. Values are --crema and
    --espresso, which live on .poster and so cannot be read up here. */
-body:has(.poster) {
+body {
   background: #faf4e6;
 }
-[data-theme="dark"] body:has(.poster) {
+[data-theme="dark"] body {
   background: #1c1410;
+}
+
+/* The root's color-scheme styles the page scrollbar and any native control
+   outside .poster. While the poster is on the page it follows data-theme, not
+   the OS; Wrapped keeps index.css's OS-driven "light dark". */
+:root:has(.poster) {
+  color-scheme: light;
+}
+:root[data-theme="dark"]:has(.poster) {
+  color-scheme: dark;
 }
 
 /* ---- type and layout utilities (the hub's global.css, dashboard sizes) ---- */
@@ -342,6 +356,33 @@ body:has(.poster) {
   justify-content: space-between;
   gap: 16px;
   padding-block: 28px;
+}
+
+/* ---- full-page status: App's loading and error screens ----
+   The loader is a short sock stripe that stretches and shrinks about its
+   centre; it holds still when motion is reduced. */
+.poster.status-page {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: 24px clamp(16px, 4vw, 48px);
+  text-align: center;
+}
+.poster.status-page h1 {
+  font-size: clamp(44px, 8vw, 88px);
+}
+.poster.status-page .stripe {
+  width: 160px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .poster.status-page .stripe {
+    animation: poster-load 0.9s ease-in-out infinite alternate;
+  }
+}
+@keyframes poster-load {
+  from { transform: scaleX(0.2); }
+  to { transform: scaleX(1); }
 }
 
 /* ---- tooltip: one shared chart tooltip, fixed to the viewport ---- */

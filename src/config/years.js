@@ -20,14 +20,6 @@ export const LATEST_YEAR = YEAR_LIST[0]
 // distinct string so `resolveYear` can return it without colliding with a year.
 export const ALL_TIME = 'all'
 
-// The full set of options the year switcher offers: every real year (newest
-// first) plus "All time" at the end. Each carries the value written to ?year
-// and the label shown in the dropdown.
-export const YEAR_OPTIONS = [
-  ...YEAR_LIST.map((year) => ({ value: year, label: String(year) })),
-  { value: ALL_TIME, label: 'All time' },
-]
-
 // Official club weekdays per season (KTD2), as the sheet's three-letter weekday
 // names. A club day is one of these weekdays with at least one run on it; a run
 // on any other day is a special and never adds to or breaks a streak. 2025 had

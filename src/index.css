@@ -27,14 +27,6 @@
   --color-roast: #1a2332;
   --color-mocha: #2a3342;
 
-  /* Clean dashboard design tokens (light, minimal, Tufte) */
-  --color-surface: #f7f7f5;
-  --color-card: #ffffff;
-  --color-border: #e7e7e3;
-  --color-ink: #1a1a18;
-  --color-ink-muted: #71716c;
-  --color-accent: #1a1a18;
-
   /* Typography - Bricolage Grotesque + DM Sans */
   --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
   --font-sans: 'DM Sans', system-ui, sans-serif;
@@ -44,54 +36,25 @@
 /* Base Styles */
 html {
   scroll-behavior: smooth;
-  /* Declare that we support both schemes and render them ourselves. This stops
-     browsers from "auto-darkening" a light-only page (which they each do
-     differently and inconsistently) and makes prefers-color-scheme authoritative
-     for the dashboard's real dark theme below. */
+  /* Declare that we support both schemes and render them ourselves, so no
+     browser "auto-darkens" Wrapped. The Poster dashboard sets its own scheme
+     from data-theme (styles/poster.css). */
   color-scheme: light dark;
 }
 
+/* Wrapped's text defaults. The page paper lives in styles/poster.css, and
+   Wrapped paints its own navy over it. */
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-cream);
   color: var(--color-roast);
   min-height: 100vh;
   min-height: 100dvh; /* iOS Safari dynamic viewport */
-}
-
-/* Dynamic viewport height utilities for iOS Safari */
-.min-h-dvh {
-  min-height: 100vh;
-  min-height: 100dvh;
-}
-
-.h-dvh {
-  height: 100vh;
-  height: 100dvh;
 }
 
 /* Extended height for iOS Safari - covers area behind address bar */
 .min-h-screen-ios {
   min-height: 100vh;
   min-height: 100lvh; /* Large viewport height - includes space behind iOS address bar */
-}
-
-/* Safe area padding for iOS */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-/* Full-screen wrapper that extends into safe areas (for Wrapped pages) */
-.fullscreen-safe {
-  position: fixed;
-  top: calc(-1 * env(safe-area-inset-top, 0px));
-  left: calc(-1 * env(safe-area-inset-left, 0px));
-  right: calc(-1 * env(safe-area-inset-right, 0px));
-  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* Fullscreen stage for Wrapped slides that extends behind iOS chrome */
@@ -130,222 +93,24 @@ body {
   font-family: var(--font-display);
 }
 
-/* Warm shadows */
-.shadow-warm {
-  box-shadow: 0 4px 20px rgba(215, 91, 119, 0.08);
-}
-
-.shadow-warm-lg {
-  box-shadow: 0 8px 30px rgba(215, 91, 119, 0.12);
-}
-
-.shadow-lifted {
-  box-shadow:
-    0 1px 2px rgba(2, 9, 18, 0.04),
-    0 4px 12px rgba(2, 9, 18, 0.06),
-    0 12px 24px rgba(2, 9, 18, 0.04);
-}
-
-.shadow-lifted-hover {
-  box-shadow:
-    0 2px 4px rgba(2, 9, 18, 0.04),
-    0 8px 20px rgba(2, 9, 18, 0.08),
-    0 20px 40px rgba(2, 9, 18, 0.06);
-}
-
-/* Grain texture overlay */
-.grain::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-  opacity: 0.03;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.grain-light::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-  opacity: 0.015;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Organic border radius */
-.rounded-organic {
-  border-radius: 12px 16px 14px 18px;
-}
-
-.rounded-organic-lg {
-  border-radius: 20px 28px 24px 32px;
-}
-
-/* Warm hover states */
-.hover-warm {
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.hover-warm:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 2px 4px rgba(2, 9, 18, 0.04),
-    0 8px 20px rgba(2, 9, 18, 0.08),
-    0 20px 40px rgba(2, 9, 18, 0.06);
-}
-
-/* Warm focus ring */
-.focus-warm:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.4);
-}
-
-/* Card base with lifted paper effect */
-.card-warm {
-  background: white;
-  border-radius: 16px;
-  box-shadow:
-    0 1px 2px rgba(2, 9, 18, 0.04),
-    0 4px 12px rgba(2, 9, 18, 0.06);
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.card-warm:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 2px 4px rgba(2, 9, 18, 0.04),
-    0 8px 20px rgba(2, 9, 18, 0.08);
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
+/* Custom scrollbar in Wrapped's palette, on the root and everything in it.
+   Not while the Poster dashboard is on the page: it keeps native scrollbars,
+   which follow its data-theme color-scheme (styles/poster.css). */
+:where(:root:not(:has(.poster)), :root:not(:has(.poster)) *)::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-::-webkit-scrollbar-track {
+:where(:root:not(:has(.poster)), :root:not(:has(.poster)) *)::-webkit-scrollbar-track {
   background: var(--color-cream-dark);
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb {
+:where(:root:not(:has(.poster)), :root:not(:has(.poster)) *)::-webkit-scrollbar-thumb {
   background: var(--color-latte);
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+:where(:root:not(:has(.poster)), :root:not(:has(.poster)) *)::-webkit-scrollbar-thumb:hover {
   background: var(--color-coffee);
-}
-
-/* Wrapped slide transitions */
-.slide-enter {
-  opacity: 0;
-  transform: translateY(20px);
-}
-
-.slide-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.slide-exit {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.slide-exit-active {
-  opacity: 0;
-  transform: translateY(-20px);
-}
-
-/* Number animation */
-@keyframes countUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-count {
-  animation: countUp 0.5s ease-out forwards;
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   Clean dashboard utilities (light, minimal aesthetic)
-   These are additive: they do NOT touch the global body or Wrapped classes.
-   ───────────────────────────────────────────────────────────────────────── */
-
-/* Soft, low shadow for the clean aesthetic */
-.shadow-soft {
-  box-shadow:
-    0 1px 2px rgba(26, 26, 24, 0.04),
-    0 2px 8px rgba(26, 26, 24, 0.05);
-}
-
-/* Clean card: white bg, hairline border, generous radius, soft shadow */
-.card-clean {
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  box-shadow:
-    0 1px 2px rgba(26, 26, 24, 0.04),
-    0 2px 8px rgba(26, 26, 24, 0.05);
-}
-
-/* Gradient backgrounds for wrapped */
-.gradient-coffee {
-  background: linear-gradient(135deg, var(--color-espresso) 0%, var(--color-coffee) 100%);
-}
-
-.gradient-warm {
-  background: linear-gradient(135deg, var(--color-terracotta) 0%, var(--color-latte) 100%);
-}
-
-.gradient-cream {
-  background: linear-gradient(135deg, var(--color-cream) 0%, var(--color-latte) 100%);
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   Dark theme (dashboard)
-
-   Driven by the OS/browser setting (prefers-color-scheme: dark). Tailwind v4
-   utilities reference the --color-* tokens at runtime, so overriding the
-   dashboard tokens here re-themes every surface that uses bg-card / text-ink /
-   border-border / bg-accent etc. — no per-component changes needed for the
-   chrome. Chart and hand-rolled-SVG colors can't read CSS vars from their
-   attributes, so they mirror these values from JS via theme.js
-   (dashboardColorsDark / dataColorsDark) + the useThemeColors() hook. KEEP THE
-   TWO IN SYNC.
-
-   The Wrapped experience keeps its own warm palette (it doesn't use these
-   tokens), so it is intentionally unaffected.
-   ───────────────────────────────────────────────────────────────────────── */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-surface: #0e0e0d;
-    --color-card: #1a1a18;
-    --color-border: #2e2e2b;
-    --color-ink: #ededea;
-    --color-ink-muted: #9a9a92;
-    --color-accent: #ededea;
-  }
-
-  /* Dark base so iOS overscroll / gutters behind the dashboard read dark. */
-  body {
-    background-color: var(--color-surface);
-  }
-
-  /* Lift the clean-card shadow off pure-dark (the light rgba shadow vanishes on
-     a dark surface); a hairline-darker ring reads as separation instead. */
-  .card-clean {
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.5),
-      0 2px 8px rgba(0, 0, 0, 0.35);
-  }
 }

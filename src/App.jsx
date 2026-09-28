@@ -77,24 +77,22 @@ function App() {
     [seasons]
   )
 
+  // Both screens sit on the Poster paper (styles/poster.css), so the first
+  // thing on screen already matches the saved theme.
   if (error) {
     return (
-      <div className="min-h-dvh bg-surface flex items-center justify-center">
-        <div className="text-center text-ink">
-          <p className="text-xl font-semibold mb-2">Error loading data</p>
-          <p className="text-ink-muted">{error}</p>
-        </div>
+      <div className="poster status-page" role="alert">
+        <h1 className="display">Error loading data</h1>
+        <p className="mono soft">{error}</p>
       </div>
     )
   }
 
   if (!seasons) {
     return (
-      <div className="min-h-dvh bg-surface flex items-center justify-center">
-        <div className="text-center">
-          <div className="size-12 border-4 border-ink border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-ink-muted font-medium">Loading run data...</p>
-        </div>
+      <div className="poster status-page" role="status">
+        <div className="stripe" aria-hidden="true" />
+        <p className="mono soft">Loading run data...</p>
       </div>
     )
   }
