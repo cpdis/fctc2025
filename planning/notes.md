@@ -21,7 +21,11 @@
 - Review page: `http://localhost:5174/review/dashboard-build/index.html` (gitignored; needs the dev server).
 
 ### Next Steps
-- [ ] Review and merge cpdis/fctc2025#15 (`dashboard-review`).
+- [x] cpdis/fctc2025#15 merged (29 September 2026).
+- [ ] Review and merge the build 9 review round (`ios-review-round`): one tab header, the Dashboard season menu, the self-healing refresh banner, the Events Birthdays footer and the one-row dashboard header.
+- [ ] Review and merge cpdis/fctc-site#1 (the Monday run, Dashboard in the phone header) to publish fctc.fun.
+- [ ] TestFlight build 10 with the review round, if Colin wants to try it on his phone.
+- [ ] Web dashboard at 320 px: the run log table is wider than the screen (349 px). Small phones only.
 - [x] TestFlight build 9 is live for FCTC Internal only (29 September 2026). Release it to FCTC Friends later with `--group "FCTC Friends"`, after rewriting its notes for Aaron and Grant.
 - [ ] Rerun the screen tour after U17 in light and dark; the review page's light Runs shot predates U15. Give the tour `-ui-events` and `-ui-dashboard` data.
 - [ ] Warm engine: historic navigation sets `latestState` to an older season, so `addRun`/`addMember` could target it.
