@@ -122,6 +122,16 @@
   10 ms (was ~555 ms), full Wall sort 119 ms. The README has the method. Hitches needs a
   device; profile build 9 on a phone once.
 
+### Private TestFlight build 10 (29 September 2026)
+
+- Version 0.1.0 build 10 from `ios-review-round` (3a7e3c7), the head of pull request
+  cpdis/fctc2025#16: the build 9 review round (tab header, season menu, self-healing refresh
+  banner, Events Birthdays footer). No schema change since build 9.
+- Build `393a61f8-eb63-4a9d-8865-d74eca0c7c22` is VALID and `IN_BETA_TESTING` for FCTC
+  Internal only. External state `READY_FOR_BETA_SUBMISSION`: FCTC Friends and External have no
+  access. The en-AU notes match `ios/testflight-build-10.txt` (read back).
+- Verification: iOS kit 437, iOS UI 63 run (62 passed, 1 skipped screen tour), web Vitest 506.
+
 ### Private TestFlight build 9 (29 September 2026)
 
 - Version 0.1.0 build 9 from `dashboard-review` (446e24c), the head of pull request
