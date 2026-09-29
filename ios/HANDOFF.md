@@ -100,16 +100,26 @@
   10 ms (was ~555 ms), full Wall sort 119 ms. The README has the method. Hitches needs a
   device; profile build 9 on a phone once.
 
-### Next TestFlight build (9)
+### Private TestFlight build 9 (29 September 2026)
 
-- Apps Script is live with the x-only rule and strict sheet dates (deployment @5,
-  2026-09-29, same Web App URL), so the phones already count attendance the new way.
-- Write `ios/testflight-build-9.txt` before archiving. Open with a Seuss-style rhyme, as
-  build 8 does, then the plain notes for Aaron and Grant (tabs, Events, Dashboard, offline
-  stats, the club-day streak). Include the behaviour changes above and that Vs last year
-  waits for its once-per-session fetch when online.
-- Set the notes and groups on build 9 by its exact build number. `ios/Tools/testflight-notes.py`
-  picks the latest upload and always attaches FCTC Friends.
+- Version 0.1.0 build 9 from `dashboard-review` (446e24c), the head of pull request
+  cpdis/fctc2025#15. Archive signed with Apple Distribution; app and share extension
+  report 0.1.0 (9).
+- Build `7b3d2ace-d0f9-4b29-b648-d8e8aa5d742a` is VALID. Internal state is
+  `IN_BETA_TESTING`, and only FCTC Internal (Colin's two accounts) has it. External
+  state is `READY_FOR_BETA_SUBMISSION`, so FCTC Friends and FCTC External have no access.
+- The en-AU notes match `ios/testflight-build-9.txt` (read back from App Store Connect).
+  Set with `testflight-notes.py --build 9 --file ios/testflight-build-9.txt`; the script
+  now takes an exact build and attaches external groups only when named with `--group`.
+- Upgrade: build 9 adds `SharedSheetCache.liveAt`. `GuestMigrationTests` opens a real build 8
+  store (`fixtures/attendance/guests/build8-shared.store`) in place, so the update keeps the
+  sheet connection, cache, saved guests and pending attendance.
+- Apps Script was already live with the matching rules (deployment @5).
+- To release to Aaron and Grant later: `python3 ios/Tools/testflight-notes.py --build 9
+  --file ios/testflight-build-9.txt --group "FCTC Friends"`, then submit for Beta App Review if
+  asked. Rewrite the notes for them first: these say "Private build for Colin".
+- Verification: web Vitest 506, Apps Script 279, iOS kit 431, iOS UI 61 run (60 passed,
+  1 skipped screen tour), 0 failed.
 
 ## Private TestFlight build 8 (28 September 2026)
 

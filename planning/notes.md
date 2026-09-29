@@ -21,8 +21,8 @@
 - Review page: `http://localhost:5174/review/dashboard-build/index.html` (gitignored; needs the dev server).
 
 ### Next Steps
-- [ ] Review the `dashboard-review` branch and open a PR.
-- [ ] TestFlight build 9: Seuss-style rhyme notes in `ios/testflight-build-9.txt`; set notes and groups by exact build number (`testflight-notes.py` picks the latest upload).
+- [ ] Review and merge cpdis/fctc2025#15 (`dashboard-review`).
+- [x] TestFlight build 9 is live for FCTC Internal only (29 September 2026). Release it to FCTC Friends later with `--group "FCTC Friends"`, after rewriting its notes for Aaron and Grant.
 - [ ] Rerun the screen tour after U17 in light and dark; the review page's light Runs shot predates U15. Give the tour `-ui-events` and `-ui-dashboard` data.
 - [ ] Warm engine: historic navigation sets `latestState` to an older season, so `addRun`/`addMember` could target it.
 - [ ] `CatchUpPlanner` reads cached runs, so a past run recorded offline can be offered again.
