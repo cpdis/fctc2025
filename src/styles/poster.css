@@ -421,18 +421,41 @@ body {
     border-top: 2px solid var(--line);
   }
 }
-/* The hub's phone header, tightened so all three links and the toggle fit
-   at 390 px. */
+/* The hub's phone header: the logo, all three links and the toggle stay on
+   one row. Tighter gaps and tracking make it fit at 375 px. */
 @media (max-width: 620px) {
   .poster .site-head .bar {
-    gap: 16px;
+    gap: 14px;
   }
   .poster .site-head nav {
-    gap: 12px;
+    gap: 13px;
   }
   .poster .site-head nav a {
     font-size: 12.5px;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
+  }
+}
+/* Small phones (320 px and up): a smaller mark, labels and toggle, as on
+   the hub. */
+@media (max-width: 374px) {
+  .poster .site-head .bar,
+  .poster .site-head nav {
+    gap: 10px;
+  }
+  .poster .site-head nav a {
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
+  .poster .mark {
+    font-size: 22px;
+    gap: 6px;
+  }
+  .poster .cup {
+    width: 22px;
+    height: 22px;
+  }
+  .poster .theme-toggle {
+    padding: 6px 7px;
   }
 }
 
