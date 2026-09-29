@@ -23,7 +23,7 @@
 ### Next Steps
 - [x] cpdis/fctc2025#15 merged (29 September 2026).
 - [ ] Review and merge the build 9 review round (`ios-review-round`): one tab header, the Dashboard season menu, the self-healing refresh banner, the Events Birthdays footer and the one-row dashboard header.
-- [ ] Review and merge cpdis/fctc-site#1 (the Monday run, Dashboard in the phone header) to publish fctc.fun.
+- [x] cpdis/fctc-site#1 merged and live on fctc.fun (the Monday run, Dashboard in the phone header).
 - [ ] TestFlight build 10 with the review round, if Colin wants to try it on his phone.
 - [ ] Web dashboard at 320 px: the run log table is wider than the screen (349 px). Small phones only.
 - [x] TestFlight build 9 is live for FCTC Internal only (29 September 2026). Release it to FCTC Friends later with `--group "FCTC Friends"`, after rewriting its notes for Aaron and Grant.
