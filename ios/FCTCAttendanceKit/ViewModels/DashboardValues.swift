@@ -55,6 +55,21 @@ public struct LifetimePriors: Hashable, Sendable {
     public func allTime(for name: String, seasonRuns: Int) -> Int {
         (runs[ClubRun.memberName(name)] ?? 0) + seasonRuns
     }
+
+    /// Priors for showing an earlier season, so all-time still means today:
+    /// today's all-time (these priors plus the live season's `live` runs) less
+    /// the shown season's runs. Built from the live season's priors; never
+    /// negative.
+    public func rebased(live: [ClubRun], onto season: [ClubRun]) -> LifetimePriors {
+        var shifted = runs
+        for name in live.flatMap(\.attendees) { shifted[name, default: 0] += 1 }
+        for name in season.flatMap(\.attendees) { shifted[name, default: 0] -= 1 }
+        return LifetimePriors(runs: shifted.mapValues { max(0, $0) })
+    }
+
+    private init(runs: [String: Int]) {
+        self.runs = runs
+    }
 }
 
 // MARK: - Cards

@@ -47,6 +47,65 @@ struct DashboardStoreTests {
         seasonYear: 2026
     )
 
+    /// 2026 is live and lists 2024 and 2025 (and a 2027 tab not live yet).
+    private func inputsWithSeasons() -> DashboardInputs {
+        var live = inputs()
+        live.listedSeasons = [2024, 2025, 2026, 2027]
+        live.priors = LifetimePriors(lifetimeTotals: [MemberTotal(name: "Aaron", runs: 150), MemberTotal(name: "Col", runs: 60)],
+                                     payload: live.runs)
+        live.unsyncedCount = 2
+        return live
+    }
+
+    @Test("The menu offers the live season and each listed season before it, newest first")
+    func seasonMenu() {
+        let store = DashboardStore(engine: LastSeasonClient(answers: []))
+        store.update(fingerprint: "a") { inputsWithSeasons() }
+        #expect(store.seasons == [2026, 2025, 2024])
+        #expect(store.shownSeason == 2026)
+        #expect(store.showing == .live)
+    }
+
+    @Test("Picking 2025 shows its snapshot, compares with 2024, and keeps all-time as today")
+    func pickEarlierSeason() async throws {
+        let client = LastSeasonClient(answers: [.success(nil), .success(nil)], seasonAnswers: [.success(lastSeason)])
+        let store = DashboardStore(engine: client)
+        store.update(fingerprint: "a") { inputsWithSeasons() }
+        let liveAllTime = try #require(store.model?.runners["Aaron"]?.allTime)
+
+        await store.select(season: 2025)
+
+        #expect(await client.seasonAsks == [2025])
+        #expect(await client.befores.last == 2025)
+        #expect(store.showing == .loaded)
+        #expect(store.shownSeason == 2025)
+        #expect(store.model?.season == 2025)
+        #expect(store.model?.runs.count == 1)
+        #expect(store.unsyncedCount == 0)
+        #expect(store.model?.runners["Aaron"]?.allTime == liveAllTime)
+
+        await store.select(season: 2026)
+        #expect(store.showing == .live)
+        #expect(store.model?.season == 2026)
+        #expect(store.unsyncedCount == 2)
+    }
+
+    @Test("A picked season that cannot download says so, and load() tries again")
+    func pickedSeasonOffline() async {
+        let client = LastSeasonClient(answers: [.success(nil)],
+                                      seasonAnswers: [.failure(SheetAPIError.network("Offline")), .success(lastSeason)])
+        let store = DashboardStore(engine: client)
+        store.update(fingerprint: "a") { inputsWithSeasons() }
+
+        await store.select(season: 2025)
+        #expect(store.showing == .notDownloaded)
+        #expect(store.model == nil)
+
+        await store.load()
+        #expect(store.showing == .loaded)
+        #expect(store.model?.season == 2025)
+    }
+
     @Test("The same fingerprint neither reads the inputs nor rebuilds")
     func sameFingerprint() {
         let store = DashboardStore(engine: LastSeasonClient(answers: []))
@@ -205,22 +264,34 @@ struct DashboardStoreTests {
     }
 }
 
-/// Answers `previousSeasonSnapshot()` from a script and counts the questions.
+/// Answers `previousSeasonSnapshot(before:)` from a script and counts the
+/// questions; `seasonSnapshot(year:)` answers from its own script.
 /// It can hold one answer until the test releases it, so the answer lands
 /// after the store moved on. No timing sleeps.
 private actor LastSeasonClient: SyncEngineClient {
     private var answers: [Result<SheetState?, any Error>]
     private(set) var asks = 0
+    /// The `before` year of each last-season question, in order.
+    private(set) var befores: [Int?] = []
+    private var seasonAnswers: [Result<SheetState?, any Error>]
+    private(set) var seasonAsks: [Int] = []
     private var holdsNext = false
     private var held: CheckedContinuation<Void, Never>?
     private var heldStarted: CheckedContinuation<Void, Never>?
 
-    init(answers: [Result<SheetState?, any Error>]) {
+    init(answers: [Result<SheetState?, any Error>], seasonAnswers: [Result<SheetState?, any Error>] = []) {
         self.answers = answers
+        self.seasonAnswers = seasonAnswers
     }
 
-    func previousSeasonSnapshot() async throws -> SheetState? {
+    func seasonSnapshot(year: Int) async throws -> SheetState? {
+        seasonAsks.append(year)
+        return try (seasonAnswers.isEmpty ? .success(nil) : seasonAnswers.removeFirst()).get()
+    }
+
+    func previousSeasonSnapshot(before year: Int?) async throws -> SheetState? {
         asks += 1
+        befores.append(year)
         let answer: Result<SheetState?, any Error> = answers.isEmpty ? .success(nil) : answers.removeFirst()
         if holdsNext {
             holdsNext = false

@@ -29,8 +29,13 @@ extension SyncEngineClient {
         guard seasonSheetId == nil else { throw SheetAPIError.notImplemented }
         return try await refreshState()
     }
-    /// Clients without shared seasons have no last season to compare against.
-    public func previousSeasonSnapshot() async throws -> SheetState? { nil }
+    /// Clients without shared seasons have no other season to show.
+    public func previousSeasonSnapshot(before year: Int?) async throws -> SheetState? { nil }
+    public func seasonSnapshot(year: Int) async throws -> SheetState? { nil }
+    /// Last season before the live one.
+    public func previousSeasonSnapshot() async throws -> SheetState? {
+        try await previousSeasonSnapshot(before: nil)
+    }
     public func sharedGuests() async throws -> [SharedGuest] { [] }
     public func guestHistory(id: String) async throws -> GuestHistory { throw SheetAPIError.notImplemented }
     public func createGuest(name: String, confirmDistinct: Bool = false) async throws -> Guest { throw SheetAPIError.notImplemented }

@@ -30,6 +30,9 @@ public struct SyncBanner: Hashable, Sendable {
 public enum UserFacingError {
     public static let checkingSavedChanges = "Checking saved changes"
     public static let offline = "The sheet is offline. Your submission is safe in the outbox."
+    /// A refresh that could not reach the sheet. Nothing is waiting to send, so
+    /// it must not mention the outbox; the drain has its own banner when it is.
+    public static let refreshOffline = "Could not reach the sheet. Showing the runs saved on this phone."
     public static let busy = "The sheet is busy with another update. Wait a moment and try again."
     public static let authentication = "The shared secret was rejected. Open Settings and scan a new setup code."
     public static let conflict = "The sheet changed. Review the conflict in the outbox."
