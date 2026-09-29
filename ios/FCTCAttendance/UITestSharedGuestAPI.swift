@@ -17,7 +17,7 @@ actor UITestSharedGuestAPI: SheetAPIClient {
         guests = [SharedGuest(guestId: Self.rene, displayName: "Rene", confirmedRuns: 11),
                   SharedGuest(guestId: Self.toby, displayName: "Toby", confirmedRuns: 10),
                   SharedGuest(guestId: Self.wes, displayName: "Wes", confirmedRuns: 9)]
-        let roster = ["Aaron", "Col", "Dan", "Dan B"].enumerated().map { RosterEntry(name: $0.element, colIndex: $0.offset + 6) }
+        let roster = UITestDashboardFixture.roster.enumerated().map { RosterEntry(name: $0.element, colIndex: $0.offset + 6) }
         let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "EEE, d-MMM"
         let today = Calendar.current.startOfDay(for: UITestSupport.now)
         let currentYear = Calendar.current.component(.year, from: today)

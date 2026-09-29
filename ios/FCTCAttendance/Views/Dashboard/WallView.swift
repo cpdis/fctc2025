@@ -2,26 +2,29 @@
 //  WallView.swift
 //  FCTCAttendance
 //
-//  The Wall (R24): runners against runs, one RectangleMark per cell. The card
-//  and the full screen share `WallGrid`. Names are real buttons in a column
-//  beside the chart, one row per plot band, so they stay put while the full
-//  Wall scrolls sideways and VoiceOver can reach every runner:
+//  The Wall (R24): runners against runs. The card and the full screen share
+//  `WallGrid`. Names are real buttons in a column beside the grid, one row per
+//  grid band, so they stay put while the full Wall scrolls sideways and
+//  VoiceOver can reach every runner:
 //
-//    names (NavigationLinks)   Chart (RectangleMark per cell)
+//    names (NavigationLinks)   Canvas (every cell, drawn in one pass)
 //    ┌──────────────┐ ┌─────────────────────────────────────────┐
 //    │ Aaron     14 │ │ ■ ■ ■ ▢ ■ ■ ■ ■ ■ ■ ■ ■ ■ ■ ■ ■ ■ ■ ■ │ ← scrolls on the
 //    │ Col       10 │ │ ■ ■ ■ ■ ■ ■ ▢ ■ ■ ■ ■ ■ ■ ■ ■ ■ ■ ■ ■ │   full Wall, opening
 //    └──────────────┘ └─────────────────────────────────────────┘   at the latest run
 //
-//  Tapping a cell opens its runner too: a spatial tap reads the runner from the
-//  plot's y value. Streak cells use the accent, other runs the label colour.
+//  A Canvas, not Swift Charts: a season is ~30 runners × ~118 runs, and one
+//  RectangleMark per cell cost ~550 ms of main thread per open or sort
+//  (profiled at full size in Release). The Canvas fills one path per colour.
+//
+//  Tapping a cell opens its runner: the tap's y picks the row. Streak cells use
+//  the accent, other runs the label colour.
 //
 
-import Charts
 import FCTCAttendanceKit
 import SwiftUI
 
-/// Runners against runs. Row `i` of the name column sits on plot band `i`.
+/// Runners against runs. Row `i` of the name column sits on grid band `i`.
 struct WallGrid: View {
     let wall: Wall
     /// The rows to draw, in drawing order.
@@ -38,14 +41,28 @@ struct WallGrid: View {
 
     @ScaledMetric(relativeTo: .caption) private var rowHeight: CGFloat = 22
     @ScaledMetric(relativeTo: .caption) private var nameWidth: CGFloat = 104
-    /// Where the plot starts inside the chart: below the dates on the full Wall.
-    @State private var plotTop: CGFloat = 0
+
+    /// The full Wall's date band above the first row.
+    private var dateBand: CGFloat { isFull ? rowHeight : 0 }
+    private var gridHeight: CGFloat { dateBand + CGFloat(rows.count) * rowHeight }
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             names
-                .padding(.top, plotTop)
-            chart
+                .padding(.top, dateBand)
+            GeometryReader { proxy in
+                let shown = isFull ? min(columns.count, Self.visibleColumns) : columns.count
+                let columnWidth = proxy.size.width / CGFloat(max(shown, 1))
+                if isFull {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        grid(columnWidth: columnWidth)
+                    }
+                    .defaultScrollAnchor(.trailing)
+                } else {
+                    grid(columnWidth: columnWidth)
+                }
+            }
+            .frame(height: gridHeight)
         }
     }
 
@@ -78,79 +95,73 @@ struct WallGrid: View {
         .frame(width: nameWidth)
     }
 
-    private var chart: some View {
-        // Formatted once per render, not once per mark.
-        let labels = columns.map { DashboardFormat.day(wall.columns[$0].run.date) }
-        let positions = Array(columns.enumerated())
-        return Chart {
+    /// Every cell, the full Wall's dates and its special stripes, in one Canvas.
+    private func grid(columnWidth: CGFloat) -> some View {
+        Canvas { context, size in
+            let top = dateBand
+            // A faint stripe behind each special: off the club days, it
+            // neither adds to nor breaks a streak (R11).
             if isFull {
-                // A faint stripe behind each special: off the club days, it
-                // neither adds to nor breaks a streak (R11).
-                ForEach(positions, id: \.offset) { position, index in
-                    if wall.columns[index].isSpecial {
-                        RectangleMark(xStart: .value("Run", Double(position)), xEnd: .value("Run", Double(position + 1)))
-                            .foregroundStyle(accent.opacity(0.14))
-                            .accessibilityHidden(true)
-                    }
+                var stripes = Path()
+                for (position, index) in columns.enumerated() where wall.columns[index].isSpecial {
+                    stripes.addRect(CGRect(x: CGFloat(position) * columnWidth, y: top, width: columnWidth, height: size.height - top))
+                }
+                context.fill(stripes, with: .color(accent.opacity(0.14)))
+                // A date on each week's first column; one that would touch the
+                // previous date is skipped (large text, narrow columns).
+                var lastEnd = -CGFloat.infinity
+                for position in weekStarts {
+                    let label = context.resolve(
+                        Text(wall.columns[columns[position]].run.date.formatted(Date.FormatStyle.perth.day().month(.abbreviated)))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    )
+                    let width = label.measure(in: size).width
+                    let center = (CGFloat(position) + 0.5) * columnWidth
+                    guard center - width / 2 >= lastEnd + 4 else { continue }
+                    context.draw(label, at: CGPoint(x: center, y: top / 2))
+                    lastEnd = center + width / 2
                 }
             }
-            ForEach(rows) { row in
-                ForEach(positions, id: \.offset) { position, index in
+            // One path per colour, so the whole grid is three fills.
+            var paths: [WallMark: Path] = [:]
+            let cellWidth = columnWidth * 0.8
+            let cellHeight = rowHeight * 0.78
+            for (r, row) in rows.enumerated() {
+                let y = top + CGFloat(r) * rowHeight + (rowHeight - cellHeight) / 2
+                for (position, index) in columns.enumerated() {
                     let mark = row.cells[index]
                     // A special nobody expects you at is not a miss: leave it blank.
-                    if mark != .missed || !wall.columns[index].isSpecial {
-                        RectangleMark(
-                            xStart: .value("Run", Double(position) + 0.1),
-                            xEnd: .value("Run", Double(position) + 0.9),
-                            y: .value("Runner", row.name),
-                            height: .ratio(0.78)
-                        )
-                        .foregroundStyle(color(for: mark))
-                        .cornerRadius(2.5)
-                        .accessibilityLabel("\(row.name), \(labels[position])")
-                        .accessibilityValue(description(of: mark))
-                    }
+                    if mark == .missed && wall.columns[index].isSpecial { continue }
+                    let cell = CGRect(x: CGFloat(position) * columnWidth + columnWidth * 0.1, y: y, width: cellWidth, height: cellHeight)
+                    paths[mark, default: Path()].addRoundedRect(in: cell, cornerSize: CGSize(width: 2.5, height: 2.5))
                 }
             }
-        }
-        .chartXScale(domain: 0...Double(max(columns.count, 1)))
-        .chartYScale(domain: rows.map(\.name))
-        .chartYAxis(.hidden)
-        .chartXAxis {
-            AxisMarks(position: .top, values: weekStarts) { value in
-                AxisValueLabel(collisionResolution: .greedy) {
-                    if let position = value.as(Double.self).map({ Int($0) }), labels.indices.contains(position) {
-                        Text(wall.columns[columns[position]].run.date.formatted(Date.FormatStyle.perth.day().month(.abbreviated)))
-                    }
-                }
+            for (mark, path) in paths {
+                context.fill(path, with: .color(color(for: mark)))
             }
         }
-        .chartXAxis(isFull ? .visible : .hidden)
-        .chartPlotStyle { $0.frame(height: CGFloat(rows.count) * rowHeight) }
-        .chartGesture { proxy in
-            SpatialTapGesture().onEnded { tap in
-                if let name = proxy.value(atY: tap.location.y, as: String.self) { open(name) }
-            }
+        .frame(width: columnWidth * CGFloat(columns.count), height: gridHeight)
+        .contentShape(.rect)
+        .onTapGesture { location in
+            let row = Int((location.y - dateBand) / rowHeight)
+            if location.y >= dateBand, rows.indices.contains(row) { open(rows[row].name) }
         }
-        .modifier(WallScrolling(isEnabled: isFull, columns: columns.count))
-        // The name column must start where the plot does.
-        .chartBackground { proxy in
-            GeometryReader { geometry in
-                let top = proxy.plotFrame.map { geometry[$0].minY } ?? 0
-                Color.clear
-                    .onAppear { plotTop = top }
-                    .onChange(of: top) { _, top in plotTop = top }
-            }
-        }
+        // The names column carries each runner for VoiceOver (a button that
+        // opens their runs); the grid reads as one summary.
+        .accessibilityElement()
+        .accessibilityLabel("Attendance grid")
+        .accessibilityValue("\(rows.count) runners, \(columns.count) runs")
+        .accessibilityHint("Choose a runner's name to see their runs.")
+        .accessibilityIdentifier(isFull ? "wall-grid" : "wall-card-grid")
     }
 
     /// The first column of each week, where the full Wall prints a date.
-    private var weekStarts: [Double] {
+    private var weekStarts: [Int] {
         columns.indices.filter { position in
             position == 0 || wall.columns[columns[position]].run.date.startOfWeek
                 != wall.columns[columns[position - 1]].run.date.startOfWeek
         }
-        .map { Double($0) + 0.5 }
     }
 
     private func color(for mark: WallMark) -> Color {
@@ -158,32 +169,6 @@ struct WallGrid: View {
         case .missed: Color(.tertiarySystemFill)
         case .ran: Color.primary
         case .streak: accent
-        }
-    }
-
-    private func description(of mark: WallMark) -> String {
-        switch mark {
-        case .missed: "Missed"
-        case .ran: "Ran"
-        case .streak: "Ran, in the current streak"
-        }
-    }
-}
-
-/// Sideways scrolling for the full Wall, opening at the latest run.
-private struct WallScrolling: ViewModifier {
-    let isEnabled: Bool
-    let columns: Int
-
-    func body(content: Content) -> some View {
-        if isEnabled {
-            let visible = min(columns, WallGrid.visibleColumns)
-            content
-                .chartScrollableAxes(.horizontal)
-                .chartXVisibleDomain(length: Double(max(visible, 1)))
-                .chartScrollPosition(initialX: Double(columns - visible))
-        } else {
-            content
         }
     }
 }

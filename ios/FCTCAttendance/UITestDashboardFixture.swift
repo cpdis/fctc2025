@@ -17,20 +17,39 @@
 //  season has 30 runs; recording Aaron on it offline lifts that to 31 and his
 //  streak to 15. Last season repeats the same weekdays 52 weeks earlier.
 //
+//  `-ui-dashboard-full` is the profiling size: a real season's shape, 118 club
+//  days and 30 runners (the four above plus 26 whose attendance thins from
+//  about 85% to 5%). Instruments runs use it; no test pins its numbers.
+//
 
 import FCTCAttendanceKit
 import Foundation
 
 enum UITestDashboardFixture {
-    static var isEnabled: Bool { ProcessInfo.processInfo.arguments.contains("-ui-dashboard") }
+    static var isEnabled: Bool { ProcessInfo.processInfo.arguments.contains("-ui-dashboard") || isFull }
+    /// The profiling size (`-ui-dashboard-full`).
+    static var isFull: Bool { ProcessInfo.processInfo.arguments.contains("-ui-dashboard-full") }
 
-    private static let clubDays = 30
+    private static var clubDays: Int { isFull ? 118 : 30 }
+
+    private static let pinned = ["Aaron", "Col", "Dan", "Dan B"]
+    /// The profiling size's other runners, most regular first.
+    private static let extras = [
+        "Scott", "Alex", "Grant", "Cam", "Adam", "Darren", "Kate B", "Shane", "Alex B", "Toby", "Wes", "Anna", "Celeste",
+        "Ming", "Joe", "Deano", "Liam", "Chartt", "Claire", "Rhys", "Jack", "René", "Rohan", "Tarquin", "Alex Kr", "Laura E",
+    ]
+
+    /// The season's roster: the pinned four, plus the extras at profiling size.
+    static var roster: [String] { isFull ? pinned + extras : pinned }
 
     /// Lifetime runs sent with the season: Aaron is 3 short of 150.
-    static let lifetimeTotals = [
-        MemberTotal(name: "Aaron", runs: 147), MemberTotal(name: "Col", runs: 60),
-        MemberTotal(name: "Dan", runs: 40), MemberTotal(name: "Dan B", runs: 12),
-    ]
+    static var lifetimeTotals: [MemberTotal] {
+        let base = [
+            MemberTotal(name: "Aaron", runs: 147), MemberTotal(name: "Col", runs: 60),
+            MemberTotal(name: "Dan", runs: 40), MemberTotal(name: "Dan B", runs: 12),
+        ]
+        return isFull ? base + extras.enumerated().map { MemberTotal(name: $1, runs: 180 - $0 * 7) } : base
+    }
 
     /// This season's runs (season sheet 26) and last season's (25).
     static func runs(seasonYear: Int) -> (current: [RunRecord], previous: [RunRecord]) {
@@ -63,6 +82,11 @@ enum UITestDashboardFixture {
         if day != 3 && day != 18 { names.append("Col") }
         if day % 3 != 2 { names.append("Dan") }
         if day < 6 { names.append("Dan B") }
+        guard isFull else { return names }
+        // A fixed scatter: runner i makes about (85 - 3i)% of club days.
+        for (index, name) in extras.enumerated() where (day * 37 + index * 11) % 100 < 85 - index * 3 {
+            names.append(name)
+        }
         return names
     }
 

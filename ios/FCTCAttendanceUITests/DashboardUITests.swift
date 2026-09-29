@@ -86,19 +86,20 @@ final class DashboardUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["The Wall"].waitForExistence(timeout: 5))
         settle()
 
-        // The chart scrolls inside the page: its content ends at the visible
-        // right edge (the latest run) and starts off screen to the left.
-        let chart = app.scrollViews["wall-full"].scrollViews.firstMatch
-        XCTAssertTrue(chart.waitForExistence(timeout: 5))
-        let content = chart.children(matching: .other).firstMatch.frame
-        XCTAssertEqual(content.maxX, chart.frame.maxX, accuracy: 2, "The Wall did not open at the latest run")
-        XCTAssertLessThan(content.minX, chart.frame.minX - 20, "The Wall has no earlier runs to scroll to")
+        // The grid scrolls inside the page: it ends at the visible right edge
+        // (the latest run) and starts off screen to the left.
+        let scroller = app.scrollViews["wall-full"].scrollViews.firstMatch
+        XCTAssertTrue(scroller.waitForExistence(timeout: 5))
+        let grid = element("wall-grid")
+        XCTAssertTrue(grid.exists)
+        XCTAssertEqual(grid.frame.maxX, scroller.frame.maxX, accuracy: 2, "The Wall did not open at the latest run")
+        XCTAssertLessThan(grid.frame.minX, scroller.frame.minX - 20, "The Wall has no earlier runs to scroll to")
         capture("u17-wall")
 
-        // A cell tap reads the runner from the plot row.
-        let colRow = chart.otherElements.matching(NSPredicate(format: "label == 'Col'")).firstMatch
-        XCTAssertTrue(colRow.exists)
-        colRow.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        // A cell tap reads the runner from the grid row, level with their name.
+        let colName = element("wall-runner-Col").frame
+        let tapPoint = CGVector(dx: scroller.frame.maxX - 12, dy: colName.midY)
+        app.coordinate(withNormalizedOffset: .zero).withOffset(tapPoint).tap()
         XCTAssertTrue(app.navigationBars["Col"].waitForExistence(timeout: 5))
         XCTAssertEqual(element("runner-streak").value as? String, "10")
     }
