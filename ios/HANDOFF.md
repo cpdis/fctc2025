@@ -37,6 +37,12 @@
 
 - `ActiveSeason` (app target) reads the active season's cache once per data change. Events
   reads the same inputs.
+- The Wall grid (card and full screen) is one SwiftUI `Canvas` (`WallGrid`), three fills per
+  draw. Swift Charts drew one `RectangleMark` per cell and cost ~550 ms of main thread per
+  open or sort at a full season (30 runners by 118 runs). VoiceOver reads each runner from the
+  names column; the grid is one summary element (`wall-grid`).
+- A legacy outbox row overlays only the run it was queued against: row index, date and run
+  text must all match (`EffectiveRuns.writes`, the same check as `SheetState.satisfies`).
 - `EffectiveRuns` applies queued, in-flight and confirmed-but-unrefreshed shared rows in
   creation order, with each endpoint's own write path. The headline shows "Includes N
   unsynced" when it applied any.
@@ -51,8 +57,10 @@
   failed first fetch with nothing cached shows "Last season not downloaded".
 - A shared cache row's `refreshedAt` is when its request started. A confirmed shared write
   stays in the overlay until a refresh requested after the confirmation lands.
-- The engine's cold-launch fallback now picks the cached season with the highest year, so
-  the snapshot row can never become the season new runs write to.
+- On a cold launch, the engine and the app pick the season the last live refresh returned
+  (`SharedSheetCache.liveAt`, read by `SharedSheetCache.live`). Neither the snapshot row nor
+  a future tab opened in Guest recovery can become the season new runs write to. Before any
+  live refresh has stamped a row, the highest year wins.
 
 ### Tests
 
@@ -81,23 +89,25 @@
   can race the overlay.
 - On a legacy endpoint, a cold launch can undercount lifetime priors by one until the first
   refresh (pre-existing).
-- `ActiveSeason.init` reads the season cache twice per rebuild (`activeSheetCache`, then
-  `activeRuns(in:)`). It runs once per data change, not per render.
 - The screen tour uses the legacy fake without `-ui-events` or `-ui-dashboard`, so its Events
   and Dashboard shots are sparse.
 - Tie order sorts by UTF-16 on iOS and by `localeCompare` on the web (display order only).
 - Behaviour changes to call out in the notes: a route switches to Runs at once, and scanning
   a setup code in Settings returns to the Runs root and drops a reminder still waiting for
   the old sheet.
-- No Instruments pass is recorded for the Dashboard (plan U17 verification).
+- Profiled 2026-09-29 (Release, iPhone 17 Pro simulator, `-ui-dashboard-full`, macOS
+  `sample`): first Dashboard open 290 ms of main thread (was 667 ms), full Wall open under
+  10 ms (was ~555 ms), full Wall sort 119 ms. The README has the method. Hitches needs a
+  device; profile build 9 on a phone once.
 
 ### Next TestFlight build (9)
 
-- Colin redeploys Apps Script first (`clasp push`, then `clasp deploy -i <existing-id>`),
-  so the phones get the x-only attendance rule.
+- Apps Script is live with the x-only rule and strict sheet dates (deployment @5,
+  2026-09-29, same Web App URL), so the phones already count attendance the new way.
 - Write `ios/testflight-build-9.txt` before archiving. Open with a Seuss-style rhyme, as
   build 8 does, then the plain notes for Aaron and Grant (tabs, Events, Dashboard, offline
-  stats, the club-day streak).
+  stats, the club-day streak). Include the behaviour changes above and that Vs last year
+  waits for its once-per-session fetch when online.
 - Set the notes and groups on build 9 by its exact build number. `ios/Tools/testflight-notes.py`
   picks the latest upload and always attaches FCTC Friends.
 

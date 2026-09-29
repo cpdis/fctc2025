@@ -15,28 +15,25 @@
   - iOS app: Runs, the run picker and route handling resolve the season cache once per data change (`AppRuntime.activeRunsFingerprint`); an engine swap drops a waiting route; the Events UI test pins "now".
 
 ### Current State
-- Tests (2026-09-29, after the review fixes): web 503 pass; Apps Script 278 pass; iOS kit 427 pass; iOS UI 60 pass, 1 skipped (tour); `npm run build` clean; digest preview runs; parity fixtures unchanged.
-- Not pushed. Not on TestFlight (testers have build 8). The Apps Script x-only rule is committed but not deployed.
+- Tests (2026-09-29, after the residual pass): web 506 pass; Apps Script 279 pass; iOS kit and UI counts in the 2026-09-29 worknote; `npm run build` clean; parity fixtures unchanged.
+- Apps Script is live: deployment @5 (x-only attendance, strict sheet dates), same Web App URL.
+- Not pushed. Not on TestFlight (testers have build 8).
 - Review page: `http://localhost:5174/review/dashboard-build/index.html` (gitignored; needs the dev server).
 
 ### Next Steps
-- [ ] Colin: redeploy Apps Script (`clasp push` + `clasp deploy -i <existing-id>`).
 - [ ] Review the `dashboard-review` branch and open a PR.
 - [ ] TestFlight build 9: Seuss-style rhyme notes in `ios/testflight-build-9.txt`; set notes and groups by exact build number (`testflight-notes.py` picks the latest upload).
 - [ ] Rerun the screen tour after U17 in light and dark; the review page's light Runs shot predates U15. Give the tour `-ui-events` and `-ui-dashboard` data.
 - [ ] Warm engine: historic navigation sets `latestState` to an older season, so `addRun`/`addMember` could target it.
 - [ ] `CatchUpPlanner` reads cached runs, so a past run recorded offline can be offered again.
 - [ ] Overlay edges: provisional guest ids can overcount +1s until refresh; in-flight refresh race; legacy cold-launch priors can undercount by one.
-- [ ] The weekly milestone email reads all-time totals without the roster filter. The forecast's recent-attendance weighting screens former members out in practice.
-- [ ] Apps Script `parseSheetDate` still accepts impossible days such as `31-Sep` (the web and iOS reject them).
-- [ ] `ActiveSeason.init` reads the season cache twice per rebuild.
-- [ ] `src/utils/dataParser.test.js` is 537 lines; split it.
 - [ ] Web: a keyboard-opened tooltip stays put on scroll (`Tooltip.jsx`); check the All time title ("All / time") on the review page.
-- [ ] Instruments pass on the Dashboard (plan U17 verification; not recorded).
+- [ ] Profile build 9 on a real phone once (Hitches needs a device). Simulator numbers are in README "UI tests and the screen tour".
 
 ### Blockers / Open Questions
-- None blocking. Until the Apps Script redeploy, the app's all-time totals for Adam, Alex 👑, Rhys, Rohan and Toby stay one or two runs high.
-- Behaviour changes to confirm with Colin: a route switches to Runs at once; scanning a setup code in Settings returns to the Runs root and drops a waiting reminder route; Vs last year waits for its once-per-session fetch when online.
+- None blocking.
+- Behaviour changes (Colin agreed 2026-09-29, for the build 9 notes): a route switches to Runs at once; scanning a setup code in Settings returns to the Runs root and drops a waiting reminder route; Vs last year waits for its once-per-session fetch when online.
+- Decided 2026-09-29: the milestone email keeps its rule (no roster filter; an extreme edge case); `dataParser.test.js` stays one file; commit summaries over 50 characters stay (no history rewrite).
 
 ## Session Update - 2026-09-28
 

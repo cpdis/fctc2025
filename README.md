@@ -182,6 +182,36 @@ The builders keep these honesty rules:
 - Every chart gives hover and keyboard detail, and prints its key values so it reads without
   hover.
 
+### Performance
+
+The Wall is the heavy part of the page: one SVG rect per runner per run (3,540 cells in a
+season, 7,786 in All time). Two rules keep it cheap:
+
+- **The print-in is one curtain.** A panel-coloured `div` over the grid shrinks toward the
+  latest run, animating only `transform`, so the compositor runs it. Animating every cell ran
+  at 3 to 10 fps on a throttled phone.
+- **A sort or a find moves rows, not cells.** Each row `<g>` carries its place (`transform`)
+  and index (`data-r`); its cells (`RowCells`, memoized) never re-render.
+
+`scripts/profile-dashboard.mjs` measures the page as a mid-range phone sees it (headless
+Chrome, 390 pt wide, 4x CPU throttling). Serve a production build, then run it:
+
+```bash
+npm run build && npx vite preview --port 4173
+```
+
+```bash
+node scripts/profile-dashboard.mjs 'http://localhost:4173/dashboard?year=all'
+```
+
+It prints the long tasks and slow frames after load, and The Wall's sort and find times through
+paint. The 2026-09-29 numbers:
+
+| View | Longest task after load | Sort | Find |
+|------|-------------------------|------|------|
+| 2026 season | 292 ms | 33 to 50 ms | 33 ms |
+| All time | 225 ms | 67 to 108 ms | 34 ms |
+
 ### Parity fixtures
 
 The web and the iOS app apply the same rules, in JavaScript and in Swift. Golden fixtures hold
@@ -514,7 +544,10 @@ The Dashboard shows the active season. The cards follow the approved mockup
 - **Together** (member-km, against last season) beside **On a roll** (the longest current
   club-day streak and its runner).
 - **The Wall**: runners against the runs of the last five weeks. Open it for the full Wall,
-  which scrolls sideways, opens at the latest run, and sorts by runs, streak or name.
+  which scrolls sideways, opens at the latest run, and sorts by runs, streak or name. The grid
+  is one SwiftUI `Canvas` (`WallGrid`), not Swift Charts: one `RectangleMark` per cell cost
+  about 550 ms of main thread per open or sort at a full season. The names column carries each
+  runner for VoiceOver; the grid reads as one summary.
 - **Vs last year**: cumulative member-km against last season, on a Jan to Dec axis.
 - **Every run**: runners per run for the last 18 runs. Guests stack on top in a lighter shade.
 - **Leaderboard**: by runs or by km.
@@ -611,9 +644,11 @@ Every UI test launches with `-ui-testing`, which replaces the sheet with an in-m
 | `-ui-offline` | No automatic outbox drain, so a queued row stays queued until Retry. |
 | `-ui-events` | Planned club runs from tomorrow to the Sunday after next, plus three Xmas races on one date. It pins today to Mon 21 Sep 2026, 18:00 Perth (`UITestSupport.now`), so the week has the same shape on any day. |
 | `-ui-dashboard` | A season of 30 club days with fixed streaks: Aaron 14, Col 10, Dan 2 (`UITestDashboardFixture.swift`). |
+| `-ui-dashboard-full` | The profiling size: 118 club days and 30 runners. No test pins its numbers. |
 | `-ui-last-season-offline` | Last season's fetch fails, so Vs last year reads "Last season not downloaded". |
 
-`-ui-events`, `-ui-dashboard` and `-ui-last-season-offline` need `-ui-shared-guests`.
+`-ui-events`, `-ui-dashboard`, `-ui-dashboard-full` and `-ui-last-season-offline` need
+`-ui-shared-guests`.
 
 A test cannot tap a notification or scan a setup code. With `-ui-testing` on, the app takes
 these links instead (`UITestSupport.handleHook`):
@@ -638,6 +673,32 @@ cd ios && TEST_RUNNER_FCTC_SCREEN_TOUR=1 xcodebuild test -project FCTCAttendance
 ```
 
 Export the shots with `xcrun xcresulttool export attachments --path ../review/tour.xcresult --output-path ../review/tour`.
+
+To profile the Dashboard, build Release (Debug SwiftUI is much slower), launch it on the
+simulator with the full-size fixture, and sample it with macOS `sample` while you open a screen.
+The simulator app is a host process, so `sample` symbolicates it. Instruments' Hitches does not
+run on the simulator, and `xctrace --launch` picks the share extension, so its SwiftUI
+instrument records nothing:
+
+```bash
+cd ios && xcodebuild build -project FCTCAttendance.xcodeproj -scheme FCTCAttendance -configuration Release -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath .ddata-release CODE_SIGNING_ALLOWED=NO
+```
+
+```bash
+xcrun simctl install booted "ios/.ddata-release/Build/Products/Release-iphonesimulator/FCTC Attendance.app"
+```
+
+```bash
+xcrun simctl launch booted com.cpdis.fctc-attendance -ui-testing -ui-shared-guests -ui-dashboard-full
+```
+
+```bash
+sample <pid printed by the launch> 8 1 -file /tmp/dashboard.sample.txt
+```
+
+Wait for `sample` to print "Sampling process" before you tap, or the tap lands before it
+starts. The 2026-09-29 numbers (main-thread busy time, iPhone 17 Pro simulator): first
+Dashboard open 290 ms, full Wall open under 10 ms, full Wall sort 119 ms.
 The tour captures the simulator's current appearance. Run it again after
 `xcrun simctl ui booted appearance dark` for dark shots. The tour uses the legacy fake, so
 Events and the Dashboard show little data. The default test run skips the tour.
