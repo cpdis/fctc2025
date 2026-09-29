@@ -319,6 +319,20 @@ struct EffectiveRunsRuleTests {
         #expect(effective.unsyncedCount == 0)
     }
 
+    /// Another organiser inserted a row above the queued run, so row 42 is now a
+    /// different run. The legacy sync would reject the write (`satisfies`), so
+    /// the overlay must not credit the run that moved into row 42 either.
+    @Test("A legacy row queued for another run at the same index is ignored")
+    func shiftedLegacyRow() {
+        let rows = [
+            outboxRow(["Dan"], .merge, createdAt: 1, date: "Wed, 23-Sep"),
+            outboxRow(["Dan"], .merge, createdAt: 2, run: "Intervals"),
+        ]
+        let effective = EffectiveRuns(cached: [legacy], submissions: rows, endpoint: testEndpoint, refreshedAt: nil)
+        #expect(effective.runs == [legacy])
+        #expect(effective.unsyncedCount == 0)
+    }
+
     @Test("Rows apply in creation order, whatever order they arrive in")
     func creationOrder() {
         let rows = [
@@ -381,12 +395,13 @@ private func snapshot(_ record: RunRecord) -> RunSnapshot {
 private func outboxRow(
     _ attendees: [String], _ mode: SubmissionMode,
     status: SubmissionStatus = .queued, outcome: SubmissionDisposition? = nil,
-    createdAt: TimeInterval, row: Int = 42, plusOnes: Int? = nil,
+    createdAt: TimeInterval, row: Int = 42, date: String = "Fri, 25-Sep", run: String = "Soft Sand",
+    plusOnes: Int? = nil,
     identity: RunIdentity? = nil, named: [String]? = nil, unnamed: Int? = nil,
     endpoint: String? = testEndpoint, lastAttemptAt: TimeInterval? = nil
 ) -> PendingSubmissionSnapshot {
     PendingSubmissionSnapshot(
-        id: UUID(), rowIndex: row, expectedDate: "Fri, 25-Sep", expectedRun: "Soft Sand", attendees: attendees,
+        id: UUID(), rowIndex: row, expectedDate: date, expectedRun: run, attendees: attendees,
         plusOnes: plusOnes, actualKm: nil, mode: mode, status: status,
         createdAt: Date(timeIntervalSince1970: createdAt), outcome: outcome,
         runIdentity: identity, namedGuestIds: named, unnamedGuests: unnamed,

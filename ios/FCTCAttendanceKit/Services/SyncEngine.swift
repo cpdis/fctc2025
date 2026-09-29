@@ -69,6 +69,8 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         let state = try await api.getState(seasonSheetId: seasonSheetId)
         latestState = state
         try reconcile(state, seenAt: requestedAt)
+        // No season named: the server answered with its active season.
+        if seasonSheetId == nil { try markLiveSeason(state, requestedAt: requestedAt) }
         try modelContext.save()
         eventBroadcaster.yield(.rosterRefreshed(state))
         // Reminders schedule from the present, so they read the clock again.
@@ -96,9 +98,9 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
     ///   yes          no                       fetch; the row when that fails,
     ///                                         and the next call tries again
     public func previousSeasonSnapshot() async throws -> SheetState? {
-        // Anchor on the newest cached season, not `latestState`: historic
+        // Anchor on the cached live season, not `latestState`: historic
         // navigation points `latestState` at an older season.
-        guard let endpoint = api.endpointIdentity, let live = try newestSharedState(),
+        guard let endpoint = api.endpointIdentity, let live = try cachedLiveState(),
               live.supportsSharedGuests, let book = live.spreadsheetId else { return nil }
         // The newest listed season older than the live one. Gaps are allowed.
         guard let previous = (live.supportedSeasons ?? [])

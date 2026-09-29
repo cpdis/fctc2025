@@ -123,10 +123,14 @@ public struct EffectiveRuns: Hashable, Sendable {
     }
 
     /// The run a row writes, matched as its sync path matches it: the stable
-    /// run id on a shared endpoint, the row index on a legacy one.
+    /// run id on a shared endpoint; on a legacy one, the row index plus the
+    /// date and run the row was queued against (`SheetState.satisfies`). A row
+    /// inserted above a queued run shifts the indexes, and the index alone
+    /// would then credit the queued attendance to whichever run moved there.
     static func writes(_ submission: PendingSubmissionSnapshot, to run: RunSnapshot) -> Bool {
         if let identity = submission.runIdentity { return run.runIdentity == identity }
         return run.runIdentity == nil && run.rowIndex == submission.rowIndex
+            && run.date == submission.expectedDate && run.run == submission.expectedRun
     }
 
     /// `SyncEngine.finish()`, on a snapshot.

@@ -125,6 +125,43 @@ struct SeasonSnapshotTests {
         #expect(await transport.requestCount == 2)
     }
 
+    /// Colin lists the 2027 tab before he makes it the active season, and an
+    /// organiser opens it in Guest recovery (a refresh by season). It is the
+    /// highest year and the newest refresh, yet 2026 stays the live season on a
+    /// cold launch until a live refresh answers with 2027.
+    @Test("A tab opened by season never outranks the live season on a cold launch")
+    func futureSeasonTab() async throws {
+        let container = try guestContainer()
+        var live = try liveSeason()
+        live.supportedSeasons?.append(SupportedSeason(seasonSheetId: 27, seasonYear: 2027))
+        var next = live
+        next.seasonSheetId = 27; next.seasonYear = 2027; next.sheetRevision = "season-2027"; next.runs = []
+        let warm = snapshotEngine(container, StubTransport([.response(try stateData(live)), .response(try stateData(next)),
+                                                            .response(try stateData(next))]))
+        _ = try await warm.refreshState()
+        _ = try await warm.refreshState(seasonSheetId: 27)
+        #expect(try await snapshotEngine(container, StubTransport()).currentSharedState()?.seasonSheetId == 26)
+
+        // The server now calls 2027 live.
+        _ = try await warm.refreshState()
+        #expect(try await snapshotEngine(container, StubTransport()).currentSharedState()?.seasonSheetId == 27)
+    }
+
+    @Test("Before any live refresh stamps a row, the highest season year is live")
+    func unstampedRows() throws {
+        let context = ModelContext(try guestContainer())
+        let endpoint = try #require(testEndpointIdentity)
+        let older = try SharedSheetCache(endpointIdentity: endpoint, state: try lastSeason(),
+                                         refreshedAt: Date(timeIntervalSince1970: 200))
+        let newer = try SharedSheetCache(endpointIdentity: endpoint, state: try liveSeason(),
+                                         refreshedAt: Date(timeIntervalSince1970: 100))
+        context.insert(older); context.insert(newer)
+        #expect(SharedSheetCache.live(in: [older, newer], endpoint: endpoint)?.state.seasonSheetId == 26)
+        older.liveAt = Date(timeIntervalSince1970: 300)
+        #expect(SharedSheetCache.live(in: [older, newer], endpoint: endpoint)?.state.seasonSheetId == 25)
+        #expect(SharedSheetCache.live(in: [older, newer], endpoint: "https://example.com/other") == nil)
+    }
+
     @Test("Historic navigation does not move the snapshot off the live season's predecessor")
     func historicNavigation() async throws {
         let container = try guestContainer()
@@ -233,6 +270,9 @@ private func failureStep(_ failure: SeasonSnapshotTests.Failure, live: Data) -> 
     case .wrongSeason: .response(live)
     }
 }
+
+/// The endpoint identity the snapshot engines write their cache rows under.
+private let testEndpointIdentity = configuredAPI.endpoint?.absoluteString
 
 /// Last season's cache row.
 private func snapshotRow(_ container: ModelContainer) throws -> SharedSheetCache? {

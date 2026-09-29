@@ -31,7 +31,7 @@ struct ActiveSeason {
 
     init(runtime: AppRuntime, runs: [ScheduledRun], members: [Member], submissions: [PendingSubmission]) {
         let active = runtime.activeSheetCache
-        let cached = runtime.activeRuns(in: runs).map(RunSnapshot.init)
+        let cached = runtime.activeRuns(in: runs, state: active?.state).map(RunSnapshot.init)
         state = active?.state
         self.cached = cached
         effective = EffectiveRuns(

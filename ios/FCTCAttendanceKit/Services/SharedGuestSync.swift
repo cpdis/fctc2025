@@ -4,19 +4,21 @@ import SwiftData
 extension SyncEngine {
     func currentSharedState() throws -> SheetState? {
         if let latestState { return latestState }
-        return try newestSharedState()
+        return try cachedLiveState()
     }
-    /// The endpoint's cached season with the highest year, the same rule as
-    /// `AppRuntime.activeSheetState`. On a cold launch this is the live season.
-    /// A previous-season snapshot row can be refreshed later than the live row,
-    /// but it never outranks the live year, so `addRun` and `addMember` keep
-    /// writing to the live tab. Equal years fall back to the newest refresh.
-    func newestSharedState() throws -> SheetState? {
-        try modelContext.fetch(FetchDescriptor<SharedSheetCache>())
-            .filter { $0.endpointIdentity == api.endpointIdentity }
-            .compactMap { row in row.state.map { (state: $0, refreshedAt: row.refreshedAt) } }
-            .max { ($0.state.seasonYear, $0.refreshedAt) < ($1.state.seasonYear, $1.refreshedAt) }?
-            .state
+    /// The endpoint's cached live season (`SharedSheetCache.live`), the same
+    /// pick as `AppRuntime.activeSheetCache`. A snapshot or Guest-recovery row
+    /// never outranks it, so `addRun` and `addMember` keep writing to the tab
+    /// the server last called live.
+    func cachedLiveState() throws -> SheetState? {
+        SharedSheetCache.live(in: try modelContext.fetch(FetchDescriptor<SharedSheetCache>()), endpoint: api.endpointIdentity)?.state
+    }
+    /// Stamp the row a live refresh returned (`SharedSheetCache.liveAt`).
+    /// Runs after `reconcile` upserted it; the fetch sees that unsaved row.
+    func markLiveSeason(_ state: SheetState, requestedAt: Date) throws {
+        guard state.supportsSharedGuests, let endpoint = api.endpointIdentity,
+              let book = state.spreadsheetId, let season = state.seasonSheetId else { return }
+        try sharedSheetCache(endpoint: endpoint, spreadsheetId: book, seasonSheetId: season)?.liveAt = requestedAt
     }
     func sharedSheetCache(endpoint: String, spreadsheetId: String, seasonSheetId: Int) throws -> SharedSheetCache? {
         try modelContext.fetch(FetchDescriptor<SharedSheetCache>()).first {

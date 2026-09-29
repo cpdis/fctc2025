@@ -86,12 +86,9 @@ final class AppRuntime {
                 && $0.spreadsheetId == activeState.spreadsheetId && $0.seasonSheetId == activeState.seasonSheetId }
             return (row?.state ?? activeState, row?.refreshedAt)
         }
-        // The highest season year wins; the first such row breaks a tie. Each
-        // row decodes once.
-        let rows = caches.filter { $0.endpointIdentity == endpoint }.map { (state: $0.state, refreshedAt: $0.refreshedAt) }
-        guard let newest = rows.max(by: { ($0.state?.seasonYear ?? 0) < ($1.state?.seasonYear ?? 0) }),
-              let state = newest.state else { return nil }
-        return (state, newest.refreshedAt)
+        // Cold launch: the season the server last called live, the same pick
+        // the engine's writes make (`SharedSheetCache.live`).
+        return SharedSheetCache.live(in: caches, endpoint: endpoint).map { ($0.state, $0.cache.refreshedAt) }
     }
 
     /// The cached runs that belong to this connection's active season. The run
@@ -99,9 +96,15 @@ final class AppRuntime {
     /// route handling all scope it the same way before reading it. It reads
     /// `activeSheetState`, so call it once per `activeRunsFingerprint` change.
     func activeRuns(in cachedRuns: [ScheduledRun]) -> [ScheduledRun] {
+        activeRuns(in: cachedRuns, state: activeSheetState)
+    }
+
+    /// `activeRuns(in:)` for a caller that already holds the active state
+    /// (`ActiveSeason`), so the season cache is read once, not twice.
+    func activeRuns(in cachedRuns: [ScheduledRun], state: SheetState?) -> [ScheduledRun] {
         let endpoint = config.endpoint?.absoluteString
         let ids = Set(RunCacheScope.runs(cachedRuns.map(RunSnapshot.init), endpoint: endpoint,
-                                        state: activeSheetState).map(\.id))
+                                        state: state).map(\.id))
         return cachedRuns.filter { ids.contains($0.cacheKey) && ($0.identity == nil || $0.endpointIdentity == endpoint) }
     }
 
