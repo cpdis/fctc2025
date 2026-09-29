@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FCTC mockups review</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root { --pink: #d75b77; --espresso: #1c1410; --crema: #faf4e6; --gold: #ffd23f; }
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--crema); color: var(--espresso); font: 16px/1.55 "Archivo", system-ui, sans-serif; }
+.stripe { height: 8px; background: linear-gradient(to right, #ffd23f 0 33.3%, #ff7a30 33.3% 66.6%, #e8442c 66.6%); }
+.wrap { max-width: 1500px; margin: 0 auto; padding: 32px clamp(16px, 3vw, 40px) 80px; }
+h1 { font: 400 clamp(44px, 6vw, 84px)/.95 "Anton", sans-serif; text-transform: uppercase; }
+h1 span { color: var(--pink); }
+h2 { font: 400 40px/1 "Anton", sans-serif; text-transform: uppercase; margin: 56px 0 8px; }
+h3 { font: 700 13px "Space Mono", monospace; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 8px; }
+.mono { font: 13px "Space Mono", monospace; letter-spacing: .08em; text-transform: uppercase; color: #5c4f43; }
+.lede { max-width: 820px; margin-top: 14px; font-size: 17px; }
+.row { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; margin-top: 16px; }
+.frame { border: 2px solid var(--espresso); background: #fff; overflow: hidden; }
+.scale { transform-origin: 0 0; }
+.desk { width: 640px; height: 1500px; }
+.desk iframe { width: 1280px; height: 3000px; border: 0; transform: scale(.5); transform-origin: 0 0; }
+.phone { width: 390px; height: 1500px; }
+.phone iframe { width: 390px; height: 1500px; border: 0; }
+.ios iframe { width: 100%; height: 2400px; border: 0; }
+.ios { width: 100%; }
+a { color: var(--pink); }
+.qs { border: 2px solid var(--espresso); background: #fffcf6; padding: 20px 24px; margin-top: 14px; max-width: 980px; }
+.qs li { margin: 8px 0; }
+.qs b { font-weight: 600; }
+.changes { columns: 2 340px; gap: 40px; margin-top: 10px; max-width: 1100px; }
+.changes li { break-inside: avoid; margin: 5px 0; }
+</style>
+</head>
+<body>
+<div class="stripe"></div>
+<div class="wrap">
+  <p class="mono">FCTC · review · 28 Sep 2026</p>
+  <h1>Dashboard + app <span>mockups</span>, approved</h1>
+  <p class="lede">Real 2026 data, with the corrected rules: only "x" counts as attendance, the BIRTHDAY row is ignored, and streaks count Monday, Wednesday and Friday club runs. <b>Judge</b> the structure, the charts and the brand fit. <b>Ignore</b> exact spacing, copy and icons. These are mockups, not the app.</p>
+
+  <h2>Decided 28 Sep 2026</h2>
+  <ol class="qs">
+    <li><b>Web direction:</b> the Poster look is approved as shown.</li>
+    <li><b>The Wall:</b> replaces the sparkline table, the calendar heatmap and the slopegraph.</li>
+    <li><b>iOS tabs:</b> Runs · Events · Dashboard.</li>
+    <li><b>iOS look:</b> structure approved; colours, accent and type stay on the app's current Reminders theme.</li>
+    <li><b>Club days:</b> a holiday special on a Monday, Wednesday or Friday counts as that day's club run.</li>
+  </ol>
+
+  <h2>Web · before and after</h2>
+  <p class="mono">Desktop at half scale · phone at full size · both scroll</p>
+  <div class="row">
+    <div><h3>Before · fctc.fun/dashboard today</h3><div class="frame desk"><iframe src="https://fctc.fun/dashboard?year=2026" title="Current dashboard"></iframe></div></div>
+    <div><h3>After · mockup</h3><div class="frame desk"><iframe src="web.html" title="Dashboard mockup desktop"></iframe></div></div>
+    <div><h3>After · phone</h3><div class="frame phone"><iframe src="web.html" title="Dashboard mockup phone"></iframe></div></div>
+  </div>
+  <p class="lede"><a href="web.html" target="_blank">Open the web mockup on its own</a> (hover the Wall, Every run and Vs last year charts; toggle dark with the ☾ button; try "Find yourself").</p>
+
+  <h3 style="margin-top:28px">What changed on the web</h3>
+  <ul class="changes">
+    <li>Header, stripe, fonts and colours match fctc.fun, so the proxy feels like one site.</li>
+    <li>Headline numbers compare with the same date in 2025.</li>
+    <li>"On a roll": current Mon/Wed/Fri streaks, the season best, and a plain rule for what a streak is.</li>
+    <li>The Wall: every runner × every run. Pink cells are the current streak; gold bands are specials that don't count.</li>
+    <li>Every run: one dot per runner, one track per club day, so the weekly rhythm and the big days are obvious.</li>
+    <li>Vs last year: cumulative km against 2025, with the gap at today's date labelled.</li>
+    <li>Milestones ahead: all-time runs close to the next 50, as gold race bibs.</li>
+    <li>Run log: filters move here and only apply to the table, so headline numbers never change meaning.</li>
+    <li>Removed: donut, spaghetti line chart, run-type small multiples, calendar heatmap, slopegraph.</li>
+  </ul>
+
+  <h2>iOS · tab bar + dashboard</h2>
+  <p class="mono">Five screens · Liquid Glass tab bar · Swift Charts equivalents</p>
+  <div class="frame ios" style="margin-top:16px"><iframe src="ios.html" title="iOS mockups"></iframe></div>
+</div>
+</body>
+</html>

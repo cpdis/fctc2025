@@ -1,0 +1,500 @@
+/* ============================================================
+   The dashboard's "Poster" look: the fctc.fun brand tokens
+   (fctc-site/src/styles/tokens.css) plus the chart tokens from the
+   approved mockup, all scoped to a `.poster` root.
+
+   Why scoped: Wrapped's Tailwind theme reuses the names pink,
+   espresso, cream and --font-display with different values, so
+   nothing here may land on :root. Theme follows the hub: light by
+   default, dark under [data-theme="dark"] on <html>.
+
+   Rules here are unlayered, so they beat Tailwind's layered
+   utilities. Keep them on poster class names, never bare elements,
+   so they cannot restyle a Tailwind component inside the poster.
+   The one exception is the page around the poster: the body's
+   paper and the root's color-scheme, which sit outside it.
+   ============================================================ */
+
+/* Same @fontsource packages as the hub, so Vite emits the files under
+   /assets/, which fctc.fun already proxies. */
+@import "@fontsource/anton";
+@import "@fontsource-variable/archivo";
+@import "@fontsource/space-mono";
+@import "@fontsource/space-mono/700.css";
+
+/* ---- tokens: light (default) ---- */
+.poster {
+  /* type: Anton for display, Archivo for body, Space Mono for labels */
+  --font-display: "Anton", sans-serif;
+  --font-body: "Archivo Variable", system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
+
+  /* brand constants (theme-independent) */
+  --gold: #ffd23f;
+  --ember: #ff7a30;
+  --flame: #e8442c;
+  --pink: #d75b77;
+  --espresso: #1c1410;
+  --crema: #faf4e6;
+
+  /* the yellow→orange→red sock-stripe divider */
+  --stripe: linear-gradient(
+    to right,
+    var(--gold) 0 33.3%,
+    var(--ember) 33.3% 66.6%,
+    var(--flame) 66.6% 100%
+  );
+  --marquee-dur: 36s;
+
+  /* crema paper, espresso ink, hard espresso rules */
+  color-scheme: light;
+  --bg: var(--crema);
+  --ink: var(--espresso);
+  --ink-soft: #5c4f43;
+  --line: var(--espresso);
+  --foot-bg: var(--espresso);
+  --foot-ink: var(--crema);
+
+  /* chart tokens, contrast-checked against --panel in each theme */
+  --panel: #fffaf0;
+  --empty: rgba(28, 20, 16, 0.07);
+  --grid: #e6dcc6;
+  --mark: var(--espresso);
+  --accent: var(--pink);
+  --mark-gold: #c79311;
+  --special-band: rgba(255, 210, 63, 0.28);
+
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.55 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- tokens: dark (espresso paper, crema ink, near-black footer) ---- */
+[data-theme="dark"] .poster {
+  color-scheme: dark;
+  --bg: var(--espresso);
+  --ink: var(--crema);
+  --ink-soft: #b3a08f;
+  --line: var(--crema);
+  --foot-bg: #120d0a;
+  --foot-ink: var(--crema);
+
+  --panel: #241a15;
+  --empty: rgba(250, 244, 230, 0.08);
+  --grid: #3a2e27;
+  --mark: #e9dcc4;
+  --mark-gold: #b98810;
+  --special-band: rgba(255, 210, 63, 0.14);
+}
+
+/* ---- the page around the poster ----
+   The paper behind the poster (overscroll, safe areas, and the first paint
+   before React mounts) follows data-theme too. Wrapped paints its own navy
+   on body and html inline, so this never shows there. Values are --crema and
+   --espresso, which live on .poster and so cannot be read up here. */
+body {
+  background: #faf4e6;
+}
+[data-theme="dark"] body {
+  background: #1c1410;
+}
+
+/* The root's color-scheme styles the page scrollbar and any native control
+   outside .poster. While the poster is on the page it follows data-theme, not
+   the OS; Wrapped keeps index.css's OS-driven "light dark". */
+:root:has(.poster) {
+  color-scheme: light;
+}
+:root[data-theme="dark"]:has(.poster) {
+  color-scheme: dark;
+}
+
+/* ---- type and layout utilities (the hub's global.css, dashboard sizes) ---- */
+.poster .wrap {
+  max-width: 1240px;
+  margin-inline: auto;
+  padding-inline: clamp(16px, 4vw, 48px);
+}
+.poster .display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  line-height: 0.92;
+  letter-spacing: 0.005em;
+}
+.poster .mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.poster .pink {
+  color: var(--pink);
+}
+.poster .soft {
+  color: var(--ink-soft);
+}
+.poster .stripe {
+  height: 8px;
+  background: var(--stripe);
+}
+.poster :is(.site-head a, .theme-toggle, .years button):focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: 3px;
+}
+
+/* ---- site header (the hub's Base.astro header, in the mockup's order:
+   bar, 2px rule, then the stripe) ---- */
+.poster .site-head .bar {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 16px clamp(16px, 4vw, 48px);
+  border-bottom: 2px solid var(--line);
+}
+.poster .mark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 25px;
+  letter-spacing: 0.02em;
+}
+.poster .mark b {
+  font-weight: 400;
+  color: var(--pink);
+}
+.poster .cup {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  color: var(--ink);
+}
+/* Steam wisps rise only when motion is allowed; otherwise the cup is still,
+   as on the hub. */
+.poster .cup .steam {
+  stroke: var(--pink);
+  opacity: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .poster .cup .steam {
+    animation: poster-steam 2.8s ease-in-out infinite;
+  }
+  .poster .cup .steam.s2 {
+    animation-delay: 1.4s;
+  }
+}
+@keyframes poster-steam {
+  0% { opacity: 0; transform: translateY(2.5px); }
+  35% { opacity: 0.9; }
+  70% { opacity: 0; transform: translateY(-2px); }
+  100% { opacity: 0; transform: translateY(-2px); }
+}
+.poster .site-head nav {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  margin-left: auto;
+}
+.poster .site-head nav a {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.poster .site-head nav a:hover,
+.poster .site-head nav a[aria-current="page"] {
+  color: var(--pink);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+.poster .theme-toggle {
+  background: none;
+  border: 2px solid var(--line);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 7px 9px;
+  transition: transform 100ms ease, box-shadow 100ms ease;
+}
+.poster .theme-toggle:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 3px 3px 0 var(--pink);
+}
+/* The icon shows the current theme, as on the hub. */
+[data-theme="dark"] .poster .theme-toggle .sun,
+:root:not([data-theme="dark"]) .poster .theme-toggle .moon {
+  display: none;
+}
+
+/* ---- title band: kicker, season heading, year control, meta row ---- */
+.poster .title {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: end;
+  gap: 24px;
+  padding-block: clamp(28px, 5vw, 56px) 20px;
+}
+.poster .title .kicker {
+  margin-bottom: 10px;
+}
+.poster .title h1 {
+  font-size: clamp(64px, 10vw, 140px);
+}
+.poster .years {
+  display: flex;
+  border: 2px solid var(--line);
+}
+/* Mono face without the label tracking or caps, as the approved mockup
+   renders it ("All time", not "ALL TIME"). */
+.poster .years button {
+  padding: 12px 18px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.poster .years button + button {
+  border-left: 2px solid var(--line);
+}
+.poster .years button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+.poster .meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  padding-block: 12px;
+  border-block: 2px solid var(--line);
+}
+.poster .meta b {
+  color: var(--pink);
+  font-weight: 700;
+}
+
+/* ---- headline numbers ---- */
+.poster .numbers {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 2px solid var(--line);
+}
+.poster .num {
+  padding: 22px 20px 20px 0;
+}
+.poster .num + .num {
+  border-left: 2px solid var(--line);
+  padding-left: 20px;
+}
+.poster .num .v {
+  font: clamp(52px, 6.2vw, 88px) / 0.95 var(--font-display);
+}
+.poster .num .v small {
+  font-size: 0.42em;
+  margin-left: 4px;
+}
+.poster .num .l {
+  margin-top: 8px;
+}
+.poster .num .d {
+  margin-top: 4px;
+  font: 13px var(--font-mono);
+  color: var(--ink-soft);
+}
+.poster .num .d b {
+  color: var(--ink);
+}
+
+/* ---- marquee: the gold band under the numbers ---- */
+.poster .marquee {
+  overflow: hidden;
+  background: var(--gold);
+  color: var(--espresso);
+  border-block: 2px solid var(--espresso);
+}
+.poster .marquee .track {
+  display: flex;
+  width: max-content;
+  animation: poster-slide var(--marquee-dur) linear infinite;
+}
+.poster .marquee:hover .track {
+  animation-play-state: paused;
+}
+.poster .marquee span {
+  padding: 9px 0;
+  font: 700 13px var(--font-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* Two identical spans, so sliding by half the track loops seamlessly. */
+@keyframes poster-slide {
+  to { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .poster .marquee .track {
+    animation: none;
+  }
+}
+
+/* ---- footer ---- */
+.poster .site-foot {
+  margin-top: 72px;
+  background: var(--foot-bg);
+  color: var(--foot-ink);
+}
+.poster .site-foot .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 28px;
+}
+
+/* ---- full-page status: App's loading and error screens ----
+   The loader is a short sock stripe that stretches and shrinks about its
+   centre; it holds still when motion is reduced. */
+.poster.status-page {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: 24px clamp(16px, 4vw, 48px);
+  text-align: center;
+}
+.poster.status-page h1 {
+  font-size: clamp(44px, 8vw, 88px);
+}
+.poster.status-page .stripe {
+  width: 160px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .poster.status-page .stripe {
+    animation: poster-load 0.9s ease-in-out infinite alternate;
+  }
+}
+@keyframes poster-load {
+  from { transform: scaleX(0.2); }
+  to { transform: scaleX(1); }
+}
+
+/* ---- tooltip: one shared chart tooltip, fixed to the viewport ---- */
+.poster .tip {
+  position: fixed;
+  z-index: 10;
+  max-width: 280px;
+  padding: 8px 10px;
+  pointer-events: none;
+  background: var(--espresso);
+  color: var(--crema);
+  border: 2px solid var(--crema);
+  font: 12px/1.5 var(--font-mono);
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.poster .tip[data-open] {
+  opacity: 1;
+}
+.poster .tip b {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+/* ---- phones and small tablets ---- */
+@media (max-width: 900px) {
+  .poster .numbers {
+    grid-template-columns: 1fr 1fr;
+  }
+  .poster .num:nth-child(3) {
+    border-left: 0;
+    padding-left: 0;
+  }
+  .poster .num:nth-child(n + 3) {
+    border-top: 2px solid var(--line);
+  }
+}
+/* The hub's phone header, tightened so all three links and the toggle fit
+   at 390 px. */
+@media (max-width: 620px) {
+  .poster .site-head .bar {
+    gap: 16px;
+  }
+  .poster .site-head nav {
+    gap: 12px;
+  }
+  .poster .site-head nav a {
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+  }
+}
+
+/* ---- section heads: a display h2 with a mono note on its baseline.
+   Shared by every dashboard section and the run page. ---- */
+.poster .block {
+  padding-block: clamp(36px, 5vw, 64px) 0;
+}
+.poster .kick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.poster .kick h2 {
+  font-size: clamp(40px, 5vw, 64px);
+}
+.poster .kick p {
+  color: var(--ink-soft);
+}
+
+/* ---- controls: selects and search boxes (.pick), the outline button
+   (.more) and the run page's back link ---- */
+.poster .pick {
+  border: 2px solid var(--line);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--ink);
+  padding: 7px 10px;
+  font: 13px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.poster input.pick {
+  min-width: 240px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.poster :is(.more, .run-back) {
+  display: inline-block;
+  border: 2px solid var(--line);
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  font: 700 13px var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: transform 100ms ease, box-shadow 100ms ease;
+}
+.poster .more {
+  margin-top: 12px;
+  padding: 10px 18px;
+}
+.poster .run-back {
+  padding: 12px 18px;
+}
+.poster :is(.more, .run-back):hover {
+  transform: translate(-3px, -3px);
+  box-shadow: 5px 5px 0 var(--pink);
+}
+.poster :is(.pick, .more, .run-back, .log a):focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: 3px;
+}

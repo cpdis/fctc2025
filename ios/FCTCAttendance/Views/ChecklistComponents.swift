@@ -55,7 +55,7 @@ struct MemberCheckRow: View {
             }
             .disabled(true)
             Button(action: {}) {
-                Label("\(stats.currentStreak) run streak", systemImage: "flame")
+                Label(stats.streakLabel, systemImage: "flame")
             }
             .disabled(true)
         }

@@ -1,0 +1,3305 @@
+{
+  "season": 2026,
+  "clubWeekdays": [
+    "Mon",
+    "Wed",
+    "Fri"
+  ],
+  "runs": [
+    {
+      "id": "2026-01-02-soft-sand",
+      "date": "2026-01-02",
+      "weekday": "Fri",
+      "run": "Soft Sand",
+      "meet": "Il Lido",
+      "type": "Soft Sand",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 7.1,
+      "attendees": [
+        "Adam",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-01-05-cruise",
+      "date": "2026-01-05",
+      "weekday": "Mon",
+      "run": "**Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.41,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Dan B",
+        "Joe",
+        "Kate B",
+        "Shane",
+        "Toby"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-01-07-social",
+      "date": "2026-01-07",
+      "weekday": "Wed",
+      "run": "Social",
+      "meet": "Filament",
+      "type": "Social",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Celeste",
+        "Claire",
+        "Dan",
+        "Joe",
+        "Kate B",
+        "Rhys",
+        "Rohan",
+        "Scott",
+        "Shane",
+        "Tarquin",
+        "Toby"
+      ],
+      "plusOnes": 2
+    },
+    {
+      "id": "2026-01-09-soft-sand",
+      "date": "2026-01-09",
+      "weekday": "Fri",
+      "run": "Soft Sand",
+      "meet": "Il Lido",
+      "type": "Soft Sand",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 7.06,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Rohan"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-01-12-cruise",
+      "date": "2026-01-12",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.42,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Claire",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Joe",
+        "Kate B",
+        "Shane",
+        "Toby"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-01-14-intervals",
+      "date": "2026-01-14",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.68,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex Kr",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Celeste",
+        "Dan",
+        "Darren",
+        "Grant",
+        "Joe",
+        "Kate B",
+        "Scott",
+        "Toby"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-01-16-river-loop",
+      "date": "2026-01-16",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "MSBB",
+      "type": "River Loop",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 12.3,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Grant",
+        "Scott",
+        "Toby"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-01-19-intervals",
+      "date": "2026-01-19",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.85,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Joe",
+        "Liam",
+        "Shane",
+        "Toby"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-01-21-lakes-loop",
+      "date": "2026-01-21",
+      "weekday": "Wed",
+      "run": "Lakes Loop",
+      "meet": "Filament",
+      "type": "Lakes Loop",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 12.31,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Celeste",
+        "Claire",
+        "Col",
+        "Darren",
+        "Grant",
+        "Joe",
+        "Rhys",
+        "Scott",
+        "Shane",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-01-23-soft-sand",
+      "date": "2026-01-23",
+      "weekday": "Fri",
+      "run": "Soft Sand",
+      "meet": "Il Lido",
+      "type": "Soft Sand",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 7.11,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-01-26-half-invasion-day",
+      "date": "2026-01-26",
+      "weekday": "Mon",
+      "run": "Half - Invasion Day",
+      "meet": "Filament",
+      "type": "Half Marathon",
+      "event": "Invasion Day",
+      "location": "Filament",
+      "actualKm": 21.27,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-01-26-10k-invasion-day",
+      "date": "2026-01-26",
+      "weekday": "Mon",
+      "run": "10k - Invasion Day",
+      "meet": "Filament",
+      "type": "10K",
+      "event": "Invasion Day",
+      "location": "Filament",
+      "actualKm": 10,
+      "attendees": [
+        "Alex B"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-01-28-intervals",
+      "date": "2026-01-28",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.77,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Celeste",
+        "Chartt",
+        "Col",
+        "Grant",
+        "Jack",
+        "Joe",
+        "Scott",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-01-30-soft-sand",
+      "date": "2026-01-30",
+      "weekday": "Fri",
+      "run": "Soft Sand",
+      "meet": "Il Lido",
+      "type": "Soft Sand",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 7.08,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Col",
+        "Ming",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-02-02-intervals",
+      "date": "2026-02-02",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 11,
+      "attendees": [
+        "Alex B",
+        "Grant",
+        "Joe",
+        "Kate B",
+        "Ming",
+        "Toby"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-02-04-social",
+      "date": "2026-02-04",
+      "weekday": "Wed",
+      "run": "Social",
+      "meet": "Filament",
+      "type": "Social",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 7.99,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Anna",
+        "Celeste",
+        "Chartt",
+        "Claire",
+        "Col",
+        "Darren",
+        "Deano",
+        "Grant",
+        "Joe",
+        "Ming",
+        "Rhys",
+        "Scott",
+        "Toby"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-02-06-soft-sand",
+      "date": "2026-02-06",
+      "weekday": "Fri",
+      "run": "Soft Sand",
+      "meet": "Il Lido",
+      "type": "Soft Sand",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 7.06,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Col",
+        "Ming",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-02-09-cruise",
+      "date": "2026-02-09",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.02,
+      "attendees": [
+        "Alex B",
+        "Alex 👑",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Joe",
+        "Kate B",
+        "Liam",
+        "Toby"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-02-11-intervals",
+      "date": "2026-02-11",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.26,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Anna",
+        "Celeste",
+        "Chartt",
+        "Col",
+        "Darren",
+        "Deano",
+        "Grant",
+        "Kate B",
+        "Liam",
+        "Scott",
+        "Shane",
+        "Tarquin",
+        "Toby"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-02-13-river-loop",
+      "date": "2026-02-13",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "MSBB",
+      "type": "River Loop",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 12.47,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Col",
+        "Grant",
+        "Kate B",
+        "Scott",
+        "Shane"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-02-16-intervals",
+      "date": "2026-02-16",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 9,
+      "attendees": [
+        "Alex B",
+        "Dan B",
+        "Grant",
+        "Kate B",
+        "Liam"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-02-18-lakes-loop",
+      "date": "2026-02-18",
+      "weekday": "Wed",
+      "run": "Lakes Loop",
+      "meet": "Filament",
+      "type": "Lakes Loop",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 12.34,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Anna",
+        "Col",
+        "Grant",
+        "Kate B",
+        "Liam",
+        "Scott",
+        "Wes"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-02-20-soft-sand",
+      "date": "2026-02-20",
+      "weekday": "Fri",
+      "run": "Soft Sand",
+      "meet": "Il Lido",
+      "type": "Soft Sand",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 7.05,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-02-23-cruise",
+      "date": "2026-02-23",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.45,
+      "attendees": [
+        "Aaron",
+        "Alex B",
+        "Alex 👑",
+        "Dan B",
+        "Grant",
+        "Kate B"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-02-25-intervals",
+      "date": "2026-02-25",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.03,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Celeste",
+        "Col",
+        "Deano",
+        "Grant",
+        "Kate B",
+        "Rhys",
+        "Scott",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-02-27-soft-sand",
+      "date": "2026-02-27",
+      "weekday": "Fri",
+      "run": "Soft Sand",
+      "meet": "Il Lido",
+      "type": "Soft Sand",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 7.08,
+      "attendees": [
+        "Adam",
+        "Cam",
+        "Ming",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-03-02-intervals",
+      "date": "2026-03-02",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10,
+      "attendees": [
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Dan B",
+        "Grant",
+        "Joe",
+        "Kate B",
+        "Scott",
+        "Toby"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-03-04-social",
+      "date": "2026-03-04",
+      "weekday": "Wed",
+      "run": "Social",
+      "meet": "Filament",
+      "type": "Social",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Cam",
+        "Celeste",
+        "Chartt",
+        "Col",
+        "Darren",
+        "Deano",
+        "Grant",
+        "Kate B",
+        "Scott",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-03-06-soft-sand",
+      "date": "2026-03-06",
+      "weekday": "Fri",
+      "run": "Soft Sand",
+      "meet": "Il Lido",
+      "type": "Soft Sand",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 7.07,
+      "attendees": [
+        "Aaron",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-03-09-cruise",
+      "date": "2026-03-09",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.5,
+      "attendees": [
+        "Alex B",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Kate B",
+        "Liam"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-03-11-intervals",
+      "date": "2026-03-11",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.67,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Darren",
+        "Grant",
+        "Kate B",
+        "Scott",
+        "Tarquin",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-03-13-river-loop",
+      "date": "2026-03-13",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "Il Lido",
+      "type": "River Loop",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 12.49,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Kate B",
+        "Scott",
+        "Toby"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-03-16-intervals",
+      "date": "2026-03-16",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10,
+      "attendees": [
+        "Alex B",
+        "Alex 👑",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Kate B"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-03-18-lakes-loop",
+      "date": "2026-03-18",
+      "weekday": "Wed",
+      "run": "Lakes Loop",
+      "meet": "Filament",
+      "type": "Lakes Loop",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 12.35,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Dan",
+        "Darren",
+        "Grant",
+        "Kate B",
+        "Scott",
+        "Toby"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-03-20-soft-sand",
+      "date": "2026-03-20",
+      "weekday": "Fri",
+      "run": "Soft Sand",
+      "meet": "MSBB",
+      "type": "Soft Sand",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 7.04,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-03-23-cruise",
+      "date": "2026-03-23",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10,
+      "attendees": [
+        "Alex B",
+        "Alex 👑",
+        "Dan B",
+        "Grant",
+        "Kate B"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-03-25-intervals",
+      "date": "2026-03-25",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 9.01,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Anna",
+        "Cam",
+        "Celeste",
+        "Chartt",
+        "Col",
+        "Dan",
+        "Deano",
+        "Grant",
+        "Scott",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-03-27-soft-sand",
+      "date": "2026-03-27",
+      "weekday": "Fri",
+      "run": "Soft Sand",
+      "meet": "Il Lido",
+      "type": "Soft Sand",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 7.03,
+      "attendees": [
+        "Aaron",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-03-30-intervals",
+      "date": "2026-03-30",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10,
+      "attendees": [
+        "Alex B",
+        "Dan B",
+        "Darren",
+        "Grant"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-04-01-social",
+      "date": "2026-04-01",
+      "weekday": "Wed",
+      "run": "Social",
+      "meet": "Filament",
+      "type": "Social",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.01,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Celeste",
+        "Chartt",
+        "Claire",
+        "Col",
+        "Dan",
+        "Darren",
+        "Grant",
+        "Scott",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-04-03-good-fri-pancake",
+      "date": "2026-04-03",
+      "weekday": "Fri",
+      "run": "Good Fri Pancake",
+      "meet": "C-Breeze",
+      "type": "Pancake Run",
+      "event": "Good Friday",
+      "location": "C-Breeze",
+      "actualKm": 12.93,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Scott",
+        "Shane",
+        "Toby"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-04-06-cruise",
+      "date": "2026-04-06",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.45,
+      "attendees": [
+        "Alex B",
+        "Col",
+        "Grant",
+        "Kate B",
+        "Scott"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-04-08-intervals",
+      "date": "2026-04-08",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.89,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Celeste",
+        "Chartt",
+        "Col",
+        "Dan",
+        "Darren",
+        "Grant",
+        "Kate B",
+        "Scott",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-04-10-river-loop",
+      "date": "2026-04-10",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "MSBB",
+      "type": "River Loop",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 12.49,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Cam",
+        "Scott",
+        "Toby"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-04-13-intervals",
+      "date": "2026-04-13",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.48,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Dan B",
+        "Darren",
+        "Ming"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-04-15-lakes-loop",
+      "date": "2026-04-15",
+      "weekday": "Wed",
+      "run": "Lakes Loop",
+      "meet": "Filament",
+      "type": "Lakes Loop",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 12.33,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Celeste",
+        "Col",
+        "Dan",
+        "Darren",
+        "Deano",
+        "Ming",
+        "Scott",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-04-17-soft-sand",
+      "date": "2026-04-17",
+      "weekday": "Fri",
+      "run": "Soft Sand",
+      "meet": "Il Lido",
+      "type": "Soft Sand",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 7.01,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Ming",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-04-20-cruise",
+      "date": "2026-04-20",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.09,
+      "attendees": [
+        "Alex 👑",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Ming",
+        "Shane"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-04-22-intervals",
+      "date": "2026-04-22",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.64,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Anna",
+        "Celeste",
+        "Col",
+        "Darren",
+        "Grant",
+        "Jack",
+        "Kate B",
+        "Ming",
+        "Rhys",
+        "Scott",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-04-24-soft-sand",
+      "date": "2026-04-24",
+      "weekday": "Fri",
+      "run": "Soft Sand",
+      "meet": "Il Lido",
+      "type": "Soft Sand",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 4,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-04-25-mara-anzac-day",
+      "date": "2026-04-25",
+      "weekday": "Sat",
+      "run": "Mara - Anzac Day",
+      "meet": "Filament",
+      "type": "Marathon",
+      "event": "Anzac Day",
+      "location": "Filament",
+      "actualKm": 42.22,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Grant",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-04-25-half-anzac-day",
+      "date": "2026-04-25",
+      "weekday": "Sat",
+      "run": "Half - Anzac Day",
+      "meet": "Filament",
+      "type": "Half Marathon",
+      "event": "Anzac Day",
+      "location": "Filament",
+      "actualKm": 21.1,
+      "attendees": [
+        "Adam"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-04-27-intervals",
+      "date": "2026-04-27",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.42,
+      "attendees": [
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Scott",
+        "Shane"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-04-29-social",
+      "date": "2026-04-29",
+      "weekday": "Wed",
+      "run": "Social",
+      "meet": "Filament",
+      "type": "Social",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 7.99,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Celeste",
+        "Col",
+        "Darren",
+        "Deano",
+        "Grant",
+        "Kate B",
+        "Ming",
+        "Scott",
+        "Shane",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-05-01-soft-sand",
+      "date": "2026-05-01",
+      "weekday": "Fri",
+      "run": "Soft Sand",
+      "meet": "Il Lido",
+      "type": "Soft Sand",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 7.02,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-05-04-cruise",
+      "date": "2026-05-04",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.78,
+      "attendees": [
+        "Aaron",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Liam",
+        "Ming",
+        "Shane"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-05-06-intervals",
+      "date": "2026-05-06",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.44,
+      "attendees": [
+        "Aaron",
+        "Cam",
+        "Chartt",
+        "Darren",
+        "Grant",
+        "Liam",
+        "Ming",
+        "Scott",
+        "Shane",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-05-11-intervals",
+      "date": "2026-05-11",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.42,
+      "attendees": [
+        "Aaron",
+        "Darren",
+        "Kate B"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-05-13-lakes-loop",
+      "date": "2026-05-13",
+      "weekday": "Wed",
+      "run": "Lakes Loop",
+      "meet": "Filament",
+      "type": "Lakes Loop",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 12.33,
+      "attendees": [
+        "Aaron",
+        "Alex B",
+        "Anna",
+        "Col",
+        "Darren",
+        "Grant",
+        "Kate B",
+        "Rhys",
+        "Scott",
+        "Wes"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-05-15-n-hood-loop",
+      "date": "2026-05-15",
+      "weekday": "Fri",
+      "run": "N/hood Loop",
+      "meet": "Il Lido",
+      "type": "N'hood Loop",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 10.19,
+      "attendees": [
+        "Aaron",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-05-18-cruise",
+      "date": "2026-05-18",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.42,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Liam",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-05-20-intervals",
+      "date": "2026-05-20",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.2,
+      "attendees": [
+        "Aaron",
+        "Alex B",
+        "Alex 👑",
+        "Anna",
+        "Celeste",
+        "Col",
+        "Grant",
+        "Ming",
+        "Scott",
+        "Wes"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-05-22-river-loop",
+      "date": "2026-05-22",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "MSBB",
+      "type": "River Loop",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 12.49,
+      "attendees": [
+        "Aaron",
+        "Col",
+        "Kate B",
+        "Ming",
+        "Scott"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-05-25-intervals",
+      "date": "2026-05-25",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 9.77,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Dan B",
+        "Grant",
+        "Kate B",
+        "Shane"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-05-27-social",
+      "date": "2026-05-27",
+      "weekday": "Wed",
+      "run": "Social",
+      "meet": "Filament",
+      "type": "Social",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 7.81,
+      "attendees": [
+        "Aaron",
+        "Alex B",
+        "Alex 👑",
+        "Anna",
+        "Celeste",
+        "Col",
+        "Darren",
+        "Grant",
+        "Kate B",
+        "Ming",
+        "Scott",
+        "Shane",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-05-29-n-hood-loop",
+      "date": "2026-05-29",
+      "weekday": "Fri",
+      "run": "N/hood Loop",
+      "meet": "Il Lido",
+      "type": "N'hood Loop",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 10.37,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-06-01-cruise",
+      "date": "2026-06-01",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.68,
+      "attendees": [
+        "Alex 👑",
+        "Col",
+        "Dan B",
+        "Grant",
+        "Rohan",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-06-03-intervals",
+      "date": "2026-06-03",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.35,
+      "attendees": [
+        "Aaron",
+        "Alex B",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Col",
+        "Deano",
+        "Grant",
+        "Kate B",
+        "Rohan",
+        "Scott",
+        "Shane",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-06-05-river-loop",
+      "date": "2026-06-05",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "MSBB",
+      "type": "River Loop",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 12.47,
+      "attendees": [
+        "Aaron",
+        "Alex B",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Grant",
+        "Kate B",
+        "Liam",
+        "Scott",
+        "Shane"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-06-08-intervals",
+      "date": "2026-06-08",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.43,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Liam"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-06-10-lakes-loop",
+      "date": "2026-06-10",
+      "weekday": "Wed",
+      "run": "Lakes Loop",
+      "meet": "Filament",
+      "type": "Lakes Loop",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 13,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Celeste",
+        "Col",
+        "Darren",
+        "Deano",
+        "Kate B",
+        "Scott",
+        "Shane",
+        "Wes"
+      ],
+      "plusOnes": 2
+    },
+    {
+      "id": "2026-06-12-n-hood-loop",
+      "date": "2026-06-12",
+      "weekday": "Fri",
+      "run": "N/hood Loop",
+      "meet": "Il Lido",
+      "type": "N'hood Loop",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 8.02,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-06-15-cruise",
+      "date": "2026-06-15",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.48,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Darren",
+        "Grant",
+        "Liam",
+        "Ming"
+      ],
+      "plusOnes": 2
+    },
+    {
+      "id": "2026-06-17-intervals",
+      "date": "2026-06-17",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 7.76,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Col",
+        "Darren",
+        "Deano",
+        "Grant",
+        "Kate B",
+        "Scott",
+        "Shane",
+        "Wes"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-06-19-river-loop",
+      "date": "2026-06-19",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "MSBB",
+      "type": "River Loop",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 12.06,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Grant",
+        "Scott",
+        "Shane"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-06-22-intervals",
+      "date": "2026-06-22",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.2,
+      "attendees": [
+        "Alex 👑",
+        "Dan B",
+        "Grant",
+        "Joe",
+        "Kate B"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-06-24-filament-cup",
+      "date": "2026-06-24",
+      "weekday": "Wed",
+      "run": "FILAMENT CUP 🏆",
+      "meet": "Filament",
+      "type": "Filament Cup",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 7.74,
+      "attendees": [
+        "Aaron",
+        "Alex B",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Celeste",
+        "Col",
+        "Deano",
+        "Grant",
+        "Joe",
+        "Liam",
+        "Scott",
+        "Shane",
+        "Wes"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-06-26-n-hood-loop",
+      "date": "2026-06-26",
+      "weekday": "Fri",
+      "run": "N/hood Loop",
+      "meet": "Il Lido",
+      "type": "N'hood Loop",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 10.27,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-06-29-cruise",
+      "date": "2026-06-29",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.2,
+      "attendees": [
+        "Alex 👑",
+        "Col",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Shane",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-07-01-intervals",
+      "date": "2026-07-01",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.05,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Chartt",
+        "Col",
+        "Darren",
+        "Deano",
+        "Grant",
+        "Scott",
+        "Shane"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-07-03-river-loop",
+      "date": "2026-07-03",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "MSBB",
+      "type": "River Loop",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 12.2,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Cam",
+        "Col",
+        "Grant",
+        "Scott",
+        "Shane"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-07-06-intervals",
+      "date": "2026-07-06",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.46,
+      "attendees": [
+        "Aaron",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-07-08-lakes-loop",
+      "date": "2026-07-08",
+      "weekday": "Wed",
+      "run": "Lakes Loop",
+      "meet": "Filament",
+      "type": "Lakes Loop",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 12.39,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Celeste",
+        "Chartt",
+        "Col",
+        "Darren",
+        "Grant",
+        "Joe",
+        "Liam",
+        "Scott",
+        "Shane",
+        "Wes"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-07-10-n-hood-loop",
+      "date": "2026-07-10",
+      "weekday": "Fri",
+      "run": "N/hood Loop",
+      "meet": "Il Lido",
+      "type": "N'hood Loop",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 10.3,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-07-13-cruise",
+      "date": "2026-07-13",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.21,
+      "attendees": [
+        "Alex B",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Ming"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-07-15-intervals",
+      "date": "2026-07-15",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.32,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Anna",
+        "Col",
+        "Darren",
+        "Grant",
+        "Jack",
+        "Joe",
+        "Ming",
+        "Scott",
+        "Shane"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-07-17-river-loop",
+      "date": "2026-07-17",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "MSBB",
+      "type": "River Loop",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 12.26,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Cam",
+        "Col",
+        "Grant",
+        "Scott",
+        "Shane"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-07-20-intervals",
+      "date": "2026-07-20",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.43,
+      "attendees": [
+        "Alex B",
+        "Alex 👑",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Kate B"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-07-22-social",
+      "date": "2026-07-22",
+      "weekday": "Wed",
+      "run": "Social",
+      "meet": "Reverie",
+      "type": "Social",
+      "event": null,
+      "location": "Reverie",
+      "actualKm": 8.29,
+      "attendees": [
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Darren",
+        "Grant",
+        "Joe",
+        "Kate B",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-07-24-n-hood-loop",
+      "date": "2026-07-24",
+      "weekday": "Fri",
+      "run": "N/hood Loop",
+      "meet": "Il Lido",
+      "type": "N'hood Loop",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 10.29,
+      "attendees": [
+        "Adam",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-07-27-cruise",
+      "date": "2026-07-27",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.46,
+      "attendees": [
+        "Alex 👑",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Kate B"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-07-29-hills",
+      "date": "2026-07-29",
+      "weekday": "Wed",
+      "run": "Hills",
+      "meet": "Some-day",
+      "type": "Hills",
+      "event": null,
+      "location": "Someday",
+      "actualKm": 12.1,
+      "attendees": [
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Darren",
+        "Grant",
+        "Jack",
+        "Joe",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-07-31-river-loop",
+      "date": "2026-07-31",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "MSBB",
+      "type": "River Loop",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 12.2,
+      "attendees": [
+        "Adam",
+        "Cam",
+        "Col",
+        "Grant",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-08-03-intervals",
+      "date": "2026-08-03",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.42,
+      "attendees": [
+        "Alex 👑",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Wes"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-08-05-kings-park",
+      "date": "2026-08-05",
+      "weekday": "Wed",
+      "run": "Kings Park",
+      "meet": "Little Rokeby",
+      "type": "Kings Park",
+      "event": null,
+      "location": "Little Rokeby",
+      "actualKm": 12.55,
+      "attendees": [
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Darren",
+        "Grant",
+        "Joe",
+        "Kate B",
+        "Scott",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-08-07-n-hood-loop",
+      "date": "2026-08-07",
+      "weekday": "Fri",
+      "run": "N/hood Loop",
+      "meet": "Il Lido",
+      "type": "N'hood Loop",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 10.16,
+      "attendees": [
+        "Adam",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-08-10-cruise",
+      "date": "2026-08-10",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.5,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Dan B",
+        "Darren",
+        "Grant"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-08-12-intervals",
+      "date": "2026-08-12",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 7.7,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Celeste",
+        "Col",
+        "Grant",
+        "Joe",
+        "Kate B",
+        "Scott",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-08-14-river-loop",
+      "date": "2026-08-14",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "MSBB",
+      "type": "River Loop",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 12.25,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Cam",
+        "Col",
+        "Grant",
+        "Kate B",
+        "Scott",
+        "Shane"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-08-17-intervals",
+      "date": "2026-08-17",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 12.19,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Darren",
+        "Grant",
+        "Kate B"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-08-19-social",
+      "date": "2026-08-19",
+      "weekday": "Wed",
+      "run": "Social",
+      "meet": "Filament",
+      "type": "Social",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 7.67,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Anna",
+        "Cam",
+        "Celeste",
+        "Claire",
+        "Darren",
+        "Grant",
+        "Scott",
+        "Shane",
+        "Toby",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-08-21-n-hood-loop",
+      "date": "2026-08-21",
+      "weekday": "Fri",
+      "run": "N/hood Loop",
+      "meet": "Il Lido",
+      "type": "N'hood Loop",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 10.28,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Cam",
+        "Ming",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-08-24-cruise",
+      "date": "2026-08-24",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.46,
+      "attendees": [
+        "Alex B",
+        "Alex 👑",
+        "Dan B",
+        "Darren",
+        "Grant",
+        "Ming",
+        "Shane"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-08-26-intervals",
+      "date": "2026-08-26",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 9.24,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Darren",
+        "Deano",
+        "Grant",
+        "Jack",
+        "René",
+        "Scott",
+        "Shane",
+        "Wes"
+      ],
+      "plusOnes": 1
+    },
+    {
+      "id": "2026-08-28-river-loop",
+      "date": "2026-08-28",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "MSBB",
+      "type": "River Loop",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 12.23,
+      "attendees": [
+        "Aaron",
+        "Cam",
+        "Scott",
+        "Shane"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-08-31-intervals",
+      "date": "2026-08-31",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.45,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Darren",
+        "Kate B"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-09-02-lakes-loop",
+      "date": "2026-09-02",
+      "weekday": "Wed",
+      "run": "Lakes Loop",
+      "meet": "Filament",
+      "type": "Lakes Loop",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 12.35,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Cam",
+        "Celeste",
+        "Col",
+        "Grant",
+        "Jack",
+        "Ming",
+        "René",
+        "Scott",
+        "Shane",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-09-04-n-hood-loop",
+      "date": "2026-09-04",
+      "weekday": "Fri",
+      "run": "N/hood Loop",
+      "meet": "Il Lido",
+      "type": "N'hood Loop",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 10.32,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Cam",
+        "Col",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-09-05-pub-run",
+      "date": "2026-09-05",
+      "weekday": "Sat",
+      "run": "Pub Run",
+      "meet": "Filament",
+      "type": "Pub Run",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 21.34,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Cam",
+        "Celeste",
+        "Col",
+        "Dan B",
+        "Darren",
+        "Deano",
+        "Grant",
+        "Laura E",
+        "Liam",
+        "Ming",
+        "Rhys",
+        "Shane"
+      ],
+      "plusOnes": 2
+    },
+    {
+      "id": "2026-09-07-cruise",
+      "date": "2026-09-07",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.44,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Cam",
+        "Kate B"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-09-09-intervals",
+      "date": "2026-09-09",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.95,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Ming",
+        "René",
+        "Scott",
+        "Shane",
+        "Toby"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-09-11-river-loop",
+      "date": "2026-09-11",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "MSBB",
+      "type": "River Loop",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 12.84,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Cam",
+        "Col",
+        "Ming",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-09-14-intervals",
+      "date": "2026-09-14",
+      "weekday": "Mon",
+      "run": "Intervals",
+      "meet": "Drift",
+      "type": "Intervals",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.48,
+      "attendees": [
+        "Aaron",
+        "Alex 👑",
+        "Grant",
+        "Joe"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-09-16-social",
+      "date": "2026-09-16",
+      "weekday": "Wed",
+      "run": "Social",
+      "meet": "Filament",
+      "type": "Social",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 8.05,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex B",
+        "Alex 👑",
+        "Cam",
+        "Celeste",
+        "Claire",
+        "Col",
+        "Dan",
+        "Darren",
+        "Deano",
+        "Joe",
+        "René",
+        "Scott",
+        "Shane",
+        "Toby"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-09-18-n-hood-loop",
+      "date": "2026-09-18",
+      "weekday": "Fri",
+      "run": "N/hood Loop",
+      "meet": "Il Lido",
+      "type": "N'hood Loop",
+      "event": null,
+      "location": "Il Lido",
+      "actualKm": 10.31,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Cam",
+        "Col",
+        "Kate B",
+        "Scott"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-09-21-cruise",
+      "date": "2026-09-21",
+      "weekday": "Mon",
+      "run": "Cruise",
+      "meet": "Drift",
+      "type": "Cruise",
+      "event": null,
+      "location": "Drift",
+      "actualKm": 10.43,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Grant",
+        "Joe",
+        "Shane"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-09-23-intervals",
+      "date": "2026-09-23",
+      "weekday": "Wed",
+      "run": "Intervals",
+      "meet": "Filament",
+      "type": "Intervals",
+      "event": null,
+      "location": "Filament",
+      "actualKm": 9.1,
+      "attendees": [
+        "Aaron",
+        "Adam",
+        "Alex 👑",
+        "Cam",
+        "Celeste",
+        "Col",
+        "Deano",
+        "Kate B",
+        "René",
+        "Scott",
+        "Wes"
+      ],
+      "plusOnes": 0
+    },
+    {
+      "id": "2026-09-25-river-loop",
+      "date": "2026-09-25",
+      "weekday": "Fri",
+      "run": "River Loop",
+      "meet": "MSBB",
+      "type": "River Loop",
+      "event": null,
+      "location": "MSBB",
+      "actualKm": 12.4,
+      "attendees": [
+        "Aaron",
+        "Alex B",
+        "Cam",
+        "Kate B",
+        "Scott"
+      ],
+      "plusOnes": 0
+    }
+  ],
+  "expected": {
+    "totals": {
+      "runs": 118,
+      "memberKm": 9888.73,
+      "runners": 30
+    },
+    "members": [
+      {
+        "name": "Aaron",
+        "runs": 89,
+        "memberKm": 926.88
+      },
+      {
+        "name": "Adam",
+        "runs": 63,
+        "memberKm": 630.94
+      },
+      {
+        "name": "Alex B",
+        "runs": 36,
+        "memberKm": 373.29
+      },
+      {
+        "name": "Alex Kr",
+        "runs": 1,
+        "memberKm": 8.68
+      },
+      {
+        "name": "Alex 👑",
+        "runs": 78,
+        "memberKm": 822.61
+      },
+      {
+        "name": "Anna",
+        "runs": 25,
+        "memberKm": 224.59
+      },
+      {
+        "name": "Cam",
+        "runs": 67,
+        "memberKm": 709.08
+      },
+      {
+        "name": "Celeste",
+        "runs": 25,
+        "memberKm": 240.26
+      },
+      {
+        "name": "Chartt",
+        "runs": 10,
+        "memberKm": 87.81
+      },
+      {
+        "name": "Claire",
+        "runs": 7,
+        "memberKm": 62.45
+      },
+      {
+        "name": "Col",
+        "runs": 68,
+        "memberKm": 716.46
+      },
+      {
+        "name": "Dan",
+        "runs": 8,
+        "memberKm": 75.32
+      },
+      {
+        "name": "Dan B",
+        "runs": 30,
+        "memberKm": 322.33
+      },
+      {
+        "name": "Darren",
+        "runs": 52,
+        "memberKm": 533.48
+      },
+      {
+        "name": "Deano",
+        "runs": 16,
+        "memberKm": 154.24
+      },
+      {
+        "name": "Grant",
+        "runs": 75,
+        "memberKm": 804.13
+      },
+      {
+        "name": "Jack",
+        "runs": 6,
+        "memberKm": 59.42
+      },
+      {
+        "name": "Joe",
+        "runs": 22,
+        "memberKm": 216.7
+      },
+      {
+        "name": "Kate B",
+        "runs": 46,
+        "memberKm": 468.23
+      },
+      {
+        "name": "Laura E",
+        "runs": 1,
+        "memberKm": 21.34
+      },
+      {
+        "name": "Liam",
+        "runs": 15,
+        "memberKm": 165.46
+      },
+      {
+        "name": "Ming",
+        "runs": 25,
+        "memberKm": 249.7
+      },
+      {
+        "name": "René",
+        "runs": 5,
+        "memberKm": 47.69
+      },
+      {
+        "name": "Rhys",
+        "runs": 7,
+        "memberKm": 78.64
+      },
+      {
+        "name": "Rohan",
+        "runs": 4,
+        "memberKm": 34.09
+      },
+      {
+        "name": "Scott",
+        "runs": 81,
+        "memberKm": 829.94
+      },
+      {
+        "name": "Shane",
+        "runs": 37,
+        "memberKm": 388.72
+      },
+      {
+        "name": "Tarquin",
+        "runs": 3,
+        "memberKm": 24.93
+      },
+      {
+        "name": "Toby",
+        "runs": 32,
+        "memberKm": 312.2
+      },
+      {
+        "name": "Wes",
+        "runs": 31,
+        "memberKm": 299.12
+      }
+    ],
+    "clubDays": {
+      "count": 114,
+      "dates": [
+        "2026-01-02",
+        "2026-01-05",
+        "2026-01-07",
+        "2026-01-09",
+        "2026-01-12",
+        "2026-01-14",
+        "2026-01-16",
+        "2026-01-19",
+        "2026-01-21",
+        "2026-01-23",
+        "2026-01-26",
+        "2026-01-28",
+        "2026-01-30",
+        "2026-02-02",
+        "2026-02-04",
+        "2026-02-06",
+        "2026-02-09",
+        "2026-02-11",
+        "2026-02-13",
+        "2026-02-16",
+        "2026-02-18",
+        "2026-02-20",
+        "2026-02-23",
+        "2026-02-25",
+        "2026-02-27",
+        "2026-03-02",
+        "2026-03-04",
+        "2026-03-06",
+        "2026-03-09",
+        "2026-03-11",
+        "2026-03-13",
+        "2026-03-16",
+        "2026-03-18",
+        "2026-03-20",
+        "2026-03-23",
+        "2026-03-25",
+        "2026-03-27",
+        "2026-03-30",
+        "2026-04-01",
+        "2026-04-03",
+        "2026-04-06",
+        "2026-04-08",
+        "2026-04-10",
+        "2026-04-13",
+        "2026-04-15",
+        "2026-04-17",
+        "2026-04-20",
+        "2026-04-22",
+        "2026-04-24",
+        "2026-04-27",
+        "2026-04-29",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-06",
+        "2026-05-11",
+        "2026-05-13",
+        "2026-05-15",
+        "2026-05-18",
+        "2026-05-20",
+        "2026-05-22",
+        "2026-05-25",
+        "2026-05-27",
+        "2026-05-29",
+        "2026-06-01",
+        "2026-06-03",
+        "2026-06-05",
+        "2026-06-08",
+        "2026-06-10",
+        "2026-06-12",
+        "2026-06-15",
+        "2026-06-17",
+        "2026-06-19",
+        "2026-06-22",
+        "2026-06-24",
+        "2026-06-26",
+        "2026-06-29",
+        "2026-07-01",
+        "2026-07-03",
+        "2026-07-06",
+        "2026-07-08",
+        "2026-07-10",
+        "2026-07-13",
+        "2026-07-15",
+        "2026-07-17",
+        "2026-07-20",
+        "2026-07-22",
+        "2026-07-24",
+        "2026-07-27",
+        "2026-07-29",
+        "2026-07-31",
+        "2026-08-03",
+        "2026-08-05",
+        "2026-08-07",
+        "2026-08-10",
+        "2026-08-12",
+        "2026-08-14",
+        "2026-08-17",
+        "2026-08-19",
+        "2026-08-21",
+        "2026-08-24",
+        "2026-08-26",
+        "2026-08-28",
+        "2026-08-31",
+        "2026-09-02",
+        "2026-09-04",
+        "2026-09-07",
+        "2026-09-09",
+        "2026-09-11",
+        "2026-09-14",
+        "2026-09-16",
+        "2026-09-18",
+        "2026-09-21",
+        "2026-09-23",
+        "2026-09-25"
+      ]
+    },
+    "streaks": [
+      {
+        "name": "Aaron",
+        "current": 14,
+        "currentFrom": "2026-08-26",
+        "best": 14,
+        "bestFrom": "2026-08-26",
+        "bestTo": "2026-09-25",
+        "madeByWeekday": {
+          "Mon": 19,
+          "Wed": 35,
+          "Fri": 33
+        }
+      },
+      {
+        "name": "Adam",
+        "current": 0,
+        "currentFrom": null,
+        "best": 5,
+        "bestFrom": "2026-01-21",
+        "bestTo": "2026-01-30",
+        "madeByWeekday": {
+          "Mon": 3,
+          "Wed": 31,
+          "Fri": 27
+        }
+      },
+      {
+        "name": "Alex B",
+        "current": 1,
+        "currentFrom": "2026-09-25",
+        "best": 3,
+        "bestFrom": "2026-02-13",
+        "bestTo": "2026-02-18",
+        "madeByWeekday": {
+          "Mon": 14,
+          "Wed": 16,
+          "Fri": 5
+        }
+      },
+      {
+        "name": "Alex Kr",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-01-14",
+        "bestTo": "2026-01-14",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 1,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Alex 👑",
+        "current": 0,
+        "currentFrom": null,
+        "best": 9,
+        "bestFrom": "2026-01-02",
+        "bestTo": "2026-01-21",
+        "madeByWeekday": {
+          "Mon": 28,
+          "Wed": 34,
+          "Fri": 14
+        }
+      },
+      {
+        "name": "Anna",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-01-02",
+        "bestTo": "2026-01-02",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 24,
+          "Fri": 1
+        }
+      },
+      {
+        "name": "Cam",
+        "current": 5,
+        "currentFrom": "2026-09-16",
+        "best": 5,
+        "bestFrom": "2026-09-02",
+        "bestTo": "2026-09-11",
+        "madeByWeekday": {
+          "Mon": 4,
+          "Wed": 29,
+          "Fri": 32
+        }
+      },
+      {
+        "name": "Celeste",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-01-07",
+        "bestTo": "2026-01-07",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 24,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Chartt",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-01-28",
+        "bestTo": "2026-01-28",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 10,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Claire",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-01-07",
+        "bestTo": "2026-01-07",
+        "madeByWeekday": {
+          "Mon": 1,
+          "Wed": 6,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Col",
+        "current": 0,
+        "currentFrom": null,
+        "best": 5,
+        "bestFrom": "2026-01-21",
+        "bestTo": "2026-01-30",
+        "madeByWeekday": {
+          "Mon": 5,
+          "Wed": 33,
+          "Fri": 28
+        }
+      },
+      {
+        "name": "Dan",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-01-07",
+        "bestTo": "2026-01-07",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 8,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Dan B",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-01-05",
+        "bestTo": "2026-01-05",
+        "madeByWeekday": {
+          "Mon": 28,
+          "Wed": 0,
+          "Fri": 1
+        }
+      },
+      {
+        "name": "Darren",
+        "current": 0,
+        "currentFrom": null,
+        "best": 4,
+        "bestFrom": "2026-05-04",
+        "bestTo": "2026-05-13",
+        "madeByWeekday": {
+          "Mon": 24,
+          "Wed": 26,
+          "Fri": 1
+        }
+      },
+      {
+        "name": "Deano",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-02-04",
+        "bestTo": "2026-02-04",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 15,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Grant",
+        "current": 0,
+        "currentFrom": null,
+        "best": 5,
+        "bestFrom": "2026-01-12",
+        "bestTo": "2026-01-21",
+        "madeByWeekday": {
+          "Mon": 32,
+          "Wed": 32,
+          "Fri": 9
+        }
+      },
+      {
+        "name": "Jack",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-01-28",
+        "bestTo": "2026-01-28",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 6,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Joe",
+        "current": 0,
+        "currentFrom": null,
+        "best": 2,
+        "bestFrom": "2026-01-05",
+        "bestTo": "2026-01-07",
+        "madeByWeekday": {
+          "Mon": 9,
+          "Wed": 13,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Kate B",
+        "current": 2,
+        "currentFrom": "2026-09-23",
+        "best": 5,
+        "bestFrom": "2026-02-09",
+        "bestTo": "2026-02-18",
+        "madeByWeekday": {
+          "Mon": 19,
+          "Wed": 20,
+          "Fri": 7
+        }
+      },
+      {
+        "name": "Laura E",
+        "current": 0,
+        "currentFrom": null,
+        "best": 0,
+        "bestFrom": null,
+        "bestTo": null,
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 0,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Liam",
+        "current": 0,
+        "currentFrom": null,
+        "best": 2,
+        "bestFrom": "2026-02-09",
+        "bestTo": "2026-02-11",
+        "madeByWeekday": {
+          "Mon": 8,
+          "Wed": 5,
+          "Fri": 1
+        }
+      },
+      {
+        "name": "Ming",
+        "current": 0,
+        "currentFrom": null,
+        "best": 5,
+        "bestFrom": "2026-04-13",
+        "bestTo": "2026-04-22",
+        "madeByWeekday": {
+          "Mon": 7,
+          "Wed": 10,
+          "Fri": 7
+        }
+      },
+      {
+        "name": "René",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-08-26",
+        "bestTo": "2026-08-26",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 5,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Rhys",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-01-07",
+        "bestTo": "2026-01-07",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 6,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Rohan",
+        "current": 0,
+        "currentFrom": null,
+        "best": 2,
+        "bestFrom": "2026-01-07",
+        "bestTo": "2026-01-09",
+        "madeByWeekday": {
+          "Mon": 1,
+          "Wed": 2,
+          "Fri": 1
+        }
+      },
+      {
+        "name": "Scott",
+        "current": 2,
+        "currentFrom": "2026-09-23",
+        "best": 5,
+        "bestFrom": "2026-01-21",
+        "bestTo": "2026-01-30",
+        "madeByWeekday": {
+          "Mon": 5,
+          "Wed": 38,
+          "Fri": 37
+        }
+      },
+      {
+        "name": "Shane",
+        "current": 0,
+        "currentFrom": null,
+        "best": 3,
+        "bestFrom": "2026-06-29",
+        "bestTo": "2026-07-03",
+        "madeByWeekday": {
+          "Mon": 10,
+          "Wed": 18,
+          "Fri": 8
+        }
+      },
+      {
+        "name": "Tarquin",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-01-07",
+        "bestTo": "2026-01-07",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 3,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Toby",
+        "current": 0,
+        "currentFrom": null,
+        "best": 5,
+        "bestFrom": "2026-01-12",
+        "bestTo": "2026-01-21",
+        "madeByWeekday": {
+          "Mon": 6,
+          "Wed": 22,
+          "Fri": 4
+        }
+      },
+      {
+        "name": "Wes",
+        "current": 0,
+        "currentFrom": null,
+        "best": 2,
+        "bestFrom": "2026-05-18",
+        "bestTo": "2026-05-20",
+        "madeByWeekday": {
+          "Mon": 4,
+          "Wed": 27,
+          "Fri": 0
+        }
+      }
+    ],
+    "milestones": [
+      {
+        "name": "Kate B",
+        "runs": 46,
+        "milestone": 50,
+        "runsNeeded": 4
+      }
+    ]
+  }
+}

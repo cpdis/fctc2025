@@ -20,13 +20,25 @@ export const LATEST_YEAR = YEAR_LIST[0]
 // distinct string so `resolveYear` can return it without colliding with a year.
 export const ALL_TIME = 'all'
 
-// The full set of options the year switcher offers: every real year (newest
-// first) plus "All time" at the end. Each carries the value written to ?year
-// and the label shown in the dropdown.
-export const YEAR_OPTIONS = [
-  ...YEAR_LIST.map((year) => ({ value: year, label: String(year) })),
-  { value: ALL_TIME, label: 'All time' },
-]
+// Official club weekdays per season (KTD2), as the sheet's three-letter weekday
+// names. A club day is one of these weekdays with at least one run on it; a run
+// on any other day is a special and never adds to or breaks a streak. 2025 had
+// no official Monday run, so its Invasion Day Monday was a special. A season not
+// listed here runs Monday, Wednesday and Friday. The Swift kit mirrors this table.
+const DEFAULT_CLUB_WEEKDAYS = Object.freeze(['Mon', 'Wed', 'Fri'])
+const CLUB_WEEKDAYS = {
+  2025: Object.freeze(['Wed', 'Fri']),
+}
+
+/**
+ * A season's official club weekdays, in weekday order (frozen; do not edit).
+ *
+ * @param {number} year - season year
+ * @returns {readonly string[]} e.g. ['Mon', 'Wed', 'Fri']
+ */
+export function clubWeekdays(year) {
+  return CLUB_WEEKDAYS[year] ?? DEFAULT_CLUB_WEEKDAYS
+}
 
 /** True when a resolved selection is the combined "all time" view. */
 export function isAllTime(selection) {

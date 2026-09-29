@@ -29,6 +29,11 @@ final class AppRuntime {
     /// This launch's Milestones empty-state line, chosen once at startup.
     let milestoneEmptyPhrase: String
 
+    /// The Events tab's clock. Real time, except a `-ui-events` UI-test launch,
+    /// which pins it (`UITestSupport.now`) so that fixture's week has the same
+    /// shape on whatever day the suite runs.
+    let now: () -> Date
+
     @ObservationIgnored private let appearanceStore: any AppearanceStoring
 
     init(
@@ -38,7 +43,8 @@ final class AppRuntime {
         reminderService: (any RunReminderManaging)? = nil,
         sharedScreenshotInbox: SharedScreenshotInbox = SharedScreenshotInbox(),
         engineOverride: (any SyncEngineClient)? = nil,
-        configOverride: AppConfig? = nil
+        configOverride: AppConfig? = nil,
+        now: @escaping () -> Date = { .now }
     ) {
         self.modelContainer = modelContainer
         self.configPersistence = configPersistence
@@ -49,6 +55,7 @@ final class AppRuntime {
         self.runRemindersEnabled = reminders.isEnabled
         self.reminderMessage = nil
         self.sharedScreenshotInbox = sharedScreenshotInbox
+        self.now = now
         // Drawn once per launch and held. Rolling this inside a view body would
         // change the line on every state change while the app is in use.
         var generator = SystemRandomNumberGenerator()
@@ -64,13 +71,60 @@ final class AppRuntime {
 
     /// Historic navigation refreshes another season without changing Home's scope.
     var activeSheetState: SheetState? {
+        activeSheetCache?.state
+    }
+
+    /// The active season's state with its cache row's last refresh, which the
+    /// outbox overlay needs (`EffectiveRuns`, KTD11). `refreshedAt` is nil when
+    /// only the in-memory state exists, as on a legacy endpoint. It fetches and
+    /// decodes the cache, so read it once per data change, never per render.
+    var activeSheetCache: (state: SheetState, refreshedAt: Date?)? {
+        let endpoint = config.endpoint?.absoluteString
         let caches = (try? modelContainer.mainContext.fetch(FetchDescriptor<SharedSheetCache>())) ?? []
         if let activeState {
-            return caches.first { $0.endpointIdentity == config.endpoint?.absoluteString
-                && $0.spreadsheetId == activeState.spreadsheetId && $0.seasonSheetId == activeState.seasonSheetId }?.state ?? activeState
+            let row = caches.first { $0.endpointIdentity == endpoint
+                && $0.spreadsheetId == activeState.spreadsheetId && $0.seasonSheetId == activeState.seasonSheetId }
+            return (row?.state ?? activeState, row?.refreshedAt)
         }
-        return caches.filter { $0.endpointIdentity == config.endpoint?.absoluteString }
-            .sorted { ($0.state?.seasonYear ?? 0) > ($1.state?.seasonYear ?? 0) }.first?.state
+        // Cold launch: the season the server last called live, the same pick
+        // the engine's writes make (`SharedSheetCache.live`).
+        return SharedSheetCache.live(in: caches, endpoint: endpoint).map { ($0.state, $0.cache.refreshedAt) }
+    }
+
+    /// The cached runs that belong to this connection's active season. The run
+    /// cache can hold other endpoints' and seasons' rows, so Runs, Events and
+    /// route handling all scope it the same way before reading it. It reads
+    /// `activeSheetState`, so call it once per `activeRunsFingerprint` change.
+    func activeRuns(in cachedRuns: [ScheduledRun]) -> [ScheduledRun] {
+        activeRuns(in: cachedRuns, state: activeSheetState)
+    }
+
+    /// `activeRuns(in:)` for a caller that already holds the active state
+    /// (`ActiveSeason`), so the season cache is read once, not twice.
+    func activeRuns(in cachedRuns: [ScheduledRun], state: SheetState?) -> [ScheduledRun] {
+        let endpoint = config.endpoint?.absoluteString
+        let ids = Set(RunCacheScope.runs(cachedRuns.map(RunSnapshot.init), endpoint: endpoint,
+                                        state: state).map(\.id))
+        return cachedRuns.filter { ids.contains($0.cacheKey) && ($0.identity == nil || $0.endpointIdentity == endpoint) }
+    }
+
+    /// A cheap key for `activeRuns(in:)`: it changes whenever that answer can,
+    /// and it decodes no JSON, so a view builds it per render and resolves the
+    /// runs only when it moves (KTD10):
+    ///
+    ///   @Query rows ──> activeRunsFingerprint (cheap) ──changed──> activeRuns(in:)
+    ///                                                              (fetch + decode)
+    ///
+    /// It covers the connection, the live state, every cached run (each cache
+    /// write stamps the sheet's revision, a hash of the run rows) and each
+    /// refresh of this connection's season caches, which can move the scope.
+    func activeRunsFingerprint(runs: [ScheduledRun], caches: [SharedSheetCache]) -> String {
+        let endpoint = config.endpoint?.absoluteString ?? ""
+        let live = activeState.map { "\($0.spreadsheetId ?? ""):\($0.seasonSheetId ?? 0):\($0.sheetRevision)" }
+        let runs = runs.map { "\($0.cacheKey):\($0.cachedRevision ?? ""):\($0.attendees.count):\($0.plusOnes)" }
+        let caches = caches.filter { $0.endpointIdentity == endpoint }
+            .map { "\($0.key):\($0.refreshedAt.timeIntervalSinceReferenceDate)" }
+        return ([endpoint, live ?? ""] + runs + caches).joined(separator: "|")
     }
 
     func setAccent(_ choice: AccentChoice) {

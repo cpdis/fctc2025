@@ -534,6 +534,45 @@ struct SyncEngineTests {
         })
     }
 
+    /// The Dashboard counts "Sat 3-Jan" and "9-Jan" (the web and Apps Script
+    /// rule), so the Runs tab must give them a day too, not file them "Later".
+    @Test("Loose sheet dates still get a scheduled day")
+    func looseDatesScheduled() async throws {
+        let container = try makeContainer()
+        let response = json(
+            """
+            {
+              "ok":true,
+              "roster":[],
+              "runs":[
+                {"rowIndex":42,"date":"Sat 3-Jan","meet":"Il Lido","run":"Soft Sand",
+                 "approxKm":5,"actualKm":null,"attendees":[],"plusOnes":0},
+                {"rowIndex":43,"date":"9-Jan","meet":"Il Lido","run":"Tempo",
+                 "approxKm":5,"actualKm":null,"attendees":[],"plusOnes":0},
+                {"rowIndex":44,"date":"Notes","meet":"","run":"",
+                 "approxKm":null,"actualKm":null,"attendees":[],"plusOnes":0}
+              ],
+              "seasonYear":2026,
+              "sheetRevision":"rev-1"
+            }
+            """
+        )
+        let engine = makeEngine(container: container, transport: StubTransport([.response(response)]))
+
+        _ = try await engine.refreshState()
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let days = try fetchRuns(container).sorted { $0.rowIndex < $1.rowIndex }.map { run in
+            run.scheduledAt.map { calendar.dateComponents([.year, .month, .day, .hour], from: $0) }
+        }
+        #expect(days == [
+            DateComponents(year: 2026, month: 1, day: 3, hour: 0),
+            DateComponents(year: 2026, month: 1, day: 9, hour: 0),
+            nil,
+        ])
+    }
+
     @Test("refresh makes the server authoritative but keeps unsynced local members")
     func refreshReconciliation() async throws {
         let container = try makeContainer()

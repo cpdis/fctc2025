@@ -2,9 +2,12 @@
 //  ScreenTourUITests.swift
 //  FCTCAttendanceUITests
 //
-//  Visits each main screen once and attaches a named screenshot. It exists for
-//  visual review (before/after UI passes), not for behavior: the acceptance
-//  flows live in the other suites, so the default test run skips it.
+//  Visits each main screen once, starting with the three tab roots, and
+//  attaches a named screenshot. It exists for visual review (before/after UI
+//  passes), not for behavior: the acceptance flows live in the other suites, so
+//  the default test run skips it. It captures whichever appearance the simulator
+//  uses; run it once in light and once in dark
+//  (`xcrun simctl ui booted appearance dark`).
 //
 //  Run it with the environment variable set for the test runner:
 //
@@ -32,25 +35,37 @@ final class ScreenTourUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 8))
         settle()
-        capture("tour-01-home")
+        capture("tour-01-runs")
 
+        app.tab(.events).tap()
+        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+        settle()
+        capture("tour-02-events")
+
+        app.tab(.dashboard).tap()
+        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
+        settle()
+        capture("tour-03-dashboard")
+
+        app.tab(.runs).tap()
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
         app.buttons["home-todays-run"].tap()
         XCTAssertTrue(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 5))
         app.buttons["member-Aaron"].tap()
         app.buttons["member-Dan"].tap()
         settle()
-        capture("tour-02-checklist")
+        capture("tour-04-checklist")
 
         app.buttons["import-poll"].tap()
         let read = app.buttons["screenshot-read"]
         XCTAssertTrue(read.waitForExistence(timeout: 5))
         settle()
-        capture("tour-03-import")
+        capture("tour-05-import")
 
         read.tap()
         XCTAssertTrue(app.navigationBars["Review suggestions"].waitForExistence(timeout: 5))
         settle()
-        capture("tour-04-triage")
+        capture("tour-06-triage")
         app.buttons["triage-cancel"].tap()
 
         XCTAssertTrue(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 5))
@@ -60,27 +75,27 @@ final class ScreenTourUITests: XCTestCase {
         app.buttons["home-all-runs"].tap()
         XCTAssertTrue(app.buttons["run-row-42"].waitForExistence(timeout: 5))
         settle()
-        capture("tour-05-season")
+        capture("tour-07-season")
         app.navigationBars.buttons.element(boundBy: 0).tap()
 
         XCTAssertTrue(app.buttons["home-unsynced"].waitForExistence(timeout: 5))
         app.buttons["home-unsynced"].tap()
         XCTAssertTrue(app.navigationBars["Outbox"].waitForExistence(timeout: 5))
         settle()
-        capture("tour-06-outbox")
+        capture("tour-08-outbox")
         app.navigationBars.buttons.element(boundBy: 0).tap()
 
         XCTAssertTrue(app.buttons["home-settings"].waitForExistence(timeout: 5))
         app.buttons["home-settings"].tap()
         XCTAssertTrue(app.buttons["settings-save"].waitForExistence(timeout: 5))
         settle()
-        capture("tour-07-settings")
+        capture("tour-09-settings")
 
         let version = app.staticTexts["settings-app-version"]
         for _ in 0..<6 where !(version.exists && version.isHittable) { app.swipeUp() }
         XCTAssertTrue(version.waitForExistence(timeout: 3))
         settle()
-        capture("tour-08-settings-bottom")
+        capture("tour-10-settings-bottom")
     }
 
     /// Lets entrance animations finish so each shot shows the resting layout.

@@ -129,6 +129,8 @@ public enum ConflictResolutionAction: String, Hashable, Sendable, CaseIterable {
 
 public protocol SyncEngineClient: Sendable {
     func refreshState(seasonSheetId: Int?) async throws -> SheetState
+    /// Last season as a read-only snapshot; nil when the endpoint has none.
+    func previousSeasonSnapshot() async throws -> SheetState?
     func sharedGuests() async throws -> [SharedGuest]
     func guestHistory(id: String) async throws -> GuestHistory
     func createGuest(name: String, confirmDistinct: Bool) async throws -> Guest

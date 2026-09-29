@@ -295,6 +295,21 @@ test.describe('memberBand', () => {
   });
 });
 
+test.describe('isAttendedMark (R1: only "x" counts)', () => {
+  test.it('accepts x in any case, ignoring surrounding whitespace', () => {
+    ['x', 'X', ' x ', '\tX\n'].forEach((mark) => {
+      assert.equal(SheetOps.isAttendedMark(mark), true, `${JSON.stringify(mark)}`);
+    });
+  });
+
+  test.it('rejects annotations, "-", blanks and anything that merely contains an x', () => {
+    ['12.30', '🛕', 'sad face', 'no run', '-', '', '   ', 'xx', 'x!', 'y', 0, 12.3, null, undefined]
+      .forEach((mark) => {
+        assert.equal(SheetOps.isAttendedMark(mark), false, `${JSON.stringify(mark)}`);
+      });
+  });
+});
+
 test.describe('listRuns / readRun', () => {
   test.it('reads the first run of each season, attendance included', () => {
     for (const year of SEASON_YEARS) {
@@ -309,7 +324,7 @@ test.describe('listRuns / readRun', () => {
     }
   });
 
-  test.it('counts attendance the way the dashboard does (x yes, - and blank no)', () => {
+  test.it('counts attendance the way the dashboard does (only x; annotations, - and blank no)', () => {
     const { grid, headerRow } = season(2025);
     const runs = SheetOps.listRuns(grid, headerRow);
     // 2025 row 14 ("Wed, 15-Jan") marks Claire and Rhys with "-", not "x".
@@ -318,6 +333,14 @@ test.describe('listRuns / readRun', () => {
     assert.ok(!run.attendees.includes('Claire'));
     assert.ok(!run.attendees.includes('Rhys'));
     assert.ok(run.attendees.includes('Aaron'));
+
+    // AE5: 19-Feb has "🛕" for Adam and "sad face" for Rohan. Neither ran, so
+    // the run has 16 runners, not 18.
+    const annotated = runs.find((r) => r.date === 'Wed, 19-Feb');
+    assert.ok(annotated, 'expected a 19-Feb run');
+    assert.equal(annotated.attendees.length, 16);
+    assert.ok(!annotated.attendees.includes('Adam'));
+    assert.ok(!annotated.attendees.includes('Rohan'));
   });
 
   test.it('keeps blank distances as null, never 0', () => {
@@ -424,6 +447,24 @@ test.describe('revisionHash', () => {
     const { grid, headerRow, band, facts } = season(2026);
     const before = SheetOps.revisionHash(grid, headerRow);
     grid[facts.firstRunRow - 1][band[0].colIndex - 1] = 'x';
+    assert.notEqual(SheetOps.revisionHash(grid, headerRow), before);
+  });
+
+  test.it('changes when an annotation changes, even though attendance does not', () => {
+    // Conflict detection hashes raw cells, not derived attendees: an organiser
+    // typing "🛕" into a blank member cell is still a sheet change to notice.
+    const { grid, headerRow, bounds, band, facts } = season(2026);
+    const row = grid[facts.firstRunRow - 1];
+    const blank = band.find((m) => !SheetOps.cellText(row[m.colIndex - 1]));
+    assert.ok(blank, 'fixture precondition: the first run has a blank member cell');
+    const before = SheetOps.revisionHash(grid, headerRow);
+    const attendeesBefore = SheetOps.readRun(grid, bounds, band, facts.firstRunRow).attendees;
+
+    row[blank.colIndex - 1] = '🛕';
+    assert.deepEqual(
+      SheetOps.readRun(grid, bounds, band, facts.firstRunRow).attendees,
+      attendeesBefore
+    );
     assert.notEqual(SheetOps.revisionHash(grid, headerRow), before);
   });
 
@@ -597,6 +638,38 @@ test.describe('buildRowWrite (merge vs overwrite)', () => {
     assert.equal(promoted.memberValues[2], 'x');
   });
 
+  test.it('treats an annotation like a blank cell (R1)', () => {
+    // 2025 member cells hold "🛕" and "sad face"; neither is attendance. Ticking
+    // that member writes "x" over it; leaving them unticked keeps it, in either
+    // mode. An uppercase "X" IS attendance, so overwrite may clear it.
+    const annotated = ['🛕', 'x', 'sad face', 'X'];
+
+    const merged = SheetOps.buildRowWrite(band, ['Aaron'], null, null, {
+      mode: 'merge',
+      existingValues: annotated,
+    });
+    assert.deepEqual(merged.memberValues, ['x', 'x', 'sad face', 'X']);
+    assert.deepEqual(merged.attendees, ['Aaron', 'Alex 👑', 'Wes']);
+    assert.equal(merged.changedCells, 1);
+
+    const overwritten = SheetOps.buildRowWrite(band, ['Aaron'], null, null, {
+      mode: 'overwrite',
+      existingValues: annotated,
+    });
+    assert.deepEqual(overwritten.memberValues, ['x', '', 'sad face', '']);
+    assert.deepEqual(overwritten.attendees, ['Aaron']);
+    assert.equal(overwritten.changedCells, 3);
+
+    // Nobody ticked: an overwrite leaves every annotation exactly as it was.
+    const untouched = SheetOps.buildRowWrite(band, [], null, null, {
+      mode: 'overwrite',
+      existingValues: ['🛕', '', '12.30', ''],
+    });
+    assert.deepEqual(untouched.memberValues, ['🛕', '', '12.30', '']);
+    assert.deepEqual(untouched.attendees, []);
+    assert.equal(untouched.changedCells, 0);
+  });
+
   test.it('is idempotent: re-sending the same payload changes nothing', () => {
     const first = SheetOps.buildRowWrite(band, ['Aaron', 'Wes'], 2, 7.5, {
       mode: 'overwrite',
@@ -751,6 +824,16 @@ test.describe('date and number cells', () => {
     assert.equal(SheetOps.parseSheetDate(''), null);
   });
 
+  test.it('rejects impossible days, as the web and iOS do', () => {
+    for (const cell of ['Wed, 31-Sep', '31-Apr', '30-Feb', '0-Oct', 'Thu, 32-Jan']) {
+      assert.equal(SheetOps.parseSheetDate(cell), null, cell);
+    }
+    assert.deepEqual(SheetOps.parseSheetDate('Thu, 30-Sep'), { month: 8, day: 30 });
+    assert.deepEqual(SheetOps.parseSheetDate('Sat, 31-Oct'), { month: 9, day: 31 });
+    // No year on the cell, so 29-Feb stays a date (a leap season's run).
+    assert.deepEqual(SheetOps.parseSheetDate('29-Feb'), { month: 1, day: 29 });
+  });
+
   test.it('renders a date-typed cell the way the sheet writes text dates', () => {
     // A cell someone re-typed as a real date must not become "Fri Jan 03 2025 ...".
     assert.equal(SheetOps.dateCellText(new Date(2025, 0, 3)), 'Fri, 3-Jan');
@@ -800,13 +883,14 @@ test.describe('isWriteWithinBand (sheet-safety invariant)', () => {
 });
 
 /**
- * Lifetime totals (milestones). The counts below were tallied from the fixture
- * CSVs independently of SheetOps, so a regression in the counter cannot redefine
- * what "correct" means.
+ * Lifetime totals (milestones). The counts below are the sheet's own summary row
+ * above the header (its COUNTIF "x" formulas), not SheetOps output, so a
+ * regression in the counter cannot redefine what "correct" means. 2025 Adam (72)
+ * and Alex 👑 (74) are where x-only differs from the old "any mark" rule.
  */
 test.describe('attendanceTotals', () => {
   const EXPECTED = {
-    2025: { 'Aaron': 80, 'Adam': 74, 'Alex 👑': 75, 'Scott': 95, 'Wes': 24 },
+    2025: { 'Aaron': 80, 'Adam': 72, 'Alex 👑': 74, 'Scott': 95, 'Wes': 24 },
     2026: { 'Aaron': 49, 'Adam': 34, 'Alex 👑': 40, 'Tim': 0, 'Wes': 16 },
   };
 
@@ -842,10 +926,10 @@ test.describe('attendanceTotals', () => {
     assert.deepEqual(zeroes, ['Fraser', 'Laura E', 'Laura K', 'Sam', 'Tim']);
   });
 
-  test.it('counts any mark except blank and "-"', () => {
-    // The real sheet records attendance as an x, as a per-person distance, and
-    // occasionally as an emoji or a note. Only "-" and blank mean absent, which
-    // is the same rule src/utils/dataParser.js applies for the milestone email.
+  test.it('counts only "x" (any case, trimmed), never an annotation', () => {
+    // R1: attendance is "x" and nothing else, the rule src/utils/dataParser.js
+    // applies for the dashboard and the milestone email. "-" means away; "🛕",
+    // "sad face" and a time like "12.30" are organiser notes, not runs.
     const grid = seasonGrid(2026);
     const headerRow = SheetOps.findHeaderRow(grid);
     const band = SheetOps.memberBand(grid, headerRow);
@@ -856,8 +940,8 @@ test.describe('attendanceTotals', () => {
     for (let r = firstRun; r <= grid.length; r += 1) {
       grid[r - 1][member.colIndex - 1] = '';
     }
-    const counted = ['x', 'X', '12.30', '🛕', 'no run'];
-    const ignored = ['-', '', '   '];
+    const counted = ['x', 'X', ' x '];
+    const ignored = ['12.30', '🛕', 'sad face', 'no run', '-', '', '   '];
     [].concat(counted, ignored).forEach((mark, offset) => {
       grid[firstRun - 1 + offset][member.colIndex - 1] = mark;
     });
@@ -866,7 +950,7 @@ test.describe('attendanceTotals', () => {
     assert.equal(
       totals.find((t) => t.name === member.name).runs,
       counted.length,
-      'exactly the non-blank, non-dash marks count'
+      'exactly the x marks count'
     );
 
     // Only the edited column moved.

@@ -17,16 +17,16 @@ actor UITestSharedGuestAPI: SheetAPIClient {
         guests = [SharedGuest(guestId: Self.rene, displayName: "Rene", confirmedRuns: 11),
                   SharedGuest(guestId: Self.toby, displayName: "Toby", confirmedRuns: 10),
                   SharedGuest(guestId: Self.wes, displayName: "Wes", confirmedRuns: 9)]
-        let roster = ["Aaron", "Col", "Dan", "Dan B"].enumerated().map { RosterEntry(name: $0.element, colIndex: $0.offset + 6) }
+        let roster = UITestDashboardFixture.roster.enumerated().map { RosterEntry(name: $0.element, colIndex: $0.offset + 6) }
         let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "EEE, d-MMM"
-        let today = Calendar.current.startOfDay(for: .now)
+        let today = Calendar.current.startOfDay(for: UITestSupport.now)
         let currentYear = Calendar.current.component(.year, from: today)
         var currentRuns = [RunRecord(rowIndex: 42, date: formatter.string(from: today), meet: "Il Lido", run: "Soft Sand", approxKm: 7.1, actualKm: 7.1,
             attendees: ["Col"], plusOnes: 2, identity: RunIdentity(spreadsheetId: "ui-book", seasonSheetId: 26, runId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
             namedGuestIds: [Self.rene], unnamedGuests: 1, seasonYear: currentYear),
             RunRecord(rowIndex: 43, date: formatter.string(from: today.addingTimeInterval(-86400)), meet: "Tompkins Park", run: "River Loop", approxKm: 8.2,
                 identity: RunIdentity(spreadsheetId: "ui-book", seasonSheetId: 26, runId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"), namedGuestIds: [], unnamedGuests: 0, seasonYear: currentYear)]
-        let oldRuns = (0..<3).map { index in
+        var oldRuns = (0..<3).map { index in
             RunRecord(rowIndex: 20 + index, date: "Fri, \(5 + index * 7)-Dec", meet: "Beach", run: "Summer run", approxKm: 7.2, actualKm: 7.2,
                 attendees: ["Col"], plusOnes: 3, identity: RunIdentity(spreadsheetId: "ui-book", seasonSheetId: 25,
                     runId: String(format: "cccccccc-cccc-4ccc-8ccc-%012d", index)), namedGuestIds: [Self.rene, Self.toby, Self.wes], unnamedGuests: 0, seasonYear: currentYear - 1)
@@ -36,6 +36,8 @@ actor UITestSharedGuestAPI: SheetAPIClient {
                 attendees: ["Col"], plusOnes: 3, identity: RunIdentity(spreadsheetId: "ui-book", seasonSheetId: 26,
                     runId: String(format: "dddddddd-dddd-4ddd-8ddd-%012d", index)), namedGuestIds: index < 6 ? [Self.rene, Self.toby, Self.wes] : [Self.rene, Self.toby], unnamedGuests: index < 6 ? 0 : 1, seasonYear: currentYear))
         }
+        if ProcessInfo.processInfo.arguments.contains("-ui-events") { currentRuns += Self.plannedRuns(seasonYear: currentYear) }
+        if UITestDashboardFixture.isEnabled { (currentRuns, oldRuns) = UITestDashboardFixture.runs(seasonYear: currentYear) }
         seasons = [25: SheetState(roster: roster, runs: oldRuns, seasonYear: currentYear - 1, sheetRevision: "ui-1", apiVersion: 2,
                         capabilities: GuestCapabilities(), spreadsheetId: "ui-book", seasonSheetId: 25),
                    26: SheetState(roster: roster, runs: currentRuns, seasonYear: currentYear, sheetRevision: "ui-1", apiVersion: 2,
@@ -43,12 +45,13 @@ actor UITestSharedGuestAPI: SheetAPIClient {
         if ProcessInfo.processInfo.arguments.contains("-ui-birthdays") {
             let calendar = BirthdayBoard.calendar
             seasons[26]!.birthdays = [("Aaron", 0), ("Col", 7), ("Dan", 31)].map { name, days in
-                let date = calendar.date(byAdding: .day, value: days, to: .now)!
+                let date = calendar.date(byAdding: .day, value: days, to: UITestSupport.now)!
                 return MemberBirthday(name: name, month: calendar.component(.month, from: date), day: calendar.component(.day, from: date))
             }
             seasons[26]!.lifetimeTotals = [MemberTotal(name: "Aaron", runs: 147), MemberTotal(name: "Col", runs: 45), MemberTotal(name: "Dan", runs: 45)]
         }
         if ProcessInfo.processInfo.arguments.contains("-ui-no-birthdays") { seasons[26]!.birthdays = [] }
+        if UITestDashboardFixture.isEnabled { seasons[26]!.lifetimeTotals = UITestDashboardFixture.lifetimeTotals }
         for guest in guests {
             histories[guest.guestId] = (oldRuns + currentRuns).filter { $0.namedGuestIds?.contains(guest.guestId) == true }.map { run in
                 GuestAttendanceEntry(guestId: guest.guestId, spreadsheetId: "ui-book", seasonSheetId: run.seasonSheetId!, runId: run.runId!,
@@ -73,9 +76,41 @@ actor UITestSharedGuestAPI: SheetAPIClient {
             seasons[26]!.runs[0].actualKm = 8.1
         }
     }
+    /// `-ui-events`: the planned rows the Events tab reads, dated on the Perth
+    /// calendar as the app reads them. Every club weekday from tomorrow to a week
+    /// on Sunday, plus the club's three Christmas races on one date: 13 Dec, or
+    /// today once that has passed. A sheet date has no year, so days outside the
+    /// season's year are skipped rather than landing a year early. The flag pins
+    /// "today" (`UITestSupport.now`), so these rows never move.
+    private static func plannedRuns(seasonYear: Int) -> [RunRecord] {
+        let perth = BirthdayBoard.calendar
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = perth; formatter.timeZone = perth.timeZone; formatter.dateFormat = "EEE, d-MMM"
+        let today = perth.startOfDay(for: UITestSupport.now)
+        // Foundation weekday numbers: 2 Monday, 4 Wednesday, 6 Friday.
+        let clubRuns: [Int: (meet: String, run: String, km: Double)] = [
+            2: ("Drift", "Intervals", 10), 4: ("Filament", "Lakes Loop", 12.5), 6: ("Il Lido", "Soft Sand", 7),
+        ]
+        var planned: [(date: Date, meet: String, run: String, km: Double)] = (1...13).compactMap { offset in
+            guard let day = perth.date(byAdding: .day, value: offset, to: today),
+                  let club = clubRuns[perth.component(.weekday, from: day)] else { return nil }
+            return (date: day, meet: club.meet, run: club.run, km: club.km)
+        }
+        let xmas = perth.date(from: DateComponents(year: seasonYear, month: 12, day: 13)).map { max($0, today) } ?? today
+        planned += [("Mara - Xmas", 42.2), ("Half - Xmas", 21.1), ("10k - Xmas", 10)].map { (date: xmas, meet: "Alex 👑's", run: $0.0, km: $0.1) }
+        return planned.filter { perth.component(.year, from: $0.date) == seasonYear }.enumerated().map { index, row in
+            RunRecord(rowIndex: 44 + index, date: formatter.string(from: row.date), meet: row.meet, run: row.run, approxKm: row.km,
+                identity: RunIdentity(spreadsheetId: "ui-book", seasonSheetId: 26, runId: String(format: "eeeeeeee-eeee-4eee-8eee-%012d", index)),
+                namedGuestIds: [], unnamedGuests: 0, seasonYear: seasonYear)
+        }
+    }
     func getState() async throws -> SheetState { try await getState(seasonSheetId: nil) }
     func getState(seasonSheetId: Int?) async throws -> SheetState {
         if ProcessInfo.processInfo.arguments.contains("-ui-state-offline") { throw URLError(.notConnectedToInternet) }
+        // Last season was never downloaded and the network is gone (Dashboard).
+        if ProcessInfo.processInfo.arguments.contains("-ui-last-season-offline"), seasonSheetId == 25 {
+            throw URLError(.notConnectedToInternet)
+        }
         return state(seasonSheetId ?? 26)
     }
     private func state(_ season: Int) -> SheetState {

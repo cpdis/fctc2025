@@ -1,11 +1,55 @@
 import Papa from 'papaparse'
+import { normalizeLocation, parseRunLabel, runId, shortMonthName } from './runLabels.js'
 
 // Fixed columns that precede the dynamic member list in both the 2025 and 2026 sheets.
 const FIXED_LEADING_COLS = ['Date', 'Meet', 'Run', 'Approx kms', 'Actual kms']
 
-const MONTH_MAP = {
-  Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
-  Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+// Month prefixes, lowercased, in the same order as Apps Script's MONTH_ABBREVS.
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+
+// Weekday names in Date#getDay() order (Sunday = 0).
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+// The sheet's run-date cell, matched exactly as Apps Script's parseSheetDate
+// (apps-script/SheetOps.js) matches it: a 1-2 digit day, a "-", "/" or space,
+// then a month word of 3+ letters, anywhere in the cell. The weekday and comma
+// are optional, so "Fri, 3-Jan", "Sat 4-Oct", "26-Jan", "Thurs, 2-Oct" and
+// "Sat, 4-Sept" are run dates on both stacks.
+const RUN_DATE_PATTERN = /(\d{1,2})\s*[-/ ]\s*([A-Za-z]{3,})/
+
+/**
+ * Read a run-date cell into a local-midnight Date for the season year, plus
+ * the weekday that date falls on.
+ *
+ * The weekday comes from the calendar, never from the typed text: a copied row
+ * that reads "Wed, 2-Oct" in 2026 is a Friday, as the Swift kit also counts it.
+ * The month is the first three letters of the month word in any case ("Sept"
+ * is September), the same as Apps Script.
+ *
+ * Returns null for anything that is not a real calendar date: metadata labels
+ * ("BIRTHDAY", "Notes"), unknown month names, and impossible days. Apps Script
+ * lets "31-Sep" through (it checks only 1-31); the web rejects it rather than
+ * misfile a run in October.
+ */
+function parseRunDate(cell, year) {
+  const match = cell?.match(RUN_DATE_PATTERN)
+  if (!match) return null
+  const month = MONTHS.indexOf(match[2].slice(0, 3).toLowerCase())
+  if (month === -1) return null
+  const parsedDate = new Date(year, month, Number(match[1]))
+  // new Date() rolls "31-Sep" into 1 Oct and "0-Oct" into 30 Sep; reject both.
+  if (parsedDate.getMonth() !== month) return null
+  return { parsedDate, dayOfWeek: WEEKDAYS[parsedDate.getDay()] }
+}
+
+/**
+ * True when a member cell records attendance: its trimmed value is "x" in any
+ * case (R1). Organisers leave notes in cells ("🛕", "sad face", "-", a time
+ * like "12.30"); none of them mean the member ran. This is the one attendance
+ * rule for every stack, and the sheet's own summary row counts the same way.
+ */
+function isAttended(cell) {
+  return (cell ?? '').trim().toLowerCase() === 'x'
 }
 
 /**
@@ -23,8 +67,22 @@ const MONTH_MAP = {
  * break parsing. Member columns are everything AFTER "Actual kms" up to (but not
  * including) the "+1's" column, so 2025 yields 30 members and 2026 yields 33.
  *
- * All totals are COMPUTED from the data rows. The sheets' own summary rows use
- * COUNTUNIQUE etc. and have drifted between years, so we never read them.
+ * A run is a dated row with at least one attendee or +1 (R2), and a member
+ * attended only when their cell is "x" (R1, see isAttended).
+ *
+ * All totals are COMPUTED from the data rows; the sheets' own summary rows are
+ * never read. Under the rules above, each member's total matches the summary row
+ * above the header (the snapshot tests check it).
+ *
+ * Each run keeps the sheet's own labels (`runType` without footnote markers,
+ * `meet` as typed) for Wrapped, and gains the normalized `type`, `event` and
+ * `location` plus a stable `id` from ./runLabels.js for everything else.
+ * `rawRun` is the "Run" cell exactly as typed ("**Cruise"), which the golden
+ * parity fixtures hand to the Swift label parser.
+ *
+ * `upcoming` lists the scheduled runs still to come: dated rows after the
+ * season's latest run with nobody on them yet, each with the id it will keep
+ * once it is recorded. They never count as runs.
  *
  * @param {string} csvText - raw CSV contents
  * @param {number} year - calendar year used to build parsedDate
@@ -55,7 +113,9 @@ export function parseRunData(csvText, year) {
     throw new Error('Header missing "Actual kms" or "+1\'s" column')
   }
   const memberStart = actualKmIndex + 1
-  const members = headers.slice(memberStart, plusOnesIndex)
+  // Names are trimmed (above) and NFC-normalized, so "René" typed with a
+  // combining accent is the same member as the precomposed one on every stack.
+  const members = headers.slice(memberStart, plusOnesIndex).map((name) => name.normalize('NFC'))
 
   // Seed member totals so every member appears even if they attended nothing.
   const memberTotals = {}
@@ -65,42 +125,58 @@ export function parseRunData(csvText, year) {
 
   // --- Parse data rows (everything after the header). ---
   const runData = []
+  // Dated rows nobody has run yet; the ones after the latest run are upcoming.
+  const unrecorded = []
+  // Ids given out so far this season, so a same-date, same-label row gets "-2".
+  const runIds = new Set()
   for (let i = headerIndex + 1; i < rows.length; i++) {
     const parsed = rows[i]
     if (!Array.isArray(parsed) || parsed.length < FIXED_LEADING_COLS.length) continue
 
-    const date = parsed[0]
-    if (!date || !date.trim()) continue
+    // A run row starts with its date ("Fri, 3-Jan", see parseRunDate). Anything
+    // else under the header is sheet metadata, not a run. The BIRTHDAY row is
+    // the live example: its member cells hold dates like "1-Sep", which would
+    // otherwise read as attendance and add a phantom, undated run.
+    const date = parsed[0]?.trim()
+    const runDate = parseRunDate(date, year)
+    if (!runDate) continue
 
     const meet = parsed[1]
-    const runType = parsed[2]
+    const { label, type, event } = parseRunLabel(parsed[2])
     const approxKm = parseFloat(parsed[3]) || 0
     const actualKm = parseFloat(parsed[4]) || 0
 
-    // Attendance per member, read by the member's column index.
+    // Every dated row takes its id here, in sheet order, recorded or not. So
+    // recording an earlier same-date, same-label row later never shifts the
+    // id of a run that is already recorded (and maybe linked), and a
+    // scheduled row keeps its id once it is recorded.
+    const id = runId(runDate.parsedDate, label, runIds)
+
+    // Attendance per member, read by the member's column index (R1).
     const attendance = {}
     members.forEach((member, idx) => {
-      const value = parsed[memberStart + idx]
-      attendance[member] = value === 'x' || (value && value !== '-' && value !== '')
+      attendance[member] = isAttended(parsed[memberStart + idx])
     })
 
     const attendees = members.filter((m) => attendance[m])
     const plusOnes = parseInt(parsed[plusOnesIndex]) || 0
     const totalAttendance = attendees.length + plusOnes
 
-    // Skip rows that are clearly not real runs (future/blank): nobody attended
-    // and no distance recorded.
-    if (totalAttendance === 0 && !actualKm) continue
+    // A run needs someone on it (R2). A dated row with nobody is a future or
+    // unrecorded run, even when a distance was typed in ahead of time.
+    if (totalAttendance === 0) {
+      unrecorded.push({
+        id,
+        ...runDate,
+        type,
+        event,
+        location: normalizeLocation(meet),
+        approxKm,
+      })
+      continue
+    }
 
     const aggregateKm = actualKm * totalAttendance
-
-    // Parse the date, e.g. "Fri, 3-Jan".
-    const dateMatch = date.match(/(\w+),\s+(\d+)-(\w+)/)
-    let parsedDate = null
-    if (dateMatch) {
-      const [, , day, month] = dateMatch
-      parsedDate = new Date(year, MONTH_MAP[month], parseInt(day))
-    }
 
     // Accumulate per-member totals from the data itself.
     attendees.forEach((m) => {
@@ -109,11 +185,16 @@ export function parseRunData(csvText, year) {
     })
 
     runData.push({
+      id,
       date,
-      parsedDate,
-      dayOfWeek: date.split(',')[0]?.trim(),
+      parsedDate: runDate.parsedDate,
+      dayOfWeek: runDate.dayOfWeek,
       meet,
-      runType,
+      location: normalizeLocation(meet),
+      rawRun: parsed[2],
+      runType: label,
+      type,
+      event,
       approxKm,
       actualKm,
       attendance,
@@ -127,7 +208,23 @@ export function parseRunData(csvText, year) {
   // Roll the parsed rows + per-member totals up into the dashboard shape. Kept
   // as a separate step so combineYearData() can reuse the EXACT same aggregation
   // over merged rows — there is one source of truth for every derived stat.
-  return aggregate({ runs: runData, members, memberTotals })
+  return aggregate({ runs: runData, members, memberTotals, upcoming: stillToCome(unrecorded, runData) })
+}
+
+/**
+ * The scheduled rows still to come, in date order: those dated after the
+ * latest run. A blank row before it (Fri 8 May 2026) is a run nobody recorded,
+ * not a future one. Before a season's first run, every scheduled row is ahead.
+ *
+ * @param {Array<{ parsedDate: Date }>} scheduled - dated rows with nobody on them
+ * @param {Array<{ parsedDate: Date }>} runs - the recorded runs
+ */
+function stillToCome(scheduled, runs) {
+  // -Infinity when there are no runs yet, so every row passes.
+  const latest = Math.max(...runs.map((run) => run.parsedDate.getTime()))
+  return scheduled
+    .filter((row) => row.parsedDate.getTime() > latest)
+    .sort((a, b) => a.parsedDate - b.parsedDate)
 }
 
 /**
@@ -136,42 +233,42 @@ export function parseRunData(csvText, year) {
  * Every derived figure (club totals, leaderboards, runs-by-type/location/month,
  * averages) is computed here from `runs` + `memberTotals` so parseRunData (one
  * year) and combineYearData (all years merged) produce an identical shape.
+ * `upcoming` passes through untouched; it never feeds a total.
  *
- * @param {{ runs: Array, members: string[], memberTotals: Object }} parsed
+ * @param {{ runs: Array, members: string[], memberTotals: Object, upcoming: Array }} parsed
  */
-function aggregate({ runs, members, memberTotals }) {
+function aggregate({ runs, members, memberTotals, upcoming }) {
   // --- Club-wide totals, all computed from the data above. ---
   const totalClubKm = Object.values(memberTotals).reduce((sum, m) => sum + m.totalKm, 0)
   const totalAttendanceInstances = Object.values(memberTotals).reduce((sum, m) => sum + m.totalRuns, 0)
 
   // Runs by type.
   const runsByType = {}
-  runs.forEach((run) => {
-    const type = normalizeRunType(run.runType)
+  runs.forEach(({ type, actualKm, totalAttendance }) => {
     if (!runsByType[type]) {
       runsByType[type] = { count: 0, totalKm: 0, totalAttendance: 0 }
     }
     runsByType[type].count++
-    runsByType[type].totalKm += run.actualKm || 0
-    runsByType[type].totalAttendance += run.totalAttendance
+    runsByType[type].totalKm += actualKm || 0
+    runsByType[type].totalAttendance += totalAttendance
   })
 
   // Runs by location.
   const runsByLocation = {}
-  runs.forEach((run) => {
-    if (!runsByLocation[run.meet]) {
-      runsByLocation[run.meet] = { count: 0, totalKm: 0, totalAttendance: 0 }
+  runs.forEach(({ location, actualKm, totalAttendance }) => {
+    if (!runsByLocation[location]) {
+      runsByLocation[location] = { count: 0, totalKm: 0, totalAttendance: 0 }
     }
-    runsByLocation[run.meet].count++
-    runsByLocation[run.meet].totalKm += run.actualKm || 0
-    runsByLocation[run.meet].totalAttendance += run.totalAttendance
+    runsByLocation[location].count++
+    runsByLocation[location].totalKm += actualKm || 0
+    runsByLocation[location].totalAttendance += totalAttendance
   })
 
   // Runs by month.
   const runsByMonth = {}
   runs.forEach((run) => {
     if (!run.parsedDate) return
-    const month = run.parsedDate.toLocaleString('default', { month: 'short' })
+    const month = shortMonthName(run.parsedDate)
     if (!runsByMonth[month]) {
       runsByMonth[month] = { count: 0, totalKm: 0, totalAttendance: 0 }
     }
@@ -202,6 +299,7 @@ function aggregate({ runs, members, memberTotals }) {
     runsByLocation,
     runsByMonth,
     avgAttendance: runs.length > 0 ? totalAttendanceInstances / runs.length : 0,
+    upcoming,
   }
 }
 
@@ -211,11 +309,13 @@ function aggregate({ runs, members, memberTotals }) {
  * Merges by:
  *  - runs:        concatenated (each run already carries its own dated
  *                 parsedDate, so chronology across years is preserved without
- *                 any re-dating). The weekday prefix in each run's `date` string
- *                 ("Fri, 3-Jan") keeps same-day-different-year rows distinct.
+ *                 any re-dating). Run ids start with the full date, so they
+ *                 stay unique across years.
  *  - members:     union, preserving first-seen order (a member who joined in a
  *                 later season still appears once).
  *  - memberTotals: summed per member across years (totalRuns / totalKm).
+ *  - upcoming:    every season's scheduled rows still ahead of the latest run
+ *                 of all, in date order.
  *
  * Everything downstream (leaderboards, totals, by-type/location/month, averages)
  * is then recomputed by aggregate(), so an all-time view is internally
@@ -225,7 +325,7 @@ function aggregate({ runs, members, memberTotals }) {
  */
 export function combineYearData(datasets) {
   const present = (datasets ?? []).filter(Boolean)
-  if (present.length === 0) return aggregate({ runs: [], members: [], memberTotals: {} })
+  if (present.length === 0) return aggregate({ runs: [], members: [], memberTotals: {}, upcoming: [] })
   if (present.length === 1) return present[0]
 
   const members = []
@@ -249,23 +349,6 @@ export function combineYearData(datasets) {
     }
   }
 
-  return aggregate({ runs, members, memberTotals })
-}
-
-function normalizeRunType(type) {
-  if (!type) return 'Other'
-  const t = type.toLowerCase().trim()
-  if (t.includes('interval')) return 'Intervals'
-  if (t.includes('social')) return 'Social'
-  if (t.includes('soft sand')) return 'Soft Sand'
-  if (t.includes('lakes')) return 'Lakes Loop'
-  if (t.includes('river')) return 'River Loop'
-  if (t.includes('n/hood') || t.includes('neighbourhood')) return 'N\'hood Loop'
-  if (t.includes('hills')) return 'Hills'
-  if (t.includes('half')) return 'Half Marathon'
-  if (t.includes('mara')) return 'Marathon'
-  if (t.includes('10k')) return '10K'
-  if (t.includes('cup')) return 'Filament Cup'
-  if (t.includes('pancake')) return 'Special Event'
-  return type
+  const upcoming = stillToCome(present.flatMap((data) => data.upcoming ?? []), runs)
+  return aggregate({ runs, members, memberTotals, upcoming })
 }

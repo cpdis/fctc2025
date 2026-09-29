@@ -43,4 +43,27 @@ struct GuestMigrationTests {
         #expect(try await engine.recoveryCandidates(includeDismissed: true).count == 2)
         #expect(try await engine.recoveryCandidates(includeDismissed: false).count == 1)
     }
+
+    /// Build 8's store has `SharedSheetCache` rows without `liveAt`. Build 9 must
+    /// open it in place (lightweight migration), keep the rows, and treat them as
+    /// unstamped, so a cold launch still finds the live season by year.
+    @Test("A build 8 store opens with liveAt and keeps its shared cache rows")
+    func build8StoreUpgrade() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fctc-migration-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let destination = directory.appendingPathComponent("build8.store")
+        try FileManager.default.copyItem(at: try Fixtures.url("guests/build8-shared.store"), to: destination)
+        let container = try ModelContainer(for: AttendanceSchema.schema,
+            configurations: ModelConfiguration(schema: AttendanceSchema.schema, url: destination))
+        let context = ModelContext(container)
+
+        let rows = try context.fetch(FetchDescriptor<SharedSheetCache>())
+        let row = try #require(rows.first)
+        #expect(rows.count == 1)
+        #expect(row.liveAt == nil)
+        #expect(row.state?.seasonSheetId == 26)
+        #expect(SharedSheetCache.live(in: rows, endpoint: "https://ui-test.invalid/exec")?.cache.key == row.key)
+        #expect(try context.fetch(FetchDescriptor<Member>()).count == 4)
+        #expect(try context.fetch(FetchDescriptor<ScheduledRun>()).count == 9)
+    }
 }

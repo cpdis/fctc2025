@@ -9,14 +9,48 @@ public final class SharedSheetCache {
     public var spreadsheetId: String
     public var seasonSheetId: Int
     public var stateData: Data
+    /// When the request that returned `stateData` started. The server read the
+    /// state after it, so the state holds every write confirmed before it.
     public var refreshedAt: Date
+    /// When the latest live refresh that returned this row started: a refresh
+    /// of the server's active season (`refreshState()`, no season named). Nil
+    /// for a row only ever fetched by season, such as a tab not yet live that
+    /// Guest recovery opened, or last season's snapshot. `live(in:endpoint:)`
+    /// reads it, so a cold launch opens the season the server last called live.
+    public var liveAt: Date?
+    /// One row per endpoint, workbook and season.
+    static func key(endpoint: String, spreadsheetId: String, seasonSheetId: Int) -> String {
+        "\(endpoint):\(spreadsheetId):\(seasonSheetId)"
+    }
     public init(endpointIdentity: String, state: SheetState, refreshedAt: Date = .now) throws {
         guard let book = state.spreadsheetId, let season = state.seasonSheetId else { throw SheetAPIError.badPayload(message: "Missing workbook identity.") }
-        key = "\(endpointIdentity):\(book):\(season)"; self.endpointIdentity = endpointIdentity
+        key = Self.key(endpoint: endpointIdentity, spreadsheetId: book, seasonSheetId: season); self.endpointIdentity = endpointIdentity
         spreadsheetId = book; seasonSheetId = season
         stateData = try JSONEncoder().encode(state); self.refreshedAt = refreshedAt
     }
     public var state: SheetState? { try? JSONDecoder().decode(SheetState.self, from: stateData) }
+
+    /// The endpoint's live season among its cached rows, for a cold launch
+    /// (no in-memory state yet). The engine's writes and the app's tabs both
+    /// pick it here, so they always agree on the season:
+    ///
+    ///   any row with liveAt?  yes -> the newest liveAt (what the server last
+    ///                                called live; a future tab opened by
+    ///                                season never outranks it)
+    ///                         no  -> the highest season year, newest refresh
+    ///                                on a tie (an install that has not had a
+    ///                                live refresh since liveAt existed)
+    ///
+    /// Only the chosen row decodes when one is stamped.
+    public static func live(in caches: [SharedSheetCache], endpoint: String?) -> (cache: SharedSheetCache, state: SheetState)? {
+        let rows = caches.filter { $0.endpointIdentity == endpoint }
+        if let stamped = rows.filter({ $0.liveAt != nil }).max(by: { ($0.liveAt ?? .distantPast) < ($1.liveAt ?? .distantPast) }),
+           let state = stamped.state {
+            return (stamped, state)
+        }
+        return rows.compactMap { row in row.state.map { (cache: row, state: $0) } }
+            .max { ($0.state.seasonYear, $0.cache.refreshedAt) < ($1.state.seasonYear, $1.cache.refreshedAt) }
+    }
 }
 
 @Model

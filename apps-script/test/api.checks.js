@@ -371,6 +371,40 @@ test.describe('submitAttendance', () => {
     assertWritesStayInBand(env, 2026);
   });
 
+  test.it('overwrite treats a 2025 annotation like a blank cell', () => {
+    // 26-Feb 2025 has "🛕" for Adam, Rohan and Toby, which is not attendance
+    // (R1). Ticking Adam writes "x"; Rohan and Toby stay unticked and keep "🛕".
+    const env = api(2025);
+    const state = assertOk(env.post({ action: 'getState' }));
+    const run = state.runs.find((r) => r.date === 'Wed, 26-Feb');
+    assert.ok(run && !run.attendees.includes('Adam'), 'fixture precondition: Adam is annotated');
+    const ticked = run.attendees.concat(['Adam']).sort(SheetOps.compareNames);
+
+    assertOk(
+      env.post({
+        action: 'submitAttendance',
+        rowIndex: run.rowIndex,
+        expectedDate: run.date,
+        expectedRun: run.run,
+        attendees: ticked,
+        plusOnes: run.plusOnes,
+        actualKm: run.actualKm,
+        mode: 'overwrite',
+        baseRevision: state.sheetRevision,
+      })
+    );
+    const cell = (name) =>
+      env.grid()[run.rowIndex - 1][state.roster.find((m) => m.name === name).colIndex - 1];
+    assert.equal(cell('Adam'), 'x');
+    assert.equal(cell('Rohan'), '🛕');
+    assert.equal(cell('Toby'), '🛕');
+    const after = assertOk(env.post({ action: 'getState' })).runs.find(
+      (r) => r.rowIndex === run.rowIndex
+    );
+    assert.deepEqual(after.attendees, ticked);
+    assertWritesStayInBand(env, 2025);
+  });
+
   test.it('is idempotent — the retry queue can send the same payload twice', () => {
     const env = api(2026);
     const { run } = invasionDay10k(env);
@@ -996,13 +1030,13 @@ test.describe('getState lifetimeTotals', () => {
   }
 
   test.it('sums a member across both season tabs', () => {
-    // Tallied from the fixtures independently of this code: Aaron ran 80 in 2025
-    // and 49 in 2026; Adam 74 and 34.
+    // The sheets' own summary rows, independent of this code: Aaron ran 80 in
+    // 2025 and 49 in 2026; Adam 72 and 34; Alex 👑 74 and 40 (x-only, R1).
     const totals = totalsOf(bothSeasons());
 
     assert.equal(totals.find((t) => t.name === 'Aaron').runs, 80 + 49);
-    assert.equal(totals.find((t) => t.name === 'Adam').runs, 74 + 34);
-    assert.equal(totals.find((t) => t.name === 'Alex 👑').runs, 75 + 40);
+    assert.equal(totals.find((t) => t.name === 'Adam').runs, 72 + 34);
+    assert.equal(totals.find((t) => t.name === 'Alex 👑').runs, 74 + 40);
   });
 
   test.it('lists a member who appears in only one season', () => {

@@ -34,6 +34,9 @@ struct ChecklistView: View {
     @State private var showingSharedScreenshotOffer = false
     @State private var sharedScreenshotCount = 0
     @State private var sharedImportURLs: [URL] = []
+    /// Each roster member's runs and streak, recomputed when a streak input
+    /// changes (`streakFingerprint`), never per render.
+    @State private var memberStats: [String: MemberStats] = [:]
 
     init(
         runtime: AppRuntime,
@@ -58,11 +61,6 @@ struct ChecklistView: View {
 
     var body: some View {
         @Bindable var viewModel = viewModel
-        let runSnapshots = scopedRuns
-        let statsByMember = MemberStats.calculateAll(
-            members: viewModel.roster,
-            runs: runSnapshots
-        )
 
         List {
             // The smart modalities lead the screen (Colin's review, 2026-08-14):
@@ -132,7 +130,7 @@ struct ChecklistView: View {
                         name: name,
                         provenance: viewModel.draft.checks[name],
                         isSuggested: viewModel.isSuggested(name),
-                        stats: statsByMember[name]
+                        stats: memberStats[name]
                             ?? MemberStats(attendanceCount: 0, lastAttendedAt: nil, currentStreak: 0),
                         action: {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -191,7 +189,14 @@ struct ChecklistView: View {
                 )
                 .accessibilityIdentifier("confirm-attendance")
             }
+            // Inside the tab shell, automatic placement moves search into a
+            // navigation-bar drawer that stays hidden until a pull-down. Pin it
+            // to the bottom bar, where it sat before the tabs (U11).
+            DefaultToolbarItem(kind: .search, placement: .bottomBar)
         }
+        // The bottom search and the tab bar cannot share the bottom edge, so the
+        // checklist hides the tab bar like the run picker does.
+        .toolbarVisibility(.hidden, for: .tabBar)
         .sheet(isPresented: $showingVoiceEntry) {
             NavigationStack {
                 VoiceEntryView(checklistViewModel: viewModel)
@@ -251,6 +256,7 @@ struct ChecklistView: View {
             }
         }
         .onChange(of: cacheFingerprint) { _, _ in updateCachedValues() }
+        .onChange(of: streakFingerprint, initial: true) { _, _ in updateMemberStats() }
         .onReceive(NotificationCenter.default.publisher(for: .fctcAppDidActivate)) { _ in
             checkSharedScreenshotInbox()
         }
@@ -282,11 +288,13 @@ struct ChecklistView: View {
         return { names in viewModel.requireGuestReview(names) }
     }
 
-    private var exactState: SheetState? {
+    /// This run's season row in the cache, found by its key fields.
+    private var exactCache: SharedSheetCache? {
         guard let identity = viewModel.run.runIdentity else { return nil }
         return sheetCaches.first { $0.endpointIdentity == runtime.config.endpoint?.absoluteString
-            && $0.spreadsheetId == identity.spreadsheetId && $0.seasonSheetId == identity.seasonSheetId }?.state
+            && $0.spreadsheetId == identity.spreadsheetId && $0.seasonSheetId == identity.seasonSheetId }
     }
+    private var exactState: SheetState? { exactCache?.state }
     private var scopedRuns: [RunSnapshot] {
         RunCacheScope.runs(cachedRuns.map(RunSnapshot.init), endpoint: runtime.config.endpoint?.absoluteString, state: exactState)
     }
@@ -304,6 +312,17 @@ struct ChecklistView: View {
         return (roster + guests).joined(separator: "|")
     }
 
+    /// Changes whenever a streak input changes: the roster, a cached run's
+    /// attendance (every cache write moves the run's revision), an outbox row's
+    /// status, or the season's last refresh. It reads no JSON, so it is cheap to
+    /// build per render; the streaks themselves are not.
+    private var streakFingerprint: String {
+        let runs = cachedRuns.map { "\($0.cacheKey):\($0.cachedRevision ?? ""):\($0.attendees.count):\($0.plusOnes)" }
+        let outbox = cachedSubmissions.map { "\($0.id):\($0.stateRaw)" }
+        let refreshed = exactCache.map { "\($0.refreshedAt.timeIntervalSinceReferenceDate)" } ?? ""
+        return (viewModel.roster + runs + outbox + [refreshed]).joined(separator: "|")
+    }
+
     private var mergeSummary: String {
         let diff = viewModel.diffSummary(for: .merge)
         return "add \(diff.added), remove \(diff.removed)"
@@ -317,6 +336,18 @@ struct ChecklistView: View {
     private func updateCachedValues() {
         viewModel.updateRoster(exactState?.roster.map(\.name) ?? cachedMembers.map(\.name))
         viewModel.updateSharedGuests(cachedGuests.filter { $0.spreadsheetId == viewModel.run.runIdentity?.spreadsheetId }.compactMap(\.guest))
+    }
+
+    /// The streak label reads the effective season, so attendance recorded
+    /// here shows at once, offline included (KTD11).
+    private func updateMemberStats() {
+        let effective = EffectiveRuns(
+            cached: scopedRuns,
+            submissions: cachedSubmissions.map(PendingSubmissionSnapshot.init),
+            endpoint: runtime.config.endpoint?.absoluteString,
+            refreshedAt: exactCache?.refreshedAt
+        )
+        memberStats = MemberStats.calculateAll(members: viewModel.roster, runs: effective.runs)
     }
 
     private func submit(mode: SubmissionMode) {

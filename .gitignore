@@ -82,3 +82,6 @@ fixtures/attendance/guests/*.store-wal
 planning/reference/*.jpeg
 planning/reference/*.jpg
 planning/reference/*.png
+
+# Claude Code local preview config (machine-specific ports and commands).
+.claude/launch.json

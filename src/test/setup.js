@@ -1,34 +1,8 @@
 import '@testing-library/jest-dom'
 
-// jsdom does not implement CSS.supports(). react-activity-calendar calls it to
-// validate theme colors, so without this its render-tests blow up under jsdom.
-// A permissive stub (everything "supported") is enough for rendering tests; we
-// assert on color values directly elsewhere, not on browser CSS validation.
-if (typeof globalThis.CSS === 'undefined') {
-  globalThis.CSS = {}
-}
-if (typeof globalThis.CSS.supports !== 'function') {
-  globalThis.CSS.supports = () => true
-}
-
-// jsdom also lacks window.matchMedia, which react-activity-calendar uses to read
-// the OS color scheme. Stub it to "light" so its render-tests run.
-if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
-  window.matchMedia = (query) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  })
-}
-
-// jsdom lacks ResizeObserver, which CalendarHeatmap uses to size blocks to the
-// container width. A no-op stub lets its render-tests mount (they assert on the
-// rendered calendar, not on resize-driven sizing).
+// jsdom lacks ResizeObserver, which chartKit's useWidth uses to size the charts
+// to their container. A no-op stub lets the chart tests mount; they render at
+// the fallback width and assert on the marks, not on resize-driven sizing.
 if (typeof globalThis.ResizeObserver === 'undefined') {
   globalThis.ResizeObserver = class {
     observe() {}

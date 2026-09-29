@@ -97,7 +97,7 @@ private struct AppRootView: View {
     var body: some View {
         Group {
             if runtime.config.isConfigured {
-                HomeView(runtime: runtime, pendingRoutes: pendingRoutes)
+                RootTabView(runtime: runtime, pendingRoutes: pendingRoutes)
             } else {
                 NavigationStack {
                     SettingsView(runtime: runtime, configurationRequired: true)
@@ -105,7 +105,10 @@ private struct AppRootView: View {
             }
         }
         .tint(runtime.accent.color)
-        .onOpenURL(perform: receiveSetupCode)
+        .onOpenURL { url in
+            if UITestSupport.handleHook(url, runtime: runtime, routes: pendingRoutes) { return }
+            receiveSetupCode(url)
+        }
         .alert(
             pendingSetup?.review.title ?? "",
             isPresented: binding(to: $pendingSetup),

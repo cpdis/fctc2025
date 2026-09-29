@@ -4,8 +4,26 @@ import SwiftData
 extension SyncEngine {
     func currentSharedState() throws -> SheetState? {
         if let latestState { return latestState }
-        return try modelContext.fetch(FetchDescriptor<SharedSheetCache>(sortBy: [SortDescriptor(\.refreshedAt, order: .reverse)]))
-            .first { $0.endpointIdentity == api.endpointIdentity }?.state
+        return try cachedLiveState()
+    }
+    /// The endpoint's cached live season (`SharedSheetCache.live`), the same
+    /// pick as `AppRuntime.activeSheetCache`. A snapshot or Guest-recovery row
+    /// never outranks it, so `addRun` and `addMember` keep writing to the tab
+    /// the server last called live.
+    func cachedLiveState() throws -> SheetState? {
+        SharedSheetCache.live(in: try modelContext.fetch(FetchDescriptor<SharedSheetCache>()), endpoint: api.endpointIdentity)?.state
+    }
+    /// Stamp the row a live refresh returned (`SharedSheetCache.liveAt`).
+    /// Runs after `reconcile` upserted it; the fetch sees that unsaved row.
+    func markLiveSeason(_ state: SheetState, requestedAt: Date) throws {
+        guard state.supportsSharedGuests, let endpoint = api.endpointIdentity,
+              let book = state.spreadsheetId, let season = state.seasonSheetId else { return }
+        try sharedSheetCache(endpoint: endpoint, spreadsheetId: book, seasonSheetId: season)?.liveAt = requestedAt
+    }
+    func sharedSheetCache(endpoint: String, spreadsheetId: String, seasonSheetId: Int) throws -> SharedSheetCache? {
+        try modelContext.fetch(FetchDescriptor<SharedSheetCache>()).first {
+            $0.endpointIdentity == endpoint && $0.spreadsheetId == spreadsheetId && $0.seasonSheetId == seasonSheetId
+        }
     }
     func requireSharedState() throws -> SheetState {
         guard let state = try currentSharedState(), state.supportsSharedGuests,
@@ -16,6 +34,16 @@ extension SyncEngine {
     }
     func reconcileSharedState(_ state: SheetState, seenAt: Date) throws {
         guard let endpoint = api.endpointIdentity, let book = state.spreadsheetId else { return }
+        try upsertSharedSheetCache(state, endpoint: endpoint, seenAt: seenAt)
+        let guests = try modelContext.fetch(FetchDescriptor<CachedGuest>())
+        for guest in state.guests ?? [] {
+            if let existing = guests.first(where: { $0.spreadsheetId == book && $0.guestId == guest.guestId }) {
+                try existing.updateGuest(guest)
+            } else { modelContext.insert(try CachedGuest(spreadsheetId: book, guest: guest)) }
+        }
+    }
+    /// Insert or replace one endpoint/workbook/season row. The caller saves.
+    func upsertSharedSheetCache(_ state: SheetState, endpoint: String, seenAt: Date) throws {
         let newCache = try SharedSheetCache(endpointIdentity: endpoint, state: state, refreshedAt: seenAt)
         let caches = try modelContext.fetch(FetchDescriptor<SharedSheetCache>())
         if let existing = caches.first(where: { $0.key == newCache.key }) {
@@ -29,12 +57,6 @@ extension SyncEngine {
             }
             existing.stateData = newCache.stateData; existing.refreshedAt = seenAt
         } else { modelContext.insert(newCache) }
-        let guests = try modelContext.fetch(FetchDescriptor<CachedGuest>())
-        for guest in state.guests ?? [] {
-            if let existing = guests.first(where: { $0.spreadsheetId == book && $0.guestId == guest.guestId }) {
-                try existing.updateGuest(guest)
-            } else { modelContext.insert(try CachedGuest(spreadsheetId: book, guest: guest)) }
-        }
     }
     public func sharedGuests() async throws -> [SharedGuest] {
         guard let book = try currentSharedState()?.spreadsheetId else { return [] }

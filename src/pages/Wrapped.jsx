@@ -4,12 +4,38 @@ import WrappedContainer from '../components/Wrapped/WrappedContainer'
 import MemberSelector from '../components/Wrapped/MemberSelector'
 import { calculateMemberStats, calculateClubStats } from '../utils/calculations'
 
+// Wrapped's type (index.css: --font-display, --font-sans). Only Wrapped uses
+// these families; the dashboard self-hosts its own through @fontsource.
+const FONTS_HREF =
+  'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap'
+const FONTS_ID = 'wrapped-fonts'
+
+/**
+ * Add Wrapped's Google Fonts stylesheet to <head>, once per page load. The
+ * link stays after Wrapped unmounts, so coming back never refetches it. The
+ * gstatic preconnect opens the font-file connection while the CSS downloads.
+ */
+function loadWrappedFonts() {
+  if (document.getElementById(FONTS_ID)) return
+  const preconnect = Object.assign(document.createElement('link'), {
+    rel: 'preconnect',
+    href: 'https://fonts.gstatic.com',
+    crossOrigin: 'anonymous',
+  })
+  const stylesheet = Object.assign(document.createElement('link'), { id: FONTS_ID, rel: 'stylesheet', href: FONTS_HREF })
+  document.head.append(preconnect, stylesheet)
+}
+
 export default function Wrapped({ data }) {
   const { member } = useParams()
   const navigate = useNavigate()
   const [selectedMember, setSelectedMember] = useState(member || null)
   const [showSelector, setShowSelector] = useState(!member)
   const [stats, setStats] = useState(null)
+
+  useEffect(() => {
+    loadWrappedFonts()
+  }, [])
 
   // Change body background to navy when on Wrapped pages (fixes iOS Safari chrome)
   useEffect(() => {

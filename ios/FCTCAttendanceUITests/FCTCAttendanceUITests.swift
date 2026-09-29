@@ -240,9 +240,16 @@ final class FCTCAttendanceUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
     }
 
+    /// Milestones live on the Events tab (R22).
+    private func openEvents() {
+        app.tab(.events).tap()
+        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+    }
+
     func testMilestonesSectionListsTheClosestRunners() {
         configureApp()
         launch()
+        openEvents()
 
         // Aaron needs 3 for 150; Col and Dan are tied needing 5 for 50.
         let aaron = app.descendants(matching: .any)["milestone-row-Aaron"]
@@ -261,6 +268,7 @@ final class FCTCAttendanceUITests: XCTestCase {
     func testMilestonesSectionShowsAVerseWhenNobodyIsClose() {
         configureApp(noMilestones: true)
         launch()
+        openEvents()
 
         let empty = app.descendants(matching: .any)["milestone-empty"]
         XCTAssertTrue(empty.waitForExistence(timeout: 5))
@@ -270,16 +278,19 @@ final class FCTCAttendanceUITests: XCTestCase {
     func testMilestonesPhraseIsHeldAcrossNavigation() {
         configureApp(noMilestones: true)
         launch()
+        openEvents()
 
         let empty = app.descendants(matching: .any)["milestone-empty"]
         XCTAssertTrue(empty.waitForExistence(timeout: 5))
         let firstReading = empty.label
 
         // Navigate away and back. A phrase drawn in the view body would re-roll.
+        app.tab(.runs).tap()
         app.buttons["home-all-runs"].tap()
         XCTAssertTrue(app.buttons["run-row-43"].waitForExistence(timeout: 5))
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+        openEvents()
 
         XCTAssertEqual(app.descendants(matching: .any)["milestone-empty"].label, firstReading)
     }

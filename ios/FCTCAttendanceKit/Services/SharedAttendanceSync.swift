@@ -39,6 +39,9 @@ extension SyncEngine {
                 attemptedDispatch = true
                 response = try await api.perform(operation)
             }
+            // Stamp the confirmation. The cache shows this write only after the
+            // refresh below lands; `EffectiveRuns` overlays it until then.
+            row.lastAttemptAt = await clock.now()
             row.status = .done; row.outcomeRaw = SubmissionDisposition.committed.rawValue
             row.verificationPending = false; row.lastError = nil; row.clearConflict()
             if let revision = response["sheetRevision"]?.string { row.baseRevision = revision }

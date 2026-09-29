@@ -1,107 +1,64 @@
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useThemeColors } from '../../utils/useThemeColors'
+import { formatNumber } from '../Poster/format'
 
-// Neutral rank chip. The top spot gets the ink accent, everyone else a quiet
-// grey chip. No medals, no gradients, no springs (Tufte: rank is the data, the
-// chip is just a label).
-const RankBadge = ({ rank }) => {
-  const isTop = rank === 1
-  return (
-    <div
-      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold tabular-nums flex-shrink-0 ${
-        isTop ? 'bg-accent text-card' : 'bg-surface text-ink-muted border border-border'
-      }`}
-    >
-      {rank}
-    </div>
-  )
+// Places the board shows (the approved mockup).
+const PLACES = 10
+
+// The two rankings: each reads its own parser leaderboard, already sorted.
+const MEASURES = {
+  runs: { label: 'Runs', value: (member) => member.totalRuns },
+  km: { label: 'Km', value: (member) => member.totalKm },
 }
 
-// Bar colors: #1 in ink (primary data-ink), #2 in the burnt-orange accent,
-// everyone else recedes into greys. Mirrors the restrained data palette for the
-// active scheme.
-const barColor = (data, index) => {
-  if (index === 0) return data[0]
-  if (index === 1) return data[1]
-  return data[3]
-}
-
+/**
+ * The leaderboard panel beside On a roll: the top 10 by runs or by km, each
+ * with an outlined Anton rank, a bar against the leader and the value. The
+ * value is printed on every row, so the bars never need hover.
+ *
+ * @param {object} props
+ * @param {Array<{ name: string, totalRuns: number }>} props.leaderboard -
+ *   members by runs, most first (parser output)
+ * @param {Array<{ name: string, totalKm: number }>} props.distanceLeaderboard -
+ *   members by km, most first (parser output)
+ */
 export default function Leaderboard({ leaderboard, distanceLeaderboard }) {
-  const { data } = useThemeColors()
-  const [view, setView] = useState('attendance')
-
-  const currentLeaderboard = view === 'attendance' ? leaderboard : distanceLeaderboard
-  const displayList = currentLeaderboard.slice(0, 10)
-
-  const maxValue = view === 'attendance'
-    ? displayList[0]?.totalRuns || 1
-    : displayList[0]?.totalKm || 1
-
-  const tabClass = (active) =>
-    `px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-      active ? 'bg-accent text-card' : 'text-ink-muted hover:text-ink'
-    }`
+  const [by, setBy] = useState('runs')
+  const measure = MEASURES[by]
+  const rows = (by === 'runs' ? leaderboard : distanceLeaderboard).slice(0, PLACES)
+  const leader = rows.length ? measure.value(rows[0]) : 0
 
   return (
-    <div className="card-clean p-6 h-full">
-      <div className="flex items-center justify-between mb-5">
-        <h3 className="font-display text-lg font-semibold text-ink">Leaderboard</h3>
-
-        <div className="flex items-center rounded-full border border-border p-0.5">
-          <button onClick={() => setView('attendance')} className={tabClass(view === 'attendance')}>
-            Runs
-          </button>
-          <button onClick={() => setView('distance')} className={tabClass(view === 'distance')}>
-            Distance
-          </button>
+    <div>
+      <div className="panel-h">
+        <h3>Leaderboard</h3>
+        <div className="seg" role="group" aria-label="Rank by">
+          {Object.entries(MEASURES).map(([key, { label }]) => (
+            <button key={key} type="button" aria-pressed={by === key} onClick={() => setBy(key)}>
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="space-y-1">
-        <AnimatePresence mode="wait">
-          {displayList.map((member, index) => {
-            const value = view === 'attendance' ? member.totalRuns : member.totalKm
-            const percentage = (value / maxValue) * 100
-
+      {rows.length > 0 ? (
+        <ol className="board" aria-label={`Top ${PLACES} by ${measure.label.toLowerCase()}`}>
+          {rows.map((member, i) => {
+            const value = measure.value(member)
             return (
-              <motion.div
-                key={`${view}-${member.name}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2, delay: index * 0.02 }}
-                className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-surface transition-colors"
-              >
-                <RankBadge rank={index + 1} />
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-ink truncate">{member.name}</span>
-                    <span className="text-sm font-semibold text-ink ml-2 tabular-nums">
-                      {view === 'attendance' ? member.totalRuns : `${member.totalKm.toFixed(0)} km`}
-                    </span>
-                  </div>
-
-                  <div className="h-1.5 rounded-full overflow-hidden bg-border">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${percentage}%` }}
-                      transition={{ duration: 0.5, delay: index * 0.03, ease: 'easeOut' }}
-                      className="h-full rounded-full"
-                      style={{ background: barColor(data, index) }}
-                    />
-                  </div>
-                </div>
-              </motion.div>
+              <li key={member.name} className="lb">
+                <span className="r">{i + 1}</span>
+                <span className="who">{member.name}</span>
+                <span className="lane" aria-hidden="true">
+                  <span className="bar" style={{ width: `${leader ? (value / leader) * 100 : 0}%` }} />
+                </span>
+                <span className="v">{formatNumber(value)}</span>
+              </li>
             )
           })}
-        </AnimatePresence>
-      </div>
-
-      <div className="mt-5 pt-4 border-t border-border text-center text-sm text-ink-muted">
-        {view === 'attendance' ? 'Ranked by number of runs attended' : 'Ranked by total kilometers'}
-      </div>
+        </ol>
+      ) : (
+        <p className="soft">No runs yet.</p>
+      )}
     </div>
   )
 }

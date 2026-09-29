@@ -1,5 +1,126 @@
 # iOS handoff
 
+## Dashboard review branch (28 September 2026)
+
+- Branch `dashboard-review`: 19 commits on `main` (from `e2d479d`), plus the docs commit.
+  Not pushed. Not on TestFlight: testers still have build 8.
+- Plan: `docs/plans/2026-09-28-001-feat-dashboard-review-and-ios-dashboard-plan.md`.
+  Approved mockups: `docs/reference/2026-09-28-dashboard-mockups/ios.html`.
+- No schema, entitlement or bundle change. The update keeps the sheet connection, saved
+  guests and pending attendance.
+
+### Tabs
+
+- The app root is a Liquid Glass tab bar: Runs · Events · Dashboard
+  (`Views/RootTabView.swift`). Each tab has its own navigation path.
+- Runs is the old Home without Milestones and Birthdays. The run picker and the checklist
+  hide the tab bar; the checklist search is pinned to the bottom bar (U11 spike result).
+- Routes (reminder tap, App Intent) are handled at the root. The newest route wins. It
+  selects Runs, pops it to root and opens the checklist. An engine swap resets every tab.
+- Events (`Views/EventsView.swift`, kit `EventsBoard`): This week, Specials grouped by
+  date, Milestones, Birthdays.
+- Dashboard (`Views/Dashboard/`): headline with a Runs/Km toggle, Together, On a roll, The
+  Wall (card and full scrolling Wall), Vs last year, Every run, Leaderboard, Run log, and a
+  runner screen (stats, club-day calendar, per-weekday bars, next milestone).
+- The look stays Reminders: system colours, the user's accent, SF Pro, numbers in SF Pro
+  Rounded bold. The checklist streak reads "N club days in a row".
+
+### Dashboard data flow
+
+```text
+@Query rows ──> ActiveSeason.fingerprint ──changed──> DashboardStore.update
+                                                        │
+  EffectiveRuns (cached season + outbox) ───────────────┤
+  LifetimePriors (lifetime totals before this season) ──┼──> DashboardModel ──> cards
+  previous-season snapshot (read-only, fetched once) ───┘
+```
+
+- `ActiveSeason` (app target) reads the active season's cache once per data change. Events
+  reads the same inputs.
+- The Wall grid (card and full screen) is one SwiftUI `Canvas` (`WallGrid`), three fills per
+  draw. Swift Charts drew one `RectangleMark` per cell and cost ~550 ms of main thread per
+  open or sort at a full season (30 runners by 118 runs). VoiceOver reads each runner from the
+  names column; the grid is one summary element (`wall-grid`).
+- A legacy outbox row overlays only the run it was queued against: row index, date and run
+  text must all match (`EffectiveRuns.writes`, the same check as `SheetState.satisfies`).
+- `EffectiveRuns` applies queued, in-flight and confirmed-but-unrefreshed shared rows in
+  creation order, with each endpoint's own write path. The headline shows "Includes N
+  unsynced" when it applied any.
+- `DashboardStore` rebuilds `DashboardModel` only when the fingerprint changes. It asks
+  `SyncEngine.previousSeasonSnapshot()` after each data change, once the live season is
+  cached, and rebuilds only when the answer changed. The engine fetches last season at most
+  once per app session (a cached row then answers without a request, and serves offline).
+  The snapshot upserts only last season's `SharedSheetCache` row. It never reconciles,
+  never sets `latestState` and never reschedules reminders. Each answer belongs to one
+  live season: when the live season changes, the store drops it (and any answer in flight)
+  and asks again. Legacy endpoints return nil, and the Vs last year card is hidden. A
+  failed first fetch with nothing cached shows "Last season not downloaded".
+- A shared cache row's `refreshedAt` is when its request started. A confirmed shared write
+  stays in the overlay until a refresh requested after the confirmation lands.
+- On a cold launch, the engine and the app pick the season the last live refresh returned
+  (`SharedSheetCache.liveAt`, read by `SharedSheetCache.live`). Neither the snapshot row nor
+  a future tab opened in Guest recovery can become the season new runs write to. Before any
+  live refresh has stamped a row, the highest year wins.
+
+### Tests
+
+- Kit: 427 tests pass. New suites: `RunLabelTests`, `ClubDaysTests`, `DashboardModelTests`,
+  `ParityFixtureTests`, `WritePathCharacterizationTests`, `EffectiveRunsTests`,
+  `SeasonSnapshotTests`, `EventsBoardTests`, `DashboardStoreTests`.
+- Parity: `ParityFixtureTests` reads `fixtures/attendance/parity/<season>.json`, the files the
+  web writes with `scripts/build-parity-fixtures.js`. For every golden run it checks the
+  `RunLabel` parse, then totals, member-km, club days, current and best streaks and the
+  milestone shortlist. A rule change on either stack fails one side until both match.
+- UI: 60 pass, 1 skipped (the opt-in screen tour). New: `TabNavigationUITests` (11),
+  `DashboardUITests` (6), and 3 Events cases in `AttendanceSummaryUITests`.
+- New UI-test launch flags: `-ui-events`, `-ui-dashboard`, `-ui-last-season-offline`. New
+  hooks: `fctc-attendance://ui-test/route/today-checklist`, `/route/missing-run`,
+  `/swap-engine`, `/swap-engine/today-run`. `-ui-events` pins today to Mon 21 Sep 2026, 18:00
+  Perth. The README section "UI tests and the screen tour" describes them. Run UI
+  tests with `-collect-test-diagnostics never`.
+
+### Known follow-ups
+
+- Historic navigation sets `latestState` to an older season. A warm engine's `addRun` or
+  `addMember` could then target it (pre-existing).
+- `CatchUpPlanner` still reads cached runs, so a past run recorded offline can be offered
+  again until the sync lands.
+- Provisional guest ids can overcount +1s by one until the next refresh. An in-flight refresh
+  can race the overlay.
+- On a legacy endpoint, a cold launch can undercount lifetime priors by one until the first
+  refresh (pre-existing).
+- The screen tour uses the legacy fake without `-ui-events` or `-ui-dashboard`, so its Events
+  and Dashboard shots are sparse.
+- Tie order sorts by UTF-16 on iOS and by `localeCompare` on the web (display order only).
+- Behaviour changes to call out in the notes: a route switches to Runs at once, and scanning
+  a setup code in Settings returns to the Runs root and drops a reminder still waiting for
+  the old sheet.
+- Profiled 2026-09-29 (Release, iPhone 17 Pro simulator, `-ui-dashboard-full`, macOS
+  `sample`): first Dashboard open 290 ms of main thread (was 667 ms), full Wall open under
+  10 ms (was ~555 ms), full Wall sort 119 ms. The README has the method. Hitches needs a
+  device; profile build 9 on a phone once.
+
+### Private TestFlight build 9 (29 September 2026)
+
+- Version 0.1.0 build 9 from `dashboard-review` (446e24c), the head of pull request
+  cpdis/fctc2025#15. Archive signed with Apple Distribution; app and share extension
+  report 0.1.0 (9).
+- Build `7b3d2ace-d0f9-4b29-b648-d8e8aa5d742a` is VALID. Internal state is
+  `IN_BETA_TESTING`, and only FCTC Internal (Colin's two accounts) has it. External
+  state is `READY_FOR_BETA_SUBMISSION`, so FCTC Friends and FCTC External have no access.
+- The en-AU notes match `ios/testflight-build-9.txt` (read back from App Store Connect).
+  Set with `testflight-notes.py --build 9 --file ios/testflight-build-9.txt`; the script
+  now takes an exact build and attaches external groups only when named with `--group`.
+- Upgrade: build 9 adds `SharedSheetCache.liveAt`. `GuestMigrationTests` opens a real build 8
+  store (`fixtures/attendance/guests/build8-shared.store`) in place, so the update keeps the
+  sheet connection, cache, saved guests and pending attendance.
+- Apps Script was already live with the matching rules (deployment @5).
+- To release to Aaron and Grant later: `python3 ios/Tools/testflight-notes.py --build 9
+  --file ios/testflight-build-9.txt --group "FCTC Friends"`, then submit for Beta App Review if
+  asked. Rewrite the notes for them first: these say "Private build for Colin".
+- Verification: web Vitest 506, Apps Script 279, iOS kit 431, iOS UI 61 run (60 passed,
+  1 skipped screen tour), 0 failed.
+
 ## Private TestFlight build 8 (28 September 2026)
 
 - Version 0.1.0 build 8 from `release/testflight-build-7` (5858adb). It adds the

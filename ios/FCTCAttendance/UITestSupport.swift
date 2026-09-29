@@ -18,6 +18,21 @@ enum UITestSupport {
         ProcessInfo.processInfo.arguments.contains("-ui-testing")
     }
 
+    /// "Now" for the shared fixture and the Events tab (`AppRuntime.now`). Real time,
+    /// except `-ui-events`, which pins it so that fixture's week has the same
+    /// shape on every day the suite runs: Monday 21 Sep 2026, 18:00 in Perth
+    /// (10:00 UTC). That instant is the same calendar day in every zone from
+    /// UTC-10 to UTC+13, so the rows dated in the device zone (today's row 42)
+    /// and those dated in Perth agree.
+    static var now: Date {
+        guard isEnabled, ProcessInfo.processInfo.arguments.contains("-ui-events") else { return .now }
+        return pinnedNow
+    }
+
+    private static let pinnedNow = BirthdayBoard.calendar.date(
+        from: DateComponents(year: 2026, month: 9, day: 21, hour: 18)
+    ) ?? .now
+
     static var hasScreenshotImportFixture: Bool {
         screenshotFixture != nil
     }
@@ -120,23 +135,59 @@ enum UITestSupport {
             deviceName: "UI Test iPhone"
         )
         let persistence = UITestConfigPersistence(config: config)
+        return AppRuntime(
+            modelContainer: modelContainer,
+            configPersistence: persistence,
+            engineOverride: makeEngine(modelContainer: modelContainer),
+            configOverride: config,
+            now: { UITestSupport.now }
+        )
+    }
+
+    /// A fresh engine over a fresh fixture sheet. `todayRun` dates the legacy
+    /// fixture's recorded run today (`-ui-today-run`).
+    private static func makeEngine(
+        modelContainer: ModelContainer,
+        todayRun: Bool = ProcessInfo.processInfo.arguments.contains("-ui-today-run")
+    ) -> SyncEngine {
         // "-ui-offline" simulates no connectivity by never draining automatically:
         // a first-write-fails fake races any refresh-triggered drain, which re-sends
         // and hides the queued row before the test can look at it. The outbox's
         // manual Retry is the recovery path under test.
         let offline = ProcessInfo.processInfo.arguments.contains("-ui-offline")
-        let engine = SyncEngine(
+        return SyncEngine(
             modelContainer: modelContainer,
-            api: ProcessInfo.processInfo.arguments.contains("-ui-shared-guests") ? UITestSharedGuestAPI() : UITestSheetAPI(),
+            api: ProcessInfo.processInfo.arguments.contains("-ui-shared-guests")
+                ? UITestSharedGuestAPI()
+                : UITestSheetAPI(usesTodayRun: todayRun),
             retryPolicy: RetryPolicy(maxAttempts: 1),
             automaticallyDrains: !offline
         )
-        return AppRuntime(
-            modelContainer: modelContainer,
-            configPersistence: persistence,
-            engineOverride: engine,
-            configOverride: config
-        )
+    }
+
+    /// UI-test links, `fctc-attendance://ui-test/<hook>`, stand in for events a
+    /// test cannot cause itself: a notification or App Intent route arriving,
+    /// and a connection change swapping the engine. Returns true when it took
+    /// the URL; it takes nothing outside `-ui-testing`.
+    @MainActor
+    static func handleHook(_ url: URL, runtime: AppRuntime, routes: PendingRouteStore) -> Bool {
+        guard isEnabled, url.scheme == "fctc-attendance", url.host() == "ui-test" else { return false }
+        switch url.path() {
+        case "/route/today-checklist":
+            routes.set(.todayChecklist)
+        case "/route/missing-run":
+            // A reminder for a run the sheet does not have: it can never resolve.
+            routes.set(.checklist(rowIndex: 9_999, date: "Never", run: "Missing"))
+        case "/swap-engine":
+            runtime.apply(runtime.config, engineOverride: makeEngine(modelContainer: runtime.modelContainer))
+        case "/swap-engine/today-run":
+            // A new connection whose sheet has today's run, so a route still
+            // waiting from the old connection could land on it.
+            runtime.apply(runtime.config, engineOverride: makeEngine(modelContainer: runtime.modelContainer, todayRun: true))
+        default:
+            break
+        }
+        return true
     }
 }
 
@@ -180,7 +231,7 @@ private actor UITestSheetAPI: SheetAPIClient {
     private var state: SheetState
     private var writeAttempts = 0
 
-    init() {
+    init(usesTodayRun: Bool) {
         // Every fixture date is relative to today, never a literal. A hardcoded
         // "Fri, 14-Aug" silently changes meaning as the calendar moves: it was today
         // on the day these tests were written, which suppressed the catch-up prompt,
@@ -188,7 +239,6 @@ private actor UITestSheetAPI: SheetAPIClient {
         // broke the merge test with no code change behind it.
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
-        let usesTodayRun = ProcessInfo.processInfo.arguments.contains("-ui-today-run")
         var recordedDay = usesTodayRun
             ? today
             : calendar.date(byAdding: .day, value: -2, to: today) ?? today
@@ -228,7 +278,9 @@ private actor UITestSheetAPI: SheetAPIClient {
                 ),
             ],
             seasonYear: calendar.component(.year, from: recordedDay),
-            sheetRevision: "ui-rev-1",
+            // The real revision hashes the run rows, so two different sheets
+            // never share one; `/swap-engine/today-run` swaps between these two.
+            sheetRevision: usesTodayRun ? "ui-rev-today-1" : "ui-rev-1",
             // Aaron needs 3 for 150; Col and Dan are tied needing 5 for 50; Dan B
             // is 30 out and therefore past the ceiling. `-ui-no-milestones` pushes
             // everyone out of range so the empty state can be exercised.

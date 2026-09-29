@@ -278,8 +278,17 @@ what lets the app POST without OAuth, and the shared secret is what stops anyone
 digits**, which is how the app shows who is near a milestone. Season tabs are
 discovered by name, so a new January needs no script-property change; just name
 the tab `2027`. A tab named anything else, `Notes` or `2027 draft`, contributes
-nothing. Attendance counts any mark except blank and `-`, matching
-`src/utils/dataParser.js`, so the app and the weekly milestone email agree.
+nothing. Attendance counts only a member cell whose trimmed value is `x` (any
+case), matching `src/utils/dataParser.js`, so the app, the dashboard and the
+weekly milestone email agree. Annotations such as `-`, `🛕`, `sad face` or `12.30`
+are not attendance. The write paths treat them like a blank cell: ticking that
+member writes `x`, and leaving them unticked keeps the annotation.
+
+**Redeploy needed (x-only, 2026-09-28).** The x-only rule reaches the app only
+after the usual `clasp push` and `clasp deploy -i <existing-id>` (see "Deploy
+runbook"). It changes `lifetimeTotals` and attendee lists on the eight 2025
+annotation cells only. Until the redeploy, the app's all-time totals for Adam,
+Alex 👑, Rhys, Rohan and Toby stay one or two runs too high.
 
 ### Testing safely
 

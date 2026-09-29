@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FCTC iOS mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="data.js"></script>
+<style>
+/* Round-1 iOS mockup, drawn in HTML. Brand colours and Anton numerals on
+   native iOS structure: SF Pro text, continuous-corner cards, a Liquid Glass
+   tab bar. Swift Charts would draw every chart here (BarMark, LineMark,
+   RectangleMark, PointMark). */
+:root {
+  --pink: #d75b77; --gold: #ffd23f; --gold-mark: #c79311; --espresso: #1c1410; --crema: #faf4e6;
+  --sf: -apple-system, "SF Pro Text", "SF Pro", system-ui, sans-serif;
+  --sfmono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+* { box-sizing: border-box; margin: 0; }
+body { background: #d9d2c3; font-family: var(--sf); color: #1c1410; padding: 32px 24px 64px; }
+.board { display: flex; gap: 36px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+.shot { width: 402px; }
+.shot h4 { font: 700 13px var(--sfmono); letter-spacing: .08em; text-transform: uppercase; margin: 0 0 4px 6px; }
+.shot p.cap { font-size: 14px; line-height: 1.45; margin: 12px 6px 0; color: #3b3029; }
+
+/* phone */
+.phone { position: relative; width: 402px; height: 874px; border-radius: 58px; overflow: hidden; box-shadow: 0 0 0 11px #111, 0 0 0 12px #444, 0 30px 60px rgba(0,0,0,.28); }
+.phone.tall { height: 1540px; }
+.light { --bg: #f5efe2; --card: #fffcf6; --ink: #1c1410; --soft: #74675b; --sep: rgba(28,20,16,.1); --empty: rgba(28,20,16,.08); --mark: #1c1410; --glass: rgba(255,252,246,.62); --glass-edge: rgba(255,255,255,.85); }
+.dark { --bg: #120d0a; --card: #241b16; --ink: #faf4e6; --soft: #b3a08f; --sep: rgba(250,244,230,.12); --empty: rgba(250,244,230,.09); --mark: #efe3cc; --glass: rgba(50,40,34,.55); --glass-edge: rgba(255,255,255,.18); --gold-mark: #b98810; }
+.screen { position: absolute; inset: 0; background: var(--bg); color: var(--ink); overflow: hidden; }
+.status { height: 54px; display: flex; justify-content: space-between; align-items: center; padding: 18px 34px 0 44px; font: 600 17px var(--sf); }
+.island { position: absolute; top: 11px; left: 50%; translate: -50% 0; width: 124px; height: 36px; background: #000; border-radius: 20px; }
+.content { padding: 6px 16px 120px; }
+.lt { display: flex; justify-content: space-between; align-items: center; margin: 8px 4px 14px; }
+.lt h1 { font: 700 34px/1.1 var(--sf); letter-spacing: .01em; }
+.glassbtn { height: 44px; min-width: 44px; padding: 0 14px; border-radius: 22px; display: grid; place-items: center; background: var(--glass); backdrop-filter: blur(18px) saturate(1.6); box-shadow: inset 0 0 0 1px var(--glass-edge), 0 4px 14px rgba(0,0,0,.08); font: 600 15px var(--sf); gap: 6px; grid-auto-flow: column; }
+.card { background: var(--card); border-radius: 26px; padding: 16px; margin-bottom: 12px; }
+.label { font: 600 12px var(--sfmono); letter-spacing: .07em; text-transform: uppercase; color: var(--soft); }
+.big { font: 400 54px/1 "Anton", sans-serif; letter-spacing: .01em; }
+.mid { font: 400 34px/1 "Anton", sans-serif; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.row2 .card { margin-bottom: 0; }
+.stack { display: grid; gap: 12px; margin-bottom: 12px; }
+.chev { color: var(--soft); font-size: 20px; }
+.hd { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.hd b { font: 600 17px var(--sf); }
+.sub { font-size: 13px; color: var(--soft); }
+svg { display: block; width: 100%; }
+
+/* lists (Runs + Events) */
+.sect { margin: 22px 20px 8px; font: 600 20px var(--sf); }
+.list { background: var(--card); border-radius: 26px; overflow: hidden; margin-bottom: 8px; }
+.li { display: flex; align-items: center; gap: 14px; padding: 12px 16px; min-height: 60px; }
+.li + .li { box-shadow: inset 60px 1px 0 var(--card), inset 0 1px 0 var(--sep); }
+.li .t { flex: 1; }
+.li .t div:first-child { font-size: 17px; }
+.li .t div + div { font-size: 14px; color: var(--soft); }
+.dateblk { width: 46px; text-align: center; }
+.dateblk .d { font: 600 11px var(--sfmono); color: var(--pink); letter-spacing: .06em; }
+.dateblk .n { font: 400 26px/1 "Anton", sans-serif; }
+.pill { font: 600 12px var(--sfmono); padding: 4px 8px; border-radius: 8px; background: var(--empty); }
+.pill.gold { background: var(--gold); color: #1c1410; }
+.today { background: linear-gradient(160deg, #e0708a, var(--pink) 60%, #c24f6b); color: #fff; border-radius: 30px; padding: 20px; margin-bottom: 12px; }
+.today .k { font: 700 13px var(--sfmono); letter-spacing: .1em; opacity: .9; }
+.today h2 { font: 400 40px/1 "Anton", sans-serif; margin: 8px 0 12px; text-transform: uppercase; }
+.today .rec { background: var(--crema); color: var(--pink); font: 700 17px var(--sf); border-radius: 22px; padding: 12px 22px; }
+.tile { border-radius: 26px; padding: 16px; color: #1c1410; }
+.icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: #fff; font-size: 18px; }
+
+/* liquid glass tab bar */
+.tabbar { position: absolute; left: 22px; right: 22px; bottom: 26px; height: 66px; border-radius: 33px; display: flex; padding: 5px; background: var(--glass); backdrop-filter: blur(22px) saturate(1.8); box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 rgba(255,255,255,.6), 0 10px 30px rgba(0,0,0,.14); }
+.tab { flex: 1; display: grid; place-items: center; align-content: center; gap: 2px; border-radius: 28px; font: 600 10.5px var(--sf); color: var(--ink); }
+.tab svg { width: 26px; height: 26px; }
+.tab.on { background: rgba(215,91,119,.14); color: var(--pink); }
+.home { position: absolute; bottom: 8px; left: 50%; translate: -50% 0; width: 140px; height: 5px; border-radius: 3px; background: var(--ink); opacity: .85; }
+.fade { position: absolute; left: 0; right: 0; bottom: 0; height: 130px; background: linear-gradient(to top, var(--bg) 35%, transparent); }
+.seg { display: flex; background: var(--empty); border-radius: 10px; padding: 2px; font: 600 13px var(--sf); }
+.seg span { padding: 5px 12px; border-radius: 8px; }
+.seg span.on { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.lbrow { display: grid; grid-template-columns: 20px 76px 1fr 34px; gap: 8px; align-items: center; font-size: 15px; padding: 5px 0; }
+.lbrow .r { font: 400 18px "Anton"; color: var(--soft); }
+.lbrow .b { height: 10px; border-radius: 0 5px 5px 0; background: var(--mark); }
+.lbrow .v { text-align: right; font: 600 14px var(--sfmono); }
+.sq { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 8px; }
+.sq i { width: 10px; height: 10px; border-radius: 2px; background: var(--pink); }
+.bar { height: 10px; border-radius: 5px; background: var(--empty); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--gold-mark); border-radius: 5px; }
+.notes { max-width: 900px; margin: 48px auto 0; background: #fffcf6; border: 2px solid #1c1410; padding: 22px 26px; font-size: 15.5px; line-height: 1.55; }
+.notes h3 { font: 400 30px "Anton"; text-transform: uppercase; margin-bottom: 8px; }
+.notes li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<div class="board">
+  <div class="shot"><h4>1 · Runs tab</h4><div class="phone" id="runs"></div>
+    <p class="cap">Today's run and recording stay first. Milestones and birthdays move to Events. Settings stays on the gear.</p></div>
+  <div class="shot"><h4>2 · Events tab</h4><div class="phone" id="events"></div>
+    <p class="cap">"What's coming": the next club runs, specials, birthdays and milestones in one place.</p></div>
+  <div class="shot"><h4>3 · Dashboard tab (full scroll)</h4><div class="phone tall" id="dash"></div>
+    <p class="cap">Charty-style cards. Each card opens a full screen version. The hero card flips between Runs and Km.</p></div>
+  <div class="shot"><h4>4 · Tap a runner</h4><div class="phone" id="member"></div>
+    <p class="cap">Tap a name on the Wall or leaderboard. The Mon/Wed/Fri calendar shows the season and the streak at a glance.</p></div>
+  <div class="shot"><h4>5 · Dashboard, dark</h4><div class="phone" id="dashdark"></div>
+    <p class="cap">Espresso background, crema ink. Same palette, validated for dark.</p></div>
+</div>
+
+<div class="notes">
+  <h3>Decided 28 Sep 2026</h3>
+  <ul>
+    <li><b>Structure approved:</b> the tabs, cards, charts and runner screen shown here.</li>
+    <li><b>Tabs:</b> Runs · Events · Dashboard. Settings stays behind the gear on Runs.</li>
+    <li><b>Look:</b> the app keeps its Reminders theme: system colours, the user-selected accent (green by default) and SF Pro. The pink, crema and Anton in these frames are NOT carried over.</li>
+    <li><b>Data:</b> computed from the season the app already caches, so it works offline and updates the moment you record a run.</li>
+    <li><b>Charts:</b> Swift Charts. No third-party chart library.</li>
+  </ul>
+</div>
+
+<script>
+const D = window.FCTC
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const DAY = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+const dt = (iso) => new Date(iso + 'T00:00')
+const n = (x) => x.toLocaleString('en-AU')
+const clubDates = [...new Set(D.runs.filter((r) => r.club).map((r) => r.date))]
+const streakSet = (m) => new Set(m.current ? clubDates.slice(-m.current) : [])
+const madeDay = (m, date) => D.runs.some((r) => r.date === date && m.attended.includes(r.i))
+
+const icon = {
+  run: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="14" cy="4" r="2.2"/><path d="M10.5 7.5l4 1.2 2.3 3.5 2.7.8-.6 1.8-3.4-1-1.3-1.9-1.1 3.4 2.6 2.4-.8 5.3h-2l.6-4.3-2.8-2.4-1.3 3.6-4.7 1.6-.6-1.8 3.8-1.3 2.2-6.4-1.6.3-1.6 2.6-1.7-1 2.1-3.4z"/></svg>',
+  cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+  chart: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="12" width="4" height="9" rx="1.2"/><rect x="10" y="7" width="4" height="14" rx="1.2"/><rect x="17" y="3" width="4" height="18" rx="1.2"/></svg>',
+  gear: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>',
+}
+const chrome = (active, body, theme = 'light') => `
+  <div class="screen ${theme}">
+    <div class="island"></div>
+    <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+    <div class="content">${body}</div>
+    <div class="fade"></div>
+    <div class="tabbar">
+      <div class="tab ${active === 'runs' ? 'on' : ''}">${icon.run}Runs</div>
+      <div class="tab ${active === 'events' ? 'on' : ''}">${icon.cal}Events</div>
+      <div class="tab ${active === 'dash' ? 'on' : ''}">${icon.chart}Dashboard</div>
+    </div>
+    <div class="home"></div>
+  </div>`
+
+/* ---------- 1 · Runs ---------- */
+const next = D.upcoming[0]
+document.getElementById('runs').innerHTML = chrome('runs', `
+  <div class="lt"><h1>FCTC</h1><div class="glassbtn">${icon.gear}</div></div>
+  <div class="today">
+    <div style="display:flex;justify-content:space-between"><span class="k">TODAY'S RUN</span><span class="k">${DAY[dt(next.date).getDay()]} ${dt(next.date).getDate()} ${MONTHS[dt(next.date).getMonth()]}</span></div>
+    <h2>${next.type}</h2>
+    <div style="display:flex;justify-content:space-between;align-items:end">
+      <div style="font-size:17px;line-height:1.35">${next.meet}<br><span style="opacity:.85">About ${next.km} km</span></div>
+      <span class="rec">Record</span>
+    </div>
+  </div>
+  <div class="row2">
+    <div class="tile" style="background:#9ed1af"><div style="display:flex;justify-content:space-between;align-items:center"><span class="icon" style="background:#1c1410">${icon.run.replace('<svg', '<svg width="20"')}</span><span class="mid">3</span></div><div style="margin-top:14px;font-weight:600">This week</div></div>
+    <div class="tile" style="background:var(--gold)"><div style="display:flex;justify-content:space-between;align-items:center"><span class="icon" style="background:#1c1410">⟳</span><span class="mid">0</span></div><div style="margin-top:14px;font-weight:600">Unsynced</div></div>
+  </div>
+  <div class="sect">Runs</div>
+  <div class="list">
+    <div class="li"><span class="icon" style="background:#d75b77">▦</span><div class="t"><div>Season</div><div>Every scheduled and recorded run</div></div><span class="chev">›</span></div>
+    <div class="li"><span class="icon" style="background:#74675b">↺</span><div class="t"><div>Past runs</div><div>Fill in a missed row</div></div><span class="chev">›</span></div>
+  </div>
+  <div class="sub" style="margin:4px 20px">118 of 118 runs recorded</div>`)
+
+/* ---------- 2 · Events ---------- */
+const week = D.upcoming.slice(0, 3)
+// Specials sharing a date (Xmas: Mara, Half, 10k) collapse into one row.
+const specials = Object.values(D.upcoming.filter((u) => !['Mon', 'Wed', 'Fri'].includes(u.dow)).reduce((acc, u) => {
+  const key = u.date
+  acc[key] ??= { ...u, type: u.type.split(' - ')[1] ?? u.type, options: [] }
+  acc[key].options.push(u.type.split(' - ')[0])
+  return acc
+}, {}))
+const miles = D.allTime.map((m) => ({ ...m, next: (Math.floor(m.runs / 50) + 1) * 50 })).map((m) => ({ ...m, to: m.next - m.runs })).filter((m) => m.to <= 5).sort((a, b) => a.to - b.to)
+const evRow = (u, sub) => `<div class="li"><div class="dateblk"><div class="d">${DAY[dt(u.date).getDay()].toUpperCase()}</div><div class="n">${dt(u.date).getDate()}</div></div><div class="t"><div>${u.type}</div><div>${sub ?? `${u.meet} · ${u.km} km`}</div></div></div>`
+document.getElementById('events').innerHTML = chrome('events', `
+  <div class="lt"><h1>Events</h1></div>
+  <div class="sect" style="margin-top:4px">This week</div>
+  <div class="list">${week.map((u) => evRow(u)).join('')}</div>
+  <div class="sect">Specials</div>
+  <div class="list">${specials.map((u) => evRow(u, `${u.meet} · ${MONTHS[dt(u.date).getMonth()]} · ${u.options.join(' / ')}`)).join('')}</div>
+  <div class="sect">Milestones</div>
+  <div class="list">${miles.map((m) => `<div class="li"><div class="t"><div>${m.name}</div><div>${m.runs} all-time runs</div></div><span class="pill gold">${m.to} TO ${m.next}</span></div>`).join('')}</div>
+  <div class="sect">Birthdays</div>
+  <div class="list"><div class="li"><div class="t"><div>Joe</div><div>Sun 8 Nov</div></div><span class="pill">41 DAYS</span></div></div>`)
+
+/* ---------- 3 · Dashboard ---------- */
+function dashboard(theme) {
+  const css = theme === 'dark' ? { mark: '#efe3cc', empty: 'rgba(250,244,230,.09)', soft: '#b3a08f', sep: 'rgba(250,244,230,.12)' } : { mark: '#1c1410', empty: 'rgba(28,20,16,.08)', soft: '#74675b', sep: 'rgba(28,20,16,.1)' }
+  // Hero sparkline: runners per run, last 24 runs, as crema columns on pink.
+  const last = D.runs.slice(-24)
+  const maxT = Math.max(...last.map((r) => r.total))
+  const hero = `<svg viewBox="0 0 340 64" height="64">${last.map((r, i) => `<rect x="${i * 14.2}" y="${64 - (r.total / maxT) * 60}" width="10" height="${(r.total / maxT) * 60}" rx="3" fill="#faf4e6" opacity="${r.club ? .9 : .55}"/>`).join('')}</svg>`
+  // Mini wall: top 10 runners x last 15 club days.
+  const days = clubDates.slice(-15), top = D.members.slice(0, 10)
+  const wall = `<svg viewBox="0 0 340 ${top.length * 16 + 4}">${top.map((m, ri) => {
+    const s = streakSet(m)
+    return `<text x="0" y="${ri * 16 + 12}" fill="currentColor" style="font: 12px -apple-system, system-ui, sans-serif">${m.name}</text>` +
+      days.map((d, c) => `<rect x="${78 + c * 17.4}" y="${ri * 16 + 2}" width="14" height="12" rx="2.5" fill="${!madeDay(m, d) ? css.empty : s.has(d) ? '#d75b77' : css.mark}"/>`).join('')
+  }).join('')}</svg>`
+  // Vs last year line.
+  const a = D.progress.y2025, b = D.progress.y2026, ymax = 12000
+  const x = (d) => (d / 365) * 330 + 4, y = (km) => 110 - (km / ymax) * 104
+  const path = (p) => p.map((q, i) => `${i ? 'L' : 'M'}${x(q.doy).toFixed(1)} ${y(q.km).toFixed(1)}`).join('')
+  const eb = b[b.length - 1]
+  const line = `<svg viewBox="0 0 340 118"><path d="${path(a)}" fill="none" stroke="${css.soft}" stroke-width="2" opacity=".6"/><path d="${path(b)}" fill="none" stroke="#d75b77" stroke-width="3" stroke-linejoin="round"/><circle cx="${x(eb.doy)}" cy="${y(eb.km)}" r="5" fill="#d75b77" stroke="currentColor" stroke-width="0"/></svg>`
+  // Every run: last 18 runs as columns, stacked by weekday colour-free, labelled by day initial.
+  const lastRuns = D.runs.slice(-18), maxR = Math.max(...lastRuns.map((r) => r.total))
+  const cols = `<svg viewBox="0 0 340 96">${lastRuns.map((r, i) => {
+    const h = (r.total / maxR) * 72
+    return `<rect x="${i * 18.9 + 2}" y="${78 - h}" width="13" height="${h}" rx="4" fill="${r.total === maxR ? '#d75b77' : css.mark}"/><text x="${i * 18.9 + 8.5}" y="93" text-anchor="middle" fill="${css.soft}" style="font: 10px ui-monospace, monospace">${r.dow[0]}</text>`
+  }).join('')}</svg>`
+  const lb = D.members.slice(0, 5).map((m, i) => `<div class="lbrow"><span class="r">${i + 1}</span><span>${m.name}</span><span><div class="b" style="width:${(m.runs / D.members[0].runs) * 100}%"></div></span><span class="v">${m.runs}</span></div>`).join('')
+  const vs = D.totals.vsLastYear
+  const aaron = D.members.find((m) => m.current === Math.max(...D.members.map((q) => q.current)))
+  return `
+  <div class="lt"><h1>Dashboard</h1><div class="glassbtn">2026 ⌄</div></div>
+  <div class="today" style="padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:start">
+      <div><div class="big" style="font-size:64px">${D.totals.runs}</div><div class="k" style="margin-top:6px">RUNS THIS SEASON</div></div>
+      <div class="seg" style="background:rgba(255,255,255,.2)"><span class="on" style="background:#faf4e6;color:#d75b77">Runs</span><span>Km</span></div>
+    </div>
+    <div style="margin-top:14px">${hero}</div>
+    <div class="k" style="margin-top:6px;opacity:.85">RUNNERS PER RUN · LAST 24</div>
+  </div>
+  <div class="row2" style="margin-bottom:12px">
+    <div class="card"><div class="label">Together</div><div class="mid" style="margin-top:8px">${n(D.totals.km)}<span style="font-size:18px"> km</span></div><div class="sub" style="margin-top:6px">+${n(D.totals.km - vs.km)} on 2025</div></div>
+    <div class="card"><div class="label">On a roll</div><div class="mid" style="margin-top:8px">${aaron.current}</div><div class="sub" style="margin-top:6px">${aaron.name}, Mon/Wed/Fri</div><div class="sq">${'<i></i>'.repeat(aaron.current)}</div></div>
+  </div>
+  <div class="card"><div class="hd"><b>The Wall</b><span class="sub">Last 5 weeks ›</span></div>${wall}</div>
+  <div class="card"><div class="hd"><b>Vs last year</b><span class="sub">${n(eb.km)} vs ${n(vs.km)} km</span></div>${line}</div>
+  <div class="card"><div class="hd"><b>Every run</b><span class="sub">Runners · last 18</span></div>${cols}</div>
+  <div class="card"><div class="hd"><b>Leaderboard</b><div class="seg"><span class="on">Runs</span><span>Km</span></div></div>${lb}</div>
+  <div class="list"><div class="li"><div class="t"><div>Run log</div><div>All ${D.totals.runs} runs, searchable</div></div><span class="chev">›</span></div></div>`
+}
+document.getElementById('dash').innerHTML = chrome('dash', dashboard('light'))
+document.getElementById('dashdark').innerHTML = chrome('dash', dashboard('dark'), 'dark')
+
+/* ---------- 4 · Member ---------- */
+{
+  const m = D.members[0]
+  const s = streakSet(m)
+  // Mon/Wed/Fri calendar: one column per week, three rows.
+  const start = dt(clubDates[0]); start.setDate(start.getDate() - ((start.getDay() + 6) % 7))
+  const weeks = Math.ceil((dt(clubDates.at(-1)) - start) / 864e5 / 7) + 1
+  const rowOf = { Mon: 0, Wed: 1, Fri: 2 }
+  const cw = 332 / weeks
+  const cal = `<svg viewBox="0 0 370 70"><g style="font: 9px ui-monospace, monospace" fill="#74675b"><text x="0" y="13">M</text><text x="0" y="36">W</text><text x="0" y="59">F</text></g>${clubDates.map((d) => {
+    const w = Math.floor((dt(d) - start) / 864e5 / 7), r = rowOf[DAY[dt(d).getDay()]]
+    const on = madeDay(m, d)
+    return `<rect x="${14 + w * cw}" y="${r * 23 + 1}" width="${cw - 2}" height="19" rx="2.5" fill="${!on ? 'rgba(28,20,16,.08)' : s.has(d) ? '#d75b77' : '#1c1410'}"/>`
+  }).join('')}</svg>`
+  const byDay = ['Mon', 'Wed', 'Fri'].map((dname) => {
+    const ds = clubDates.filter((d) => DAY[dt(d).getDay()] === dname)
+    const made = ds.filter((d) => madeDay(m, d)).length
+    return [dname, made, ds.length]
+  })
+  const next = (Math.floor(m.allTime / 50) + 1) * 50
+  document.getElementById('member').innerHTML = chrome('dash', `
+    <div class="lt" style="margin-top:0"><div class="glassbtn">‹</div><div class="glassbtn">Share</div></div>
+    <div style="margin:0 4px 12px"><div class="big" style="font-size:60px;text-transform:uppercase">${m.name}</div><div class="sub" style="margin-top:4px">#1 on runs · ${m.runs} of ${D.totals.runs} club runs</div></div>
+    <div class="row2" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+      <div class="card"><div class="label">Runs</div><div class="mid" style="margin-top:6px">${m.runs}</div></div>
+      <div class="card"><div class="label">Km</div><div class="mid" style="margin-top:6px">${m.km}</div></div>
+      <div class="card"><div class="label">Streak</div><div class="mid" style="margin-top:6px;color:#d75b77">${m.current}</div></div>
+    </div>
+    <div class="card"><div class="hd"><b>Season</b><span class="sub">Jan – Sep</span></div>${cal}<div class="sub" style="margin-top:8px">Pink is the current streak, since ${dt(m.currentFrom).getDate()} ${MONTHS[dt(m.currentFrom).getMonth()]}. Best this season: ${m.best}.</div></div>
+    <div class="card"><div class="hd"><b>By day</b><span class="sub">Club days made</span></div>${byDay.map(([d, made, all]) => `<div style="display:grid;grid-template-columns:40px 1fr 60px;gap:10px;align-items:center;padding:4px 0"><span class="label">${d}</span><div class="bar"><i style="width:${(made / all) * 100}%;background:#1c1410"></i></div><span style="text-align:right;font:600 14px ui-monospace">${made}/${all}</span></div>`).join('')}</div>
+    <div class="card"><div class="hd"><b>All time</b><span class="sub">${m.allTime} runs</span></div><div class="bar" style="height:14px;border-radius:7px"><i style="width:${((m.allTime % 50) / 50) * 100}%"></i></div><div class="sub" style="margin-top:8px">${next - m.allTime} runs to ${next}</div></div>`)
+}
+</script>
+</body>
+</html>
