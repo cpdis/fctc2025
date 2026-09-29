@@ -20,15 +20,41 @@ final class TabNavigationUITests: XCTestCase {
         capture("tabs-runs")
 
         app.tab(.events).tap()
-        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["events-title"].waitForExistence(timeout: 5))
         capture("tabs-events")
 
         app.tab(.dashboard).tap()
-        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["dashboard-title"].waitForExistence(timeout: 5))
         capture("tabs-dashboard")
 
         app.tab(.runs).tap()
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+    }
+
+    /// The three tab titles sit at one height (Colin's review): each root draws
+    /// the same TabHeader row instead of the system large title.
+    func testTabTitlesShareOneHeight() {
+        launch(["-ui-shared-guests", "-ui-dashboard"])
+        let runs = app.staticTexts["home-title"]
+        XCTAssertTrue(runs.waitForExistence(timeout: 5))
+        settle()
+        // Centres, not tops: in a List row holding only the title, the row takes
+        // the title's identifier, so Events reports the 52 pt row, not the text.
+        let middle = runs.frame.midY
+        let left = runs.frame.minX
+
+        app.tab(.events).tap()
+        let events = app.staticTexts["events-title"]
+        XCTAssertTrue(events.waitForExistence(timeout: 5))
+        settle()
+        XCTAssertEqual(events.frame.midY, middle, accuracy: 0.5, "Events title is not level with FCTC")
+
+        app.tab(.dashboard).tap()
+        let dashboard = app.staticTexts["dashboard-title"]
+        XCTAssertTrue(dashboard.waitForExistence(timeout: 5))
+        settle()
+        XCTAssertEqual(dashboard.frame.midY, middle, accuracy: 0.5, "Dashboard title is not level with FCTC")
+        XCTAssertEqual(dashboard.frame.minX, left, accuracy: 0.5, "Dashboard title is not flush with FCTC")
     }
 
     /// Runs keeps today's run and the tiles (R20); Milestones and Birthdays
@@ -60,9 +86,9 @@ final class TabNavigationUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Outbox"].waitForExistence(timeout: 5))
 
         app.tab(.events).tap()
-        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["events-title"].waitForExistence(timeout: 5))
         app.tab(.dashboard).tap()
-        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["dashboard-title"].waitForExistence(timeout: 5))
         app.tab(.runs).tap()
         XCTAssertTrue(app.navigationBars["Outbox"].waitForExistence(timeout: 5))
 
@@ -77,7 +103,7 @@ final class TabNavigationUITests: XCTestCase {
         app.buttons["home-unsynced"].tap()
         XCTAssertTrue(app.navigationBars["Outbox"].waitForExistence(timeout: 5))
         app.tab(.dashboard).tap()
-        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["dashboard-title"].waitForExistence(timeout: 5))
 
         openHook("route/today-checklist")
         XCTAssertTrue(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 5))
@@ -89,14 +115,14 @@ final class TabNavigationUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.tab(.runs).isSelected)
         app.tab(.dashboard).tap()
-        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["dashboard-title"].waitForExistence(timeout: 5))
     }
 
     /// A route that can never resolve must not block the next one.
     func testUnresolvableRouteDoesNotBlockLaterRoutes() {
         launch(["-ui-today-run"])
         app.tab(.events).tap()
-        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["events-title"].waitForExistence(timeout: 5))
 
         openHook("route/missing-run")
         // It lands on Runs and waits there for a run that never arrives.
@@ -120,18 +146,18 @@ final class TabNavigationUITests: XCTestCase {
         runLog.tap()
         XCTAssertTrue(app.navigationBars["Run log"].waitForExistence(timeout: 5))
         app.tab(.events).tap()
-        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["events-title"].waitForExistence(timeout: 5))
 
         openHook("swap-engine")
         // The swap keeps the selected tab.
-        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["events-title"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.tab(.events).isSelected)
 
         app.tab(.runs).tap()
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.navigationBars["Outbox"].exists)
         app.tab(.dashboard).tap()
-        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["dashboard-title"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.navigationBars["Run log"].exists)
     }
 
@@ -143,7 +169,7 @@ final class TabNavigationUITests: XCTestCase {
         launch()
         XCTAssertTrue(app.buttons["home-no-run-today"].waitForExistence(timeout: 5))
         app.tab(.events).tap()
-        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["events-title"].waitForExistence(timeout: 5))
 
         openHook("route/today-checklist")
         // It lands on Runs and waits there for a run today.

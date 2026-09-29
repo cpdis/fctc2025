@@ -75,6 +75,36 @@ final class DashboardUITests: XCTestCase {
         XCTAssertTrue(allTime.label.contains("3 runs to 150"), allTime.label)
     }
 
+    /// The header's season menu lists this season and last, shows last season
+    /// from its snapshot (other streaks, no Vs last year), and switches back.
+    func testSeasonMenuShowsAnEarlierSeason() {
+        launch()
+        openDashboard()
+        let year = Calendar.current.component(.year, from: .now)
+        let onARoll = element("on-a-roll")
+        XCTAssertTrue(onARoll.waitForExistence(timeout: 5))
+        let liveRoll = onARoll.value as? String
+        XCTAssertTrue(liveRoll?.hasPrefix("Aaron, 14 ") == true, liveRoll ?? "no value")
+
+        let menu = element("dashboard-season")
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        XCTAssertEqual(menu.value as? String, String(year))
+        menu.tap()
+        let lastYear = app.buttons[String(year - 1)]
+        XCTAssertTrue(lastYear.waitForExistence(timeout: 5))
+        lastYear.tap()
+
+        XCTAssertTrue(menu.waitForValue(String(year - 1)), "The menu did not switch to last season")
+        XCTAssertTrue(onARoll.waitForExistence(timeout: 5))
+        XCTAssertNotEqual(onARoll.value as? String, liveRoll, "The cards still show this season")
+        capture("dashboard-last-season")
+
+        menu.tap()
+        app.buttons[String(year)].tap()
+        XCTAssertTrue(menu.waitForValue(String(year)))
+        XCTAssertEqual(onARoll.value as? String, liveRoll)
+    }
+
     /// The full Wall opens scrolled to the latest run, and a tapped cell opens
     /// that row's runner.
     func testFullWallOpensAtLatestRun() {
@@ -172,7 +202,7 @@ final class DashboardUITests: XCTestCase {
 
     private func openDashboard() {
         app.tab(.dashboard).tap()
-        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["dashboard-title"].waitForExistence(timeout: 5))
     }
 
     /// Any element by identifier: cards and combined rows are not always the
@@ -201,5 +231,13 @@ final class DashboardUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+}
+
+private extension XCUIElement {
+    /// Waits until the element's accessibility value reads `value`.
+    func waitForValue(_ value: String, timeout: TimeInterval = 5) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: self)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
     }
 }
