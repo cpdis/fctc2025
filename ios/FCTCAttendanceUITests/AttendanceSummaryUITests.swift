@@ -21,7 +21,7 @@ final class AttendanceSummaryUITests: XCTestCase {
     private func openEvents() {
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 8))
         app.tab(.events).tap()
-        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["events-title"].waitForExistence(timeout: 5))
     }
 
     private func tap(_ element: XCUIElement) {

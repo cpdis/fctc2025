@@ -1,0 +1,21 @@
+The titles now line up, all three in a row,
+And the Dashboard has seasons, so pick one to show.
+If the sheet takes a nap when you first open the app,
+It tries once again and won't scold you for that.
+
+Filament Coffee Track Club: titles, seasons and a calmer banner
+
+Private build for Colin. Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone.
+
+New since build 9:
+• The FCTC, Events and Dashboard titles sit at the same height.
+• Dashboard: the "2026 season" line is gone. Tap the year beside the title to switch between 2026 and 2025. An earlier season keeps each runner's all-time total as it is today.
+• If the sheet cannot be reached right after you open the app, the app tries again on its own. If it still cannot, the banner says it is showing the runs saved on your phone. Retry Now, or coming back to the app, refreshes again.
+• Events: the "Today and the next 30 days" line under Birthdays is gone.
+
+Please check:
+• Switch between the three tabs and check the titles do not jump.
+• On the Dashboard, pick 2025, open a runner and the full Wall, then switch back to 2026.
+• Open the app a few times from cold. The offline banner should not appear on a normal connection.
+
+Share feedback through TestFlight.

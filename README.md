@@ -492,6 +492,10 @@ The app opens on a Liquid Glass tab bar with three tabs
 - **Events**: what is coming up (see "Events tab").
 - **Dashboard**: the web dashboard's quick reference, drawn natively (see "Dashboard tab").
 
+Each tab root draws the same title row (`TabHeader`) instead of the system large title, so
+FCTC, Events and Dashboard sit at one height (`TabNavigationUITests` checks it). Runs puts
+Settings on that row and Dashboard puts its season menu there.
+
 Each tab keeps its own navigation stack. The run picker and the checklist hide the tab bar,
 so their bottom-bar search and Review button stay reachable. A reminder tap or an App Intent
 route always lands on Runs. The app selects Runs, pops it to its root and opens the checklist.
@@ -535,8 +539,13 @@ See `docs/plans/2026-09-18-attendance-count-birthdays-plan.md`.
 
 ### Dashboard tab
 
-The Dashboard shows the active season. The cards follow the approved mockup
-(`docs/reference/2026-09-28-dashboard-mockups/ios.html`), top to bottom:
+The Dashboard opens on the live season. The season menu beside the title lists the live
+season and every earlier season the sheet lists (`supportedSeasons`), so a new year appears
+when it goes live. An earlier season comes from a read-only snapshot (fetched once per app
+session, then served from the cache, offline too). It compares with the season before it,
+keeps each runner's all-time total as it is today, and never includes unsynced check-ins. The
+cards follow the approved mockup (`docs/reference/2026-09-28-dashboard-mockups/ios.html`),
+top to bottom:
 
 - **Headline**: runs this season, or km together, with a Runs/Km toggle. It compares with last
   season on the same date ("+2 runs on 2025 by this date"). Its bars show runners per run for
@@ -590,6 +599,16 @@ fetches or decodes the cache.
 
 The checklist's streak line uses the same club-day rule and effective runs. It reads "N club
 days in a row".
+
+### When the sheet cannot be reached
+
+A refresh (`SyncEngine.refreshState`) only reads, so it retries a dropped connection, a
+timeout or an Apps Script error on its own: three tries, 1 s and then 2 s apart
+(`RetryPolicy.reads`). Only then does Runs show "Could not reach the sheet. Showing the runs
+saved on this phone." That banner never mentions the outbox, which has its own banner when
+something is waiting to send. **Retry Now** refreshes again, and so does returning to the app.
+A refresh cancelled because its screen went away (a tab switch, a pushed screen) is not a
+failure and shows nothing.
 
 ### Recording attendance
 

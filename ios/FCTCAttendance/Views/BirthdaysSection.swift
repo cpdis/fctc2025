@@ -24,8 +24,6 @@ struct BirthdaysSection: View {
         } header: {
             Text("Birthdays")
                 .accessibilityIdentifier("events-birthdays")
-        } footer: {
-            Text("Today and the next 30 days")
         }
     }
 }

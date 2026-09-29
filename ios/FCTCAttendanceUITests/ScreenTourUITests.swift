@@ -38,12 +38,12 @@ final class ScreenTourUITests: XCTestCase {
         capture("tour-01-runs")
 
         app.tab(.events).tap()
-        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["events-title"].waitForExistence(timeout: 5))
         settle()
         capture("tour-02-events")
 
         app.tab(.dashboard).tap()
-        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["dashboard-title"].waitForExistence(timeout: 5))
         settle()
         capture("tour-03-dashboard")
 

@@ -78,6 +78,40 @@ struct ViewModelTests {
         #expect(viewModel.syncBanner == nil)
     }
 
+    @Test("A failed refresh says what the phone shows, and Retry Now refreshes again")
+    func homeRefreshFailureRetry() async {
+        let client = ViewModelSyncClient(refreshFailures: 1)
+        let viewModel = HomeViewModel(engine: client)
+
+        await viewModel.refresh(hasCachedState: true)
+
+        #expect(viewModel.syncBanner?.kind == .offline)
+        #expect(viewModel.syncBanner?.message == UserFacingError.refreshOffline)
+        #expect(viewModel.refreshFailed)
+
+        await viewModel.retry(hasCachedState: true)
+
+        #expect(await client.refreshCount == 2)
+        #expect(viewModel.syncBanner == nil)
+        #expect(!viewModel.refreshFailed)
+    }
+
+    /// Switching tab or pushing a screen cancels the view's refresh task, and
+    /// URLSession reports that as a transport error. It is not "offline".
+    @Test("A refresh cancelled with its view leaves no banner")
+    func homeCancelledRefresh() async {
+        let client = ViewModelSyncClient(cancellableRefresh: true)
+        let viewModel = HomeViewModel(engine: client)
+
+        let refresh = Task { await viewModel.refresh(hasCachedState: true) }
+        await client.waitUntilRefreshRequested()
+        refresh.cancel()
+        await refresh.value
+
+        #expect(viewModel.syncBanner == nil)
+        #expect(!viewModel.refreshFailed)
+    }
+
     @Test("Sync events become human and actionable home banners")
     func homeSyncBanners() async {
         let client = ViewModelSyncClient()
@@ -556,6 +590,9 @@ private actor ViewModelSyncClient: SyncEngineClient {
     private var resolutionFailures: Int
     private let suspendRefresh: Bool
     private var refreshFailures: Int
+    /// Waits until cancelled, then fails the way URLSession does: a transport
+    /// error, not a CancellationError.
+    private let cancellableRefresh: Bool
     private var refreshContinuation: CheckedContinuation<SheetState, Never>?
 
     init(
@@ -563,13 +600,15 @@ private actor ViewModelSyncClient: SyncEngineClient {
         addRunFailures: Int = 0,
         resolutionFailures: Int = 0,
         suspendRefresh: Bool = false,
-        refreshFailures: Int = 0
+        refreshFailures: Int = 0,
+        cancellableRefresh: Bool = false
     ) {
         self.addMemberFailures = addMemberFailures
         self.addRunFailures = addRunFailures
         self.resolutionFailures = resolutionFailures
         self.suspendRefresh = suspendRefresh
         self.refreshFailures = refreshFailures
+        self.cancellableRefresh = cancellableRefresh
     }
 
     func refreshState() async throws -> SheetState {
@@ -580,6 +619,9 @@ private actor ViewModelSyncClient: SyncEngineClient {
         }
         if suspendRefresh {
             return await withCheckedContinuation { refreshContinuation = $0 }
+        }
+        if cancellableRefresh {
+            do { try await Task.sleep(for: .seconds(30)) } catch { throw SheetAPIError.network("cancelled") }
         }
         return SheetState(sheetRevision: "rev-1")
     }

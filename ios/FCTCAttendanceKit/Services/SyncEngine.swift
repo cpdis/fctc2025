@@ -21,6 +21,8 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
     let api: any SheetAPIClient
     let clock: any SyncClock
     let retryPolicy: RetryPolicy
+    /// The live refresh's retry (`readState`). Writes keep `retryPolicy`.
+    let readRetryPolicy: RetryPolicy
     let automaticallyDrains: Bool
     let runReminderScheduler: any RunReminderScheduling
     var isDraining = false
@@ -36,6 +38,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         api: any SheetAPIClient,
         clock: any SyncClock = SystemSyncClock(),
         retryPolicy: RetryPolicy = .default,
+        readRetryPolicy: RetryPolicy = .reads,
         automaticallyDrains: Bool = true,
         runReminderScheduler: any RunReminderScheduling = NoopRunReminderScheduler()
     ) {
@@ -47,6 +50,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         self.api = api
         self.clock = clock
         self.retryPolicy = retryPolicy
+        self.readRetryPolicy = readRetryPolicy
         self.automaticallyDrains = automaticallyDrains
         self.runReminderScheduler = runReminderScheduler
     }
@@ -65,8 +69,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         // holds every write confirmed before it. A slow refresh that started
         // before a confirmation and lands after it then cannot retire that
         // write's overlay (`EffectiveRuns.applies`).
-        let requestedAt = await clock.now()
-        let state = try await api.getState(seasonSheetId: seasonSheetId)
+        let (state, requestedAt) = try await readState(seasonSheetId: seasonSheetId)
         latestState = state
         try reconcile(state, seenAt: requestedAt)
         // No season named: the server answered with its active season.
@@ -79,46 +82,89 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         return state
     }
 
-    /// Last season's state for the Dashboard's "Vs last year" card. Nil means
-    /// unavailable: a legacy endpoint, or no earlier season in `supportedSeasons`.
-    ///
-    /// A read-only snapshot. It upserts only that season's `SharedSheetCache` row.
-    /// It never calls `reconcile`, never sets `latestState` and never reschedules
-    /// reminders, so members, cached runs and the live season stay exactly as the
-    /// last live refresh left them.
+    /// `api.getState`, retried on a transient failure (`SheetAPIError.isRetryable`:
+    /// a dropped connection, a timeout, an HTTP error from Apps Script, a busy
+    /// lock) under `readRetryPolicy`. A read changes nothing, so repeating it is
+    /// safe. Returns the state and the start of the attempt that returned it,
+    /// which `refreshState` stamps on the cache. A cancelled caller stops at once.
+    private func readState(seasonSheetId: Int?) async throws -> (SheetState, Date) {
+        var attempt = 1
+        while true {
+            let requestedAt = await clock.now()
+            do {
+                return (try await api.getState(seasonSheetId: seasonSheetId), requestedAt)
+            } catch let error as SheetAPIError where error.isRetryable
+                        && attempt < readRetryPolicy.maxAttempts && !Task.isCancelled {
+                attempt += 1
+                try await clock.sleep(for: readRetryPolicy.delay(forAttempt: attempt))
+            }
+        }
+    }
+
+    /// The newest listed season older than `year` (the live season when nil),
+    /// as a read-only snapshot: the Dashboard's "Vs last year" for the season
+    /// it shows. Nil means unavailable: a legacy endpoint, or no earlier season
+    /// in `supportedSeasons`. See `snapshot(of:)` for the caching.
+    public func previousSeasonSnapshot(before year: Int?) async throws -> SheetState? {
+        guard let live = try snapshotAnchor() else { return nil }
+        let limit = year ?? live.seasonYear
+        // Gaps are allowed: the newest listed season before `limit`.
+        guard let previous = (live.supportedSeasons ?? [])
+            .filter({ $0.seasonYear < limit })
+            .max(by: { $0.seasonYear < $1.seasonYear }) else { return nil }
+        return try await snapshot(of: previous, in: live)
+    }
+
+    /// A listed season before the live one, as a read-only snapshot, for the
+    /// Dashboard's season menu. Nil for the live season (read the live cache),
+    /// a year the live state does not list, or a legacy endpoint.
+    public func seasonSnapshot(year: Int) async throws -> SheetState? {
+        guard let live = try snapshotAnchor(), year < live.seasonYear,
+              let season = (live.supportedSeasons ?? []).first(where: { $0.seasonYear == year }) else { return nil }
+        return try await snapshot(of: season, in: live)
+    }
+
+    /// The cached live season snapshots anchor on, not `latestState`: historic
+    /// navigation points `latestState` at an older season. Nil without shared
+    /// seasons.
+    private func snapshotAnchor() throws -> SheetState? {
+        guard api.endpointIdentity != nil, let live = try cachedLiveState(),
+              live.supportsSharedGuests, live.spreadsheetId != nil else { return nil }
+        return live
+    }
+
+    /// One season's state, read-only. It upserts only that season's
+    /// `SharedSheetCache` row. It never calls `reconcile`, never sets
+    /// `latestState` and never reschedules reminders, so members, cached runs
+    /// and the live season stay exactly as the last live refresh left them.
     ///
     /// A cached row can be out of date: it may date from when that season was
     /// live, or from before a guest promotion rewrote its attendance. So the
-    /// first call on each engine (once per app session) fetches the season again,
-    /// and later calls read the row:
+    /// first call for a season on each engine (once per app session) fetches it
+    /// again, and later calls read the row:
     ///
     ///   row cached   fetched on this engine   result
     ///   no           -                        fetch; throws when that fails
     ///   yes          yes                      the row, no request
     ///   yes          no                       fetch; the row when that fails,
     ///                                         and the next call tries again
-    public func previousSeasonSnapshot() async throws -> SheetState? {
-        // Anchor on the cached live season, not `latestState`: historic
-        // navigation points `latestState` at an older season.
-        guard let endpoint = api.endpointIdentity, let live = try cachedLiveState(),
-              live.supportsSharedGuests, let book = live.spreadsheetId else { return nil }
-        // The newest listed season older than the live one. Gaps are allowed.
-        guard let previous = (live.supportedSeasons ?? [])
-            .filter({ $0.seasonYear < live.seasonYear })
-            .max(by: { $0.seasonYear < $1.seasonYear }) else { return nil }
-        let key = SharedSheetCache.key(endpoint: endpoint, spreadsheetId: book, seasonSheetId: previous.seasonSheetId)
+    private func snapshot(of season: SupportedSeason, in live: SheetState) async throws -> SheetState {
+        guard let endpoint = api.endpointIdentity, let book = live.spreadsheetId else {
+            throw SheetAPIError.notConfigured
+        }
+        let key = SharedSheetCache.key(endpoint: endpoint, spreadsheetId: book, seasonSheetId: season.seasonSheetId)
         let cached = try sharedSheetCache(
-            endpoint: endpoint, spreadsheetId: book, seasonSheetId: previous.seasonSheetId
+            endpoint: endpoint, spreadsheetId: book, seasonSheetId: season.seasonSheetId
         )?.state
         if let cached, revalidatedSnapshots.contains(key) { return cached }
         // The request's start, as `refreshState` stamps it.
         let requestedAt = await clock.now()
         let state: SheetState
         do {
-            state = try await api.getState(seasonSheetId: previous.seasonSheetId)
-            // Never cache another season or workbook under last season's key.
-            guard state.spreadsheetId == book, state.seasonSheetId == previous.seasonSheetId else {
-                throw SheetAPIError.badPayload(message: "The sheet did not return last season.")
+            state = try await api.getState(seasonSheetId: season.seasonSheetId)
+            // Never cache another season or workbook under this season's key.
+            guard state.spreadsheetId == book, state.seasonSheetId == season.seasonSheetId else {
+                throw SheetAPIError.badPayload(message: "The sheet did not return the season it was asked for.")
             }
         } catch {
             // Offline or rejected: the cached row still serves the card.

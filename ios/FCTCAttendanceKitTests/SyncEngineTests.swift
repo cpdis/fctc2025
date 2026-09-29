@@ -534,6 +534,21 @@ struct SyncEngineTests {
         })
     }
 
+    /// A dropped connection or an Apps Script hiccup at launch clears on the
+    /// next try, so the Home banner never flashes "offline" for it.
+    @Test("A refresh retries a transient failure before it gives up")
+    func refreshRetriesTransientFailures() async throws {
+        let recovered = StubTransport([.failure(.offline), .response(stateResponse)])
+        let engine = makeEngine(container: try makeContainer(), transport: recovered)
+        #expect(try await engine.refreshState().sheetRevision == "rev-1")
+        #expect(await recovered.requestCount == 2)
+
+        let down = StubTransport([.failure(.offline), .failure(.offline), .failure(.offline), .response(stateResponse)])
+        let offline = makeEngine(container: try makeContainer(), transport: down)
+        await #expect(throws: SheetAPIError.self) { try await offline.refreshState() }
+        #expect(await down.requestCount == 3)
+    }
+
     /// The Dashboard counts "Sat 3-Jan" and "9-Jan" (the web and Apps Script
     /// rule), so the Runs tab must give them a day too, not file them "Later".
     @Test("Loose sheet dates still get a scheduled day")

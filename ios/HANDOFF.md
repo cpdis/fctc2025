@@ -2,12 +2,34 @@
 
 ## Dashboard review branch (28 September 2026)
 
-- Branch `dashboard-review`: 19 commits on `main` (from `e2d479d`), plus the docs commit.
-  Not pushed. Not on TestFlight: testers still have build 8.
+- Branch `dashboard-review`, pull request cpdis/fctc2025#15. Build 9 is on TestFlight for
+  FCTC Internal only; FCTC Friends still have build 8.
 - Plan: `docs/plans/2026-09-28-001-feat-dashboard-review-and-ios-dashboard-plan.md`.
   Approved mockups: `docs/reference/2026-09-28-dashboard-mockups/ios.html`.
-- No schema, entitlement or bundle change. The update keeps the sheet connection, saved
-  guests and pending attendance.
+- One additive schema change (`SharedSheetCache.liveAt`, optional); `GuestMigrationTests`
+  opens a real build 8 store. No entitlement or bundle change. The update keeps the sheet
+  connection, saved guests and pending attendance.
+
+### Colin's build 9 review (29 September 2026)
+
+- One title row for every tab (`Views/TabHeader.swift`): Runs, Events and Dashboard each hide
+  the system bar and draw the same row, so the titles sit at one height.
+  `TabNavigationUITests.testTabTitlesShareOneHeight` compares their centres (a List row
+  holding only a title takes its identifier, so tops differ while the text lines up).
+- Dashboard: no "2026 season" subtitle. A season menu sits where Runs has its gear. It lists
+  the live season and each earlier listed season (`DashboardStore.seasons`).
+  `store.select(season:)` loads an earlier season through `SyncEngine.seasonSnapshot(year:)`
+  (read-only, revalidated once per session) and compares it with
+  `previousSeasonSnapshot(before:)`. `LifetimePriors.rebased` keeps all-time totals as today.
+  The overlay (unsynced check-ins) stays on the live season.
+- The "sheet is offline" banner on first load: the launch refresh had failed, and Retry Now
+  only cleared the banner and drained. Now a refresh retries transient failures itself
+  (`RetryPolicy.reads`: 3 tries, 1 s and 2 s apart). A cancelled refresh (its view went away)
+  sets no banner. A failed refresh says "Could not reach the sheet. Showing the runs saved on
+  this phone." Retry Now refreshes after a failed refresh, and so does the app becoming
+  active. Without device logs, the exact first failure is unknown; any of these three
+  causes now clears itself.
+- Events: the Birthdays footer ("Today and the next 30 days") is gone.
 
 ### Tabs
 
@@ -99,6 +121,16 @@
   `sample`): first Dashboard open 290 ms of main thread (was 667 ms), full Wall open under
   10 ms (was ~555 ms), full Wall sort 119 ms. The README has the method. Hitches needs a
   device; profile build 9 on a phone once.
+
+### Private TestFlight build 10 (29 September 2026)
+
+- Version 0.1.0 build 10 from `ios-review-round` (3a7e3c7), the head of pull request
+  cpdis/fctc2025#16: the build 9 review round (tab header, season menu, self-healing refresh
+  banner, Events Birthdays footer). No schema change since build 9.
+- Build `393a61f8-eb63-4a9d-8865-d74eca0c7c22` is VALID and `IN_BETA_TESTING` for FCTC
+  Internal only. External state `READY_FOR_BETA_SUBMISSION`: FCTC Friends and External have no
+  access. The en-AU notes match `ios/testflight-build-10.txt` (read back).
+- Verification: iOS kit 437, iOS UI 63 run (62 passed, 1 skipped screen tour), web Vitest 506.
 
 ### Private TestFlight build 9 (29 September 2026)
 

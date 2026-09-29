@@ -49,6 +49,10 @@ struct EventsView: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                Section {
+                    TabHeader(title: "Events", identifier: "events-title")
+                        .tabHeaderRow()
+                }
                 if let board {
                     ThisWeekSection(runs: board.thisWeek)
                     SpecialsSection(specials: board.specials)
@@ -57,7 +61,10 @@ struct EventsView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .contentMargins(.top, 4, for: .scrollContent)
+            // The header row is the title bar (TabHeader), as on Runs.
             .navigationTitle("Events")
+            .toolbar(.hidden, for: .navigationBar)
         }
         .onChange(of: boardFingerprint, initial: true) { _, _ in rebuild() }
         .onChange(of: now) { _, _ in rebuild() }

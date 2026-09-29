@@ -28,6 +28,11 @@ public struct RetryPolicy: Hashable, Sendable {
 
     public static let `default` = RetryPolicy()
 
+    /// Reads (`getState`): three attempts, 1 s then 2 s apart. A dropped
+    /// connection, a timeout or an Apps Script hiccup at launch clears on its
+    /// own, and a real outage still shows within about 3 s.
+    public static let reads = RetryPolicy(initialDelay: 1, multiplier: 2, maxDelay: 2, maxAttempts: 3)
+
     /// Delay before a 1-based attempt. Attempt one is immediate.
     public func delay(forAttempt attempt: Int) -> TimeInterval {
         guard attempt > 1 else { return 0 }
@@ -129,8 +134,12 @@ public enum ConflictResolutionAction: String, Hashable, Sendable, CaseIterable {
 
 public protocol SyncEngineClient: Sendable {
     func refreshState(seasonSheetId: Int?) async throws -> SheetState
-    /// Last season as a read-only snapshot; nil when the endpoint has none.
-    func previousSeasonSnapshot() async throws -> SheetState?
+    /// The season before `year` (the live season when nil) as a read-only
+    /// snapshot; nil when the endpoint has none.
+    func previousSeasonSnapshot(before year: Int?) async throws -> SheetState?
+    /// A listed season before the live one as a read-only snapshot; nil for
+    /// the live season, an unlisted year or an endpoint without seasons.
+    func seasonSnapshot(year: Int) async throws -> SheetState?
     func sharedGuests() async throws -> [SharedGuest]
     func guestHistory(id: String) async throws -> GuestHistory
     func createGuest(name: String, confirmDistinct: Bool) async throws -> Guest

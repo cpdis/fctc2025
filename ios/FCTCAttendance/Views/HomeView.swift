@@ -53,17 +53,10 @@ struct HomeView: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
-                // Custom header: the large title and the gear share one line
+                // The tab header: the large title and the gear share one line
                 // (Colin's review), which the system large-title bar cannot do.
                 Section {
-                    HStack(alignment: .center) {
-                        // Large title metrics, so the header scales with
-                        // Dynamic Type like the system title it replaces.
-                        Text("FCTC")
-                            .font(.largeTitle.bold())
-                            .accessibilityAddTraits(.isHeader)
-                            .accessibilityIdentifier("home-title")
-                        Spacer()
+                    TabHeader(title: "FCTC", identifier: "home-title") {
                         // A solid circle in the card color, not glass: any glass
                         // (hand-applied or `.glass` style) renders a grey shadow
                         // smear to its left inside this list row in light mode.
@@ -83,8 +76,7 @@ struct HomeView: View {
                         .accessibilityIdentifier("home-settings")
                     }
                     .staggeredEntrance(0, hasEntered: hasEntered)
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
+                    .tabHeaderRow()
                 }
 
                 if viewModel.isInitialLoading && activeRuns.isEmpty {
@@ -237,6 +229,15 @@ struct HomeView: View {
             }
             .onChange(of: cacheFingerprint) { _, _ in
                 updateFromCache()
+            }
+            // A refresh that failed (a dropped connection, the sheet waking up)
+            // tries again when the app comes back, so its banner clears itself.
+            .onReceive(NotificationCenter.default.publisher(for: .fctcAppDidActivate)) { _ in
+                guard viewModel.refreshFailed else { return }
+                Task {
+                    await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
+                    updateFromCache()
+                }
             }
             // RootTabView resets the path on a swap; the model follows the new
             // engine here, next to the refresh it drives.

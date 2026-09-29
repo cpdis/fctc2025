@@ -21,11 +21,18 @@ public final class HomeViewModel {
     public private(set) var isSyncing = false
 
     public var lastSyncMessage: String? { syncBanner?.message }
+    /// True when the banner shows a failed refresh (not a failed send), so the
+    /// app refreshes again when it becomes active.
+    public var refreshFailed: Bool { syncBanner != nil && bannerSource == .refresh }
 
     @ObservationIgnored private var engine: any SyncEngineClient
     @ObservationIgnored private let eventMonitor = SyncEventMonitor()
     @ObservationIgnored private var engineGeneration = 0
     @ObservationIgnored private var refreshGeneration = 0
+    /// What set `syncBanner`: a refresh, or the outbox's sync events. Retry Now
+    /// repeats the thing that failed.
+    private enum BannerSource { case refresh, sync }
+    @ObservationIgnored private var bannerSource: BannerSource?
 
     public init(engine: any SyncEngineClient) {
         self.engine = engine
@@ -40,6 +47,7 @@ public final class HomeViewModel {
         self.engine = engine
         activeState = nil
         syncBanner = nil
+        bannerSource = nil
         isInitialLoading = false
         initialLoadFailed = false
         isSyncing = false
@@ -93,19 +101,27 @@ public final class HomeViewModel {
             activeState = state
             initialLoadFailed = false
             if syncBanner != nil { syncBanner = nil }
+            bannerSource = nil
         } catch {
             guard requestGeneration == refreshGeneration, connectionGeneration == engineGeneration else { return }
+            // A cancelled refresh (its view went away mid-request: a tab switch
+            // or a pushed screen) is not a failure. It surfaces as a transport
+            // error, which would read as "offline". The next appearance refreshes.
+            if Task.isCancelled { return }
             if !hasCachedState { initialLoadFailed = true }
-            syncBanner = Self.banner(for: error)
+            syncBanner = Self.banner(for: error, refreshing: true)
+            bannerSource = .refresh
         }
     }
 
+    /// Repeats what failed: a refresh after a failed refresh, else the outbox.
     public func retry(hasCachedState: Bool = true) async {
-        if initialLoadFailed {
+        if initialLoadFailed || bannerSource == .refresh {
             await refresh(hasCachedState: hasCachedState)
             return
         }
         if syncBanner != nil { syncBanner = nil }
+        bannerSource = nil
         await engine.drain()
     }
 
@@ -116,17 +132,22 @@ public final class HomeViewModel {
             switch event {
             case .written:
                 syncBanner = SyncBanner(kind: .success, message: "Attendance synced.")
+                bannerSource = .sync
             case .conflict:
                 syncBanner = SyncBanner(kind: .conflict, message: UserFacingError.conflict)
+                bannerSource = .sync
             case .parked(_, let message):
                 syncBanner = SyncBanner(
                     kind: message == UserFacingError.offline ? .offline : .parked,
                     message: message
                 )
+                bannerSource = .sync
             case .authenticationRequired:
                 syncBanner = SyncBanner(kind: .authentication, message: UserFacingError.authentication)
+                bannerSource = .sync
             case .failed(_, let message), .serviceFailed(let message):
                 syncBanner = SyncBanner(kind: .error, message: message)
+                bannerSource = .sync
             case .syncActivity(let isActive):
                 isSyncing = isActive
             case .queued, .rosterRefreshed:
@@ -135,12 +156,14 @@ public final class HomeViewModel {
         }
     }
 
-    private static func banner(for error: any Error) -> SyncBanner {
+    /// - Parameter refreshing: a failed refresh, not a failed send: its
+    ///   offline copy says what the phone shows instead of the outbox.
+    private static func banner(for error: any Error, refreshing: Bool = false) -> SyncBanner {
         let message = UserFacingError.sync(error)
         if let sheetError = error as? SheetAPIError {
             switch sheetError {
             case .network, .requestNotSent:
-                return SyncBanner(kind: .offline, message: message)
+                return SyncBanner(kind: .offline, message: refreshing ? UserFacingError.refreshOffline : message)
             case .busy:
                 return SyncBanner(kind: .parked, message: message)
             case .badSecret:

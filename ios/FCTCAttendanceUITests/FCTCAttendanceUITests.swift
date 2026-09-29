@@ -243,7 +243,7 @@ final class FCTCAttendanceUITests: XCTestCase {
     /// Milestones live on the Events tab (R22).
     private func openEvents() {
         app.tab(.events).tap()
-        XCTAssertTrue(app.navigationBars["Events"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["events-title"].waitForExistence(timeout: 5))
     }
 
     func testMilestonesSectionListsTheClosestRunners() {
