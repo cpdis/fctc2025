@@ -112,12 +112,16 @@ ASC API, installed locally). The ASC API key `NJDJN4V5L3` (Downloads and
      -authenticationKeyIssuerID 69a6de7a-eb61-47e3-e053-5b8c7c11a4d1
    ```
 
-3. Set the "What to Test" notes and attach the build to the tester groups
-   (waits for processing on its own):
+3. Set the "What to Test" notes on that exact build (it waits for processing on
+   its own). FCTC Internal gets every build by itself. Add `--group` only to
+   release to an external group:
 
    ```bash
-   python3 ios/Tools/testflight-notes.py "What changed in this build."
+   python3 ios/Tools/testflight-notes.py --build 9 --file ios/testflight-build-9.txt
+   python3 ios/Tools/testflight-notes.py --build 9 --file ios/testflight-build-9.txt --group "FCTC Friends"
    ```
+
+   It prints the build's internal and external states and its groups at the end.
 
    Write the notes from the user-facing commits since the last upload, as a
    short Dr. Seuss-style rhyme (Colin's standing preference; the beta app

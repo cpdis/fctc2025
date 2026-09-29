@@ -1,0 +1,27 @@
+Runs, Events and Dashboard now sit at the base,
+And the Wall shows each runner, each run, in its place.
+A streak counts club days: that's Monday, Wed, Fri,
+And runs ticked offline count before they sync by.
+
+Filament Coffee Track Club: tabs, Events and the Dashboard
+
+Private build for Colin. Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone. You do not need a new setup code.
+
+New since build 8:
+• Three tabs at the bottom: Runs, Events and Dashboard. Record attendance on Runs, as before.
+• Events: the club runs this week, upcoming specials, members near their next 50 runs, and birthdays in the next 30 days. Milestones and Birthdays moved here from Home.
+• Dashboard: runs this season against last season on the same date, km run together, On a roll, the Wall, Vs last year, Every run, the leaderboard and the run log.
+• Tap a runner anywhere on the Dashboard to see their runs, km, streak, club days per weekday and all-time total.
+• A streak counts club days only: Monday, Wednesday and Friday (Wednesday and Friday in 2025). A special run neither adds to it nor breaks it.
+• Only an "x" counts as attendance, as on the website. A "-", an emoji or a note does not, so a few 2025 totals drop by one or two.
+• Attendance you record offline counts on Events and the Dashboard at once, before it syncs.
+• A reminder now opens the Runs tab at once. Scanning a setup code in Settings returns to Runs and drops a reminder that was waiting for the old sheet.
+• Vs last year loads last season once each time you open the app, so online it can take a moment to appear.
+
+Please check:
+• Open each tab. On the Dashboard, open the full Wall, scroll it sideways and sort it.
+• Tap a runner on the Wall or the leaderboard, and check their streak.
+• Turn on Airplane Mode, record attendance, and check that the Dashboard counts it.
+• Compare a few totals with fctc.fun.
+
+Share feedback through TestFlight.
