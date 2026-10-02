@@ -420,8 +420,9 @@ Files: `FCTCAttendanceApp.swift`, `Models/AttendanceSchema.swift`, a new recover
 - **A11Y-1**, **A11Y-NEW-1** accent surfaces under white text: Colin reviewed P5b's darker
   accents and keeps the original colours (2 October 2026).
 - **SD-9** indexes, **TEST-14** tags, **TEST-12** mass `== false` rewrite, **CA-37** one
-  statement per line, **PLAT-16** `Measurement` formatting, **CA-21** static coders, **CA-23**
-  double refresh, **CA-35** shared UI-test helper beyond P3's copies: low value or style only.
+  statement per line, **PLAT-16** `Measurement` formatting, **CA-23** double refresh, **CA-35**
+  shared UI-test helper beyond P3's copies: low value or style only. **CA-21** static coders
+  was done after all (merge `24d84e5`).
 - **Refuted:** SD-7, UI-14, CC-12, CA-30, A11Y-9 for "Guests" and the leaderboard rows.
 
 ## Runtime checks (integrator, in sequence on iPhone 17 Pro)
@@ -457,6 +458,8 @@ is `git revert -m 1 <merge commit>`; rollback of everything is a reset to the ch
   bisected by merge and reverted (`9c1ed6a`).
 - Added to the deferred list: **CC-9** `DashboardView` needs a `DashboardStore` change;
   **A11Y-11** Wall row height; one icon for the "Suggested" badge; a cached-guest lookup helper
-  in `GuestRenameReviewSync`; the product question of the approx-km seed enabling Confirm on a
-  fresh run; **TEST-12**, **CA-37** and the other style items above.
+  in `GuestRenameReviewSync`; **TEST-12**, **CA-37** and the other style items above.
+- Done after the review (2 October 2026, Colin's pick of two): the approx-km seed no longer
+  enables Confirm on its own (merge `d38da02`), and **CA-21** shared JSON coders (merge
+  `24d84e5`).
 

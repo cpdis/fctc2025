@@ -46,6 +46,24 @@
 - Still to come (wave 3): P5b colour and contrast with a review page for Colin, P6 platform
   details and dead code, P7 predicates and test-file splits; then P8 and P9.
 
+## Two follow-ups before build 11 (2 October 2026)
+
+- **Prefilled km no longer enables Confirm** (merge `d38da02`, Opus). The checklist still
+  seeds its distance from the sheet's actual km, else its approx km, but
+  `ChecklistViewModel.draftDiffersFromSheet` now compares the draft with that prefilled value,
+  so a fresh run with nobody checked has Confirm disabled. A confirm that leaves the prefilled
+  value untouched still records it as the actual distance (Colin's call: keep the seed). Four
+  kit tests in `ViewModelTests` cover approx-only, recorded-actual and no-distance runs.
+  `SharedGuestUITests.testGuestHistoryAndPromotionPreview` now asserts the direct preview path
+  on an untouched run; the save-then-preview path stays covered by the Toby test. README
+  "Recording attendance" says so.
+- **One JSON encoder and decoder** (merge `24d84e5`, Sonnet, audit CA-21).
+  `FCTCAttendanceKit/Services/JSONCoding.swift` holds the pair; the model properties, sync
+  services, setup-code parser and app routing use it. `SheetAPI` keeps its own instances.
+  Kit 489 tests pass; SharedGuest and SetupLink suites 13 of 13.
+- Verification of the seed merge on iPhone 17 Pro (iOS 26.5): kit 493 tests in 69 suites;
+  ChecklistKeyboard, SharedGuest, AttendanceSummary and FCTCAttendance suites 39 of 39 in
+  12 minutes. The branch head is ready for Colin's review and the build 11 upload.
 ## Audit fixes, waves 3 and 4 (2 October 2026)
 
 - Merges, one per package: P7 `8ee9b74` (one outstanding-submission predicate, cache rows
