@@ -4,6 +4,11 @@ import XCTest
 final class SharedGuestUITests: XCTestCase {
     private var app: XCUIApplication!
 
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
     private func launch(_ extra: [String] = []) {
         app = XCUIApplication()
         app.launchArguments = ["-ui-testing", "-ui-shared-guests"] + extra

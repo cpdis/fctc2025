@@ -45,7 +45,7 @@ actor SuspendingTransport: HTTPTransport {
     }
 }
 
-@Suite("Sync engine")
+@Suite("Sync engine", .timeLimit(.minutes(1)))
 struct SyncEngineTests {
 
     @Test("Every view-model event subscriber receives the same event")

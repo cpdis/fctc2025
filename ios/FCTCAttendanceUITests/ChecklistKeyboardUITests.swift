@@ -5,12 +5,18 @@
 //  The decimal pad has no Return key. These tests guard the two exits the
 //  distance fields rely on: the keyboard toolbar's Done button and a scroll.
 //
+//  These tests need the simulator's software keyboard: disconnect the hardware
+//  keyboard (I/O > Keyboard > Connect Hardware Keyboard off), or no toolbar shows.
+//
 
 import XCTest
 
 @MainActor
 final class ChecklistKeyboardUITests: XCTestCase {
     private var app: XCUIApplication!
+
+    /// Gap above the keyboard that keeps a drag start clear of the Done toolbar.
+    private let keyboardToolbarClearance: CGFloat = 110
 
     override func setUp() {
         super.setUp()
@@ -76,7 +82,7 @@ final class ChecklistKeyboardUITests: XCTestCase {
     /// organiser scrolls down to reach the rest of the roster.
     private func scrollListAboveKeyboard() {
         let origin = app.coordinate(withNormalizedOffset: .zero)
-        let start = origin.withOffset(CGVector(dx: app.frame.midX, dy: app.keyboards.firstMatch.frame.minY - 110))
+        let start = origin.withOffset(CGVector(dx: app.frame.midX, dy: app.keyboards.firstMatch.frame.minY - keyboardToolbarClearance))
         let end = origin.withOffset(CGVector(dx: app.frame.midX, dy: app.frame.minY + 150))
         start.press(forDuration: 0.05, thenDragTo: end)
     }
@@ -128,7 +134,7 @@ final class ChecklistKeyboardUITests: XCTestCase {
         // drain to land it in the fake sheet, then reopen the run and read it back.
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
         let drained = expectation(
-            for: NSPredicate(format: "label CONTAINS '0 submissions'"),
+            for: NSPredicate(format: "label == 'Unsynced, 0 submissions'"),
             evaluatedWith: app.buttons["home-unsynced"]
         )
         wait(for: [drained], timeout: 10)

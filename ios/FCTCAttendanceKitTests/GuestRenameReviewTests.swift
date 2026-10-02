@@ -3,7 +3,7 @@ import SwiftData
 import Testing
 @testable import FCTCAttendanceKit
 
-@Suite("Reviewed guest name corrections", .serialized)
+@Suite("Reviewed guest name corrections")
 struct GuestRenameReviewTests {
     @Test("A stale correction retains its proposed name and a reviewed retry gets a new receipt")
     func reviewedCorrection() async throws {
