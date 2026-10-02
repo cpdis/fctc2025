@@ -17,11 +17,11 @@ extension SyncEngine {
                     row.lastError = UserFacingError.checkingSavedChanges; try modelContext.save(); return
                 }
                 let operation = try attendanceOperation(row)
-                row.sharedOperationData = try JSONEncoder().encode(operation)
+                row.sharedOperationData = try JSONCoding.encoder.encode(operation)
                 try modelContext.save()
             }
             guard let bytes = row.sharedOperationData else { return }
-            let operation = try JSONDecoder().decode(SharedGuestOperation.self, from: bytes)
+            let operation = try JSONCoding.decoder.decode(SharedGuestOperation.self, from: bytes)
             let response: GuestJSON
             if row.verificationPending == true || row.status == .inFlight {
                 switch try await checkedGuestReceipt(for: operation) {
@@ -65,7 +65,7 @@ extension SyncEngine {
                 row.verificationPending = false; row.status = .conflict; row.lastError = conflict.message
                 row.conflictReason = conflict.reason; row.conflictMessage = conflict.message
                 if let state = conflict.state {
-                    row.conflictStateData = try? JSONEncoder().encode(state)
+                    row.conflictStateData = try? JSONCoding.encoder.encode(state)
                     try? reconcile(state, seenAt: seenAt)
                     eventBroadcaster.yield(.conflict(id: id, reason: conflict.reason, message: conflict.message, state: state))
                 }

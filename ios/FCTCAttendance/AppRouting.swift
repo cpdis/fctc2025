@@ -42,7 +42,7 @@ final class PendingRouteStore: @unchecked Sendable {
     }
 
     func set(_ route: PendingAppRoute) {
-        guard let data = try? JSONEncoder().encode(StoredRoute(route: route, createdAt: now()))
+        guard let data = try? JSONCoding.encoder.encode(StoredRoute(route: route, createdAt: now()))
         else { return }
         lock.withLock { defaults.set(data, forKey: Self.key) }
         Task { @MainActor in
@@ -54,7 +54,7 @@ final class PendingRouteStore: @unchecked Sendable {
         lock.withLock {
             guard let data = defaults.data(forKey: Self.key) else { return nil }
             defaults.removeObject(forKey: Self.key)
-            let decoder = JSONDecoder()
+            let decoder = JSONCoding.decoder
             if let stored = try? decoder.decode(StoredRoute.self, from: data) {
                 return now().timeIntervalSince(stored.createdAt) <= Self.maximumAge
                     ? stored.route : nil

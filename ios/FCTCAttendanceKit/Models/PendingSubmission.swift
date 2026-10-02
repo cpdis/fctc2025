@@ -127,13 +127,13 @@ extension PendingSubmission {
 
     public var conflictState: SheetState? {
         guard let conflictStateData else { return nil }
-        return try? JSONDecoder().decode(SheetState.self, from: conflictStateData)
+        return try? JSONCoding.decoder.decode(SheetState.self, from: conflictStateData)
     }
 
     public func attachConflict(reason: String, message: String, state: SheetState) {
         conflictReason = reason
         conflictMessage = message
-        conflictStateData = try? JSONEncoder().encode(state)
+        conflictStateData = try? JSONCoding.encoder.encode(state)
     }
 
     public func clearConflict() {

@@ -28,10 +28,10 @@ public enum GuestJSON: Codable, Hashable, Sendable {
     public var string: String? { if case .string(let v) = self { v } else { nil } }
     public var int: Int? { if case .number(let v) = self, v.isFinite, v >= Double(Int.min), v < Double(Int.max) { Int(v) } else { nil } }
     public func decoded<T: Decodable>(_ type: T.Type = T.self) throws -> T {
-        try JSONDecoder().decode(type, from: JSONEncoder().encode(self))
+        try JSONCoding.decoder.decode(type, from: JSONCoding.encoder.encode(self))
     }
     public static func value<T: Encodable>(_ value: T) throws -> Self {
-        try JSONDecoder().decode(Self.self, from: JSONEncoder().encode(value))
+        try JSONCoding.decoder.decode(Self.self, from: JSONCoding.encoder.encode(value))
     }
     /// JS JSON.stringify sorts object keys by UTF-16 units in the contract.
     public func canonical() throws -> String {
