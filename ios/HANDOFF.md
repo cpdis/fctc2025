@@ -46,6 +46,25 @@
 - Still to come (wave 3): P5b colour and contrast with a review page for Colin, P6 platform
   details and dead code, P7 predicates and test-file splits; then P8 and P9.
 
+## Private TestFlight build 11 (2 October 2026, upload pending)
+
+- Version 0.1.0 build 11 from `claude/ios-keyboard-dismissal-bugs-07a47b` (`663e765`): Aaron's
+  keyboard fix, the distance parsing, the audit fixes in waves 1 to 4 (P1 to P9 except P5b), the
+  prefilled-km gate and the shared coders. Gates before the archive: Apps Script 279, web Vitest
+  506, iOS kit 493, every UI suite green on the merged head.
+- The archive is at `ios/.ddata/FCTC-11.xcarchive` in that worktree (the runbook's "release
+  checkout" rule could not be followed because the branch is checked out there; the archive
+  does not embed paths). It reports 0.1.0 (11).
+- The upload was refused by App Store Connect: `403 FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED`,
+  "A required agreement is missing or has expired." The same error comes back for a plain apps
+  query with the ASC API key, so it is the account, not the build. Colin (Account Holder)
+  accepts the agreement in App Store Connect under Business, or at developer.apple.com under
+  Agreements. Then, from `ios/` in the same worktree, without rebuilding:
+  `xcodebuild -exportArchive -archivePath .ddata/FCTC-11.xcarchive -exportOptionsPlist export-options.plist -exportPath .ddata/export-11 -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_NJDJN4V5L3.p8 -authenticationKeyID NJDJN4V5L3 -authenticationKeyIssuerID 69a6de7a-eb61-47e3-e053-5b8c7c11a4d1`
+  and `python3 ios/Tools/testflight-notes.py --build 11 --file ios/testflight-build-11.txt` from
+  the repo root. No `--group`: FCTC Internal (Colin's two accounts) gets the build by itself.
+- Notes: `ios/testflight-build-11.txt`, written before the archive per the runbook.
+
 ## Two follow-ups before build 11 (2 October 2026)
 
 - **Prefilled km no longer enables Confirm** (merge `d38da02`, Opus). The checklist still
