@@ -12,12 +12,11 @@ extension SyncEngine {
         return pending.id
     }
 
+    /// Starts a drain soon after a local write, unless this engine drains
+    /// only on request. A write during a drain asks that drain for one more
+    /// pass instead of starting a second one.
     func startAutomaticDrainIfNeeded() {
-        scheduleDrain(force: false)
-    }
-
-    func scheduleDrain(force: Bool) {
-        guard force || automaticallyDrains else { return }
+        guard automaticallyDrains else { return }
         if isDraining {
             drainRequested = true
             return
