@@ -65,6 +65,16 @@ def call(method, path, body=None):
         return e.code, json.loads(e.read() or b'{}')
 
 
+def checked(status, data, what):
+    """Stop with the API's own words on an error status, instead of a KeyError
+    further down. A 403 here usually means an Apple agreement needs accepting."""
+    if status >= 400:
+        errors = data.get('errors') or [{'title': f'HTTP {status}', 'detail': ''}]
+        lines = [f"{e.get('code', '')} {e.get('title', '')}: {e.get('detail', '')}".strip() for e in errors]
+        sys.exit(f'{what} failed ({status}):\n  ' + '\n  '.join(lines))
+    return data
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--build', required=True, help='exact build number (CFBundleVersion), e.g. 9')
@@ -76,13 +86,16 @@ def main():
     if not notes:
         sys.exit('Empty notes.')
 
-    _, data = call('GET', f'/v1/apps?filter[bundleId]={BUNDLE_ID}')
-    app_id = data['data'][0]['id']
+    status, data = call('GET', f'/v1/apps?filter[bundleId]={BUNDLE_ID}')
+    apps = checked(status, data, 'App lookup').get('data', [])
+    if not apps:
+        sys.exit(f'No app with bundle ID {BUNDLE_ID}.')
+    app_id = apps[0]['id']
 
     # This exact build; wait for it to appear and finish processing.
     for _ in range(60):
-        _, data = call('GET', f'/v1/builds?filter[app]={app_id}&filter[version]={args.build}&limit=1')
-        builds = data.get('data', [])
+        status, data = call('GET', f'/v1/builds?filter[app]={app_id}&filter[version]={args.build}&limit=1')
+        builds = checked(status, data, 'Build lookup').get('data', [])
         state = builds[0]['attributes']['processingState'] if builds else 'NOT UPLOADED YET'
         if state == 'VALID':
             break
