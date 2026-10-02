@@ -417,6 +417,8 @@ Files: `FCTCAttendanceApp.swift`, `Models/AttendanceSchema.swift`, a new recover
 - **PLAT-4** async keychain store: verified Low (a few milliseconds of IPC).
 - **PLAT-18** `…Id` to `…ID` rename: touches `@Model` stored properties, so it is a schema change.
 - **A11Y-11** Wall row height: a density design call for Colin.
+- **A11Y-1**, **A11Y-NEW-1** accent surfaces under white text: Colin reviewed P5b's darker
+  accents and keeps the original colours (2 October 2026).
 - **SD-9** indexes, **TEST-14** tags, **TEST-12** mass `== false` rewrite, **CA-37** one
   statement per line, **PLAT-16** `Measurement` formatting, **CA-21** static coders, **CA-23**
   double refresh, **CA-35** shared UI-test helper beyond P3's copies: low value or style only.
@@ -446,8 +448,10 @@ is `git revert -m 1 <merge commit>`; rollback of everything is a reset to the ch
   P1 `7321a44`, P3 `7ad1857`, P5a `05b82e5`, P4 `3ea2079`, P7 `8ee9b74`, P6 `968b39e`,
   P3b `b88b0eb` (the deferred items that touched `FCTCAttendanceApp.swift`, `SettingsView.swift`
   and `ChecklistView.swift`), P8 `5fc1b6d`, P9 `d954d8f`.
-- Awaiting Colin: P5b on `fix/p5b-colour` (`3913817`) with its review page
-  (`review/contrast/index.html`, 64 captures); a read of the P9 notice copy.
+- Colin's decisions (2 October 2026): P5b is dropped. He reviewed the before and after page
+  (64 captures) and keeps the original colours, so **A11Y-1** and **A11Y-NEW-1** (white text on
+  system green, orange and teal at about 2:1) are accepted as they are. The branch
+  `fix/p5b-colour` stays for reference and is not merged. The P9 notice copy is approved.
 - Found and fixed during integration, outside the audit: the speech permission callback
   isolation crash (`00cb904`); the guest detail render loop from P8's filtered `@Query`,
   bisected by merge and reverted (`9c1ed6a`).
