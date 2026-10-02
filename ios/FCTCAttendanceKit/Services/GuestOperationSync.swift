@@ -16,8 +16,11 @@ extension SyncEngine {
     func drainGuestOperation(id: UUID) async {
         var attemptedDispatch = false
         do {
-            guard let row = try guestOperationRecord(id: id), let operation = row.operation,
+            guard let row = try guestOperationRecord(id: id),
                   row.phase == .queued || row.phase == .checking else { return }
+            // Decode explicitly: corrupt bytes must reject the row, not return
+            // early and leave a head that blocks every later operation.
+            let operation = try JSONDecoder().decode(SharedGuestOperation.self, from: row.operationData)
             guard row.endpointIdentity == api.endpointIdentity,
                   try currentSharedState()?.spreadsheetId == row.spreadsheetId else {
                 row.lastError = "Return to the original sheet to check this saved change."; try modelContext.save(); return
@@ -70,17 +73,13 @@ extension SyncEngine {
             try? modelContext.save()
         } catch {
             guard let row = try? guestOperationRecord(id: id) else { return }
-            // An ordinary transport failure does not prove non-delivery.
-            // Typed validation/authentication errors occur before any mutation.
-            if attemptedDispatch, case SheetAPIError.requestNotSent = error {
-                row.phase = .queued; row.lastError = UserFacingError.offline
-            } else if attemptedDispatch, let error = error as? SheetAPIError,
-               error.code == "bad_secret" || error.code == "busy" {
-                row.phase = .queued; row.lastError = UserFacingError.sync(error)
-            } else if attemptedDispatch, let error = error as? SheetAPIError,
-                      !error.isRetryable, error.code != "decoding", error.code != "internal_error" {
-                row.phase = .rejected; row.lastError = UserFacingError.sync(error)
-            } else { row.lastError = UserFacingError.checkingSavedChanges }
+            switch OutboxFailure(error, attemptedDispatch: attemptedDispatch) {
+            case .notSent: row.phase = .queued; row.lastError = UserFacingError.offline
+            case .refused(let error): row.phase = .queued; row.lastError = UserFacingError.sync(error)
+            // A rejected head no longer blocks the queue behind it.
+            case .rejected(let message): row.phase = .rejected; row.lastError = message
+            case .unknown: row.lastError = UserFacingError.checkingSavedChanges
+            }
             try? modelContext.save()
         }
     }
@@ -98,7 +97,9 @@ extension SyncEngine {
             "name": .string(name), "seasonSheetId": .number(Double(season)), "baseRevision": .string(state.sheetRevision)
         ])
         _ = try saveGuestOperation(operation, state: state); try modelContext.save()
-        await drainGuestOperation(id: operation.id)
+        // The serial drain keeps older unknown outcomes ahead of this one. If
+        // it cannot send yet, `completedGuestResponse` throws pending.
+        await drain()
         let result: AddMemberResult = try completedGuestResponse(id: operation.id).decoded()
         _ = try await refreshState(seasonSheetId: season)
         return result
@@ -111,7 +112,7 @@ extension SyncEngine {
             "approxKm": request.approxKm.map(GuestJSON.number) ?? .null, "baseRevision": .string(state.sheetRevision)
         ])
         _ = try saveGuestOperation(operation, state: state); try modelContext.save()
-        await drainGuestOperation(id: operation.id)
+        await drain()
         let result: AddRunResult = try completedGuestResponse(id: operation.id).decoded()
         _ = try await refreshState(seasonSheetId: season)
         return result

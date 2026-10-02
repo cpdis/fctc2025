@@ -146,7 +146,9 @@ extension SyncEngine {
             "guestId": .string(guest.guestId), "displayName": .string(name), "baseGuestRevision": .number(Double(guest.revision))
         ])
         _ = try saveGuestOperation(operation, state: state); try modelContext.save()
-        await drainGuestOperation(id: operation.id)
+        // The serial drain keeps older unknown outcomes ahead of this one; the
+        // caller reads the result through `guestOperation(id:)`.
+        await drain()
         return operation.id
     }
     public func previewPromotion(guestId: String, memberName: String, targetMode: PromotionTargetMode) async throws -> PromotionPreview {
@@ -164,7 +166,7 @@ extension SyncEngine {
             "targetMode": .string(preview.targetMode.rawValue), "previewToken": .string(preview.previewToken)
         ])
         _ = try saveGuestOperation(operation, state: state); try modelContext.save()
-        await drainGuestOperation(id: operation.id)
+        await drain()
         return operation.id
     }
     public func guestOperation(id: UUID) async throws -> GuestOperationSnapshot? {
