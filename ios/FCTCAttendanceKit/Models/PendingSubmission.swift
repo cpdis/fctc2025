@@ -180,6 +180,13 @@ extension PendingSubmission {
     }
     public var outcome: SubmissionDisposition? { outcomeRaw.flatMap(SubmissionDisposition.init(rawValue:)) }
 
+    /// Rows not yet done. Shared by the `@Query` lists and the outstanding count.
+    /// A `#Predicate` cannot call into the enum, so the raw value is captured first.
+    public static var outstandingPredicate: Predicate<PendingSubmission> {
+        let done = SubmissionStatus.done.rawValue
+        return #Predicate { $0.stateRaw != done }
+    }
+
     /// Rows not yet done for one endpoint. SyncEngine only sends a row to the
     /// endpoint it was saved for, so a connection switch leaves these parked.
     /// Rows with no endpoint are parked regardless and are not counted.

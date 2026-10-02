@@ -14,7 +14,7 @@ import Testing
 @MainActor
 struct ViewModelTests {
 
-    private let now = Date(timeIntervalSince1970: 1_786_665_600) // 2026-08-14 UTC
+    let now = Date(timeIntervalSince1970: 1_786_665_600) // 2026-08-14 UTC
 
     @Test("Home counts this week and only outstanding submissions")
     func homeCounts() {
@@ -133,58 +133,6 @@ struct ViewModelTests {
         await client.emit(.authenticationRequired(id: UUID()))
         #expect(await waitUntil { viewModel.syncBanner?.kind == .authentication })
         #expect(viewModel.syncBanner?.message == "The shared secret was rejected. Open Settings and scan a new setup code.")
-    }
-
-    @Test("Run picker selects the latest unrecorded run at or before now")
-    func defaultRunSkipsRecorded() {
-        let runs = [
-            run(row: 1, dayOffset: -2),
-            run(row: 2, dayOffset: -1, attendees: ["Col"]),
-            run(row: 3, dayOffset: 0),
-            run(row: 4, dayOffset: 1),
-        ]
-
-        let selected = RunPickerViewModel.defaultRun(
-            from: runs,
-            now: now,
-            calendar: utcCalendar
-        )
-
-        #expect(selected?.rowIndex == 3)
-    }
-
-    @Test("Run picker falls back to the latest recorded run when none are pending")
-    func defaultRunRecordedFallback() {
-        let runs = [
-            run(row: 1, dayOffset: -2, attendees: ["Aaron"]),
-            run(row: 2, dayOffset: 0, plusOnes: 1),
-            run(row: 3, dayOffset: 1),
-        ]
-
-        let selected = RunPickerViewModel.defaultRun(
-            from: runs,
-            now: now,
-            calendar: utcCalendar
-        )
-
-        #expect(selected?.rowIndex == 2)
-    }
-
-    @Test("Run picker produces Today, This Week, Later, and Past sections")
-    func runSections() {
-        let viewModel = RunPickerViewModel(engine: ViewModelSyncClient())
-        viewModel.update(
-            runs: [
-                run(row: 1, dayOffset: -1),
-                run(row: 2, dayOffset: 0),
-                run(row: 3, dayOffset: 1),
-                run(row: 4, dayOffset: 10),
-            ],
-            now: now,
-            calendar: utcCalendar
-        )
-
-        #expect(viewModel.sections.map(\.kind) == [.today, .thisWeek, .later, .past])
     }
 
     @Test("Run creation routes requests and exposes failures")
@@ -459,180 +407,15 @@ struct ViewModelTests {
         #expect(model.draft.guests.first?.name == "René")
     }
 
-    @Test("Outbox filters retained history on isOutstanding")
-    func outboxFiltering() {
-        let viewModel = OutboxViewModel(engine: ViewModelSyncClient())
-        let queued = submission(status: .queued)
-        let conflict = submission(status: .conflict)
-        let done = submission(status: .done)
 
-        #expect(viewModel.outstanding(from: [queued, conflict, done]).map(\.id) == [queued.id, conflict.id])
-        #expect(viewModel.canRetry([conflict]) == false)
-        #expect(viewModel.canRetry([conflict, queued]))
-    }
-
-    @Test("Conflict diff compares every writable field")
-    func outboxConflictDiff() {
-        let viewModel = OutboxViewModel(engine: ViewModelSyncClient())
-        var conflict = submission(status: .conflict)
-        conflict.attendees = ["Col", "Toby"]
-        conflict.plusOnes = 2
-        conflict.actualKm = 8.2
-        conflict.conflictState = SheetState(
-            runs: [
-                RunRecord(
-                    rowIndex: conflict.rowIndex,
-                    date: conflict.expectedDate,
-                    meet: "Il Lido",
-                    run: conflict.expectedRun,
-                    actualKm: 7.1,
-                    attendees: ["Aaron", "Col"],
-                    plusOnes: 1
-                ),
-            ]
-        )
-
-        let diff = viewModel.conflictDiff(for: conflict)
-
-        #expect(diff.attendance == AttendanceDiff(added: 1, removed: 1))
-        #expect(diff.localPlusOnes == 2)
-        #expect(diff.serverPlusOnes == 1)
-        #expect(diff.plusOnesChanged)
-        #expect(diff.localActualKm == 8.2)
-        #expect(diff.serverActualKm == 7.1)
-        #expect(diff.actualKmChanged)
-    }
-
-    @Test("Conflict merge and overwrite choices route through re-enqueue")
-    func conflictResolutionRoutes() async throws {
-        let client = ViewModelSyncClient()
-        let viewModel = OutboxViewModel(engine: client)
-        let first = UUID()
-        let second = UUID()
-
-        try await viewModel.resolve(id: first, action: .merge)
-        try await viewModel.resolve(id: second, action: .overwrite)
-
-        #expect(await client.resolutions == [
-            ResolutionCall(id: first, action: .merge),
-            ResolutionCall(id: second, action: .overwrite),
-        ])
-    }
-
-    @Test("Conflict resolution keeps failures visible for retry")
-    func conflictResolutionFailure() async {
-        let client = ViewModelSyncClient(resolutionFailures: 1)
-        let viewModel = OutboxViewModel(engine: client)
-
-        await #expect(throws: ViewModelTestError.offline) {
-            try await viewModel.resolve(id: UUID(), action: .merge)
-        }
-
-        #expect(viewModel.errorMessage == "The app could not update the sheet. Try again from the outbox.")
-        #expect(!viewModel.isResolving)
-    }
-
-    @Test("The view-model test client broadcasts events")
-    func testClientEventBroadcast() async {
-        let client = ViewModelSyncClient()
-        var first = client.events.makeAsyncIterator()
-        var second = client.events.makeAsyncIterator()
-        let event = SyncEvent.queued(id: UUID())
-
-        await client.emit(event)
-
-        #expect(await first.next() == event)
-        #expect(await second.next() == event)
-    }
-
-    @Test("Outbox and Home show sync activity only while the engine drains")
-    func syncActivityTracksDrains() async throws {
-        let client = ViewModelSyncClient()
-        let outbox = OutboxViewModel(engine: client)
-        let home = HomeViewModel(engine: client)
-        #expect(!outbox.isSyncing)
-        #expect(!home.isSyncing)
-
-        await client.emit(.syncActivity(isActive: true))
-        #expect(await waitUntil { outbox.isSyncing && home.isSyncing })
-        #expect(outbox.isSyncing)
-        #expect(home.isSyncing)
-
-        await client.emit(.syncActivity(isActive: false))
-        #expect(await waitUntil { !outbox.isSyncing && !home.isSyncing })
-        #expect(!outbox.isSyncing)
-        #expect(!home.isSyncing)
-
-        // A replaced connection must not inherit the old engine's spinner.
-        await client.emit(.syncActivity(isActive: true))
-        try #require(await waitUntil { outbox.isSyncing && home.isSyncing })
-        outbox.replaceEngine(ViewModelSyncClient())
-        home.replaceEngine(ViewModelSyncClient())
-        #expect(!outbox.isSyncing)
-        #expect(!home.isSyncing)
-    }
-
-    @Test("Settings load, save, QR import, and refresh use their protocol seams")
-    func settingsActions() async throws {
-        let persistence = MemoryConfigPersistence(
-            config: AppConfig(
-                endpoint: URL(string: "https://example.test/exec"),
-                secret: "old-secret",
-                deviceName: "Colin's iPhone"
-            )
-        )
-        let client = ViewModelSyncClient()
-        let viewModel = SettingsViewModel(persistence: persistence, engine: client)
-
-        #expect(viewModel.endpoint == "https://example.test/exec")
-        let saved = try viewModel.importAndSaveSetupCode(
-            """
-            {"endpoint":"https://new.example/exec","secret":"new-secret","deviceName":"Run phone"}
-            """
-        )
-        try await viewModel.refreshRoster()
-
-        #expect(saved.secret == "new-secret")
-        #expect(try persistence.load() == saved)
-        #expect(await client.refreshCount == 1)
-    }
-
-    @Test("Scanned config persistence sends the secret only to its secure seam")
-    func configPersistenceSeparatesSecret() throws {
-        let suite = "FCTCAttendanceKitTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let secretStore = MemorySecretStore()
-        let persistence = UserDefaultsAppConfigPersistence(
-            defaults: defaults,
-            secretStore: secretStore
-        )
-        let viewModel = SettingsViewModel(
-            persistence: persistence,
-            engine: ViewModelSyncClient()
-        )
-
-        let config = try viewModel.importAndSaveSetupCode(
-            """
-            {"endpoint":"https://example.test/exec","secret":"qr-secret-not-real","deviceName":"Run phone"}
-            """
-        )
-
-        #expect(try persistence.load() == config)
-        #expect(secretStore.value == "qr-secret-not-real")
-        #expect(!defaults.dictionaryRepresentation().values.contains {
-            ($0 as? String) == "qr-secret-not-real"
-        })
-    }
-
-    private var utcCalendar: Calendar {
+    var utcCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         calendar.firstWeekday = 2
         return calendar
     }
 
-    private func run(
+    func run(
         row: Int,
         dayOffset: Int,
         approxKm: Double? = 7.1,
@@ -655,7 +438,7 @@ struct ViewModelTests {
         )
     }
 
-    private func submission(status: SubmissionStatus) -> PendingSubmissionSnapshot {
+    func submission(status: SubmissionStatus) -> PendingSubmissionSnapshot {
         PendingSubmissionSnapshot(
             id: UUID(),
             rowIndex: 42,
@@ -671,163 +454,8 @@ struct ViewModelTests {
     }
 
     /// Yields up to 30 times; returns whether the condition became true.
-    private func waitUntil(_ condition: @escaping @MainActor () -> Bool) async -> Bool {
+    func waitUntil(_ condition: @escaping @MainActor () -> Bool) async -> Bool {
         for _ in 0..<30 where !condition() { await Task.yield() }
         return condition()
-    }
-}
-
-private struct ResolutionCall: Hashable, Sendable {
-    let id: UUID
-    let action: ConflictResolutionAction
-}
-
-private enum ViewModelTestError: LocalizedError, Equatable, Sendable {
-    case offline
-
-    var errorDescription: String? { "Offline" }
-}
-
-private actor ViewModelSyncClient: SyncEngineClient {
-    nonisolated var events: AsyncStream<SyncEvent> { eventBroadcaster.stream() }
-    private nonisolated let eventBroadcaster = SyncEventBroadcaster()
-    private(set) var addedMembers: [String] = []
-    private(set) var addedRuns: [AddRunRequest] = []
-    private(set) var resolutions: [ResolutionCall] = []
-    private(set) var refreshCount = 0
-    private var addMemberFailures: Int
-    /// Holds each `addMember` open until `resumeAddMember()`.
-    private let suspendAddMember: Bool
-    private var addMemberContinuation: CheckedContinuation<Void, Never>?
-    private var addRunFailures: Int
-    private var resolutionFailures: Int
-    private let suspendRefresh: Bool
-    private var refreshFailures: Int
-    /// Waits until cancelled, then fails the way URLSession does: a transport
-    /// error, not a CancellationError.
-    private let cancellableRefresh: Bool
-    private var refreshContinuation: CheckedContinuation<SheetState, Never>?
-
-    init(
-        addMemberFailures: Int = 0,
-        suspendAddMember: Bool = false,
-        addRunFailures: Int = 0,
-        resolutionFailures: Int = 0,
-        suspendRefresh: Bool = false,
-        refreshFailures: Int = 0,
-        cancellableRefresh: Bool = false
-    ) {
-        self.addMemberFailures = addMemberFailures
-        self.suspendAddMember = suspendAddMember
-        self.addRunFailures = addRunFailures
-        self.resolutionFailures = resolutionFailures
-        self.suspendRefresh = suspendRefresh
-        self.refreshFailures = refreshFailures
-        self.cancellableRefresh = cancellableRefresh
-    }
-
-    func refreshState() async throws -> SheetState {
-        refreshCount += 1
-        if refreshFailures > 0 {
-            refreshFailures -= 1
-            throw SheetAPIError.network("Offline")
-        }
-        if suspendRefresh {
-            return await withCheckedContinuation { refreshContinuation = $0 }
-        }
-        if cancellableRefresh {
-            do { try await Task.sleep(for: .seconds(30)) } catch { throw SheetAPIError.network("cancelled") }
-        }
-        return SheetState(sheetRevision: "rev-1")
-    }
-
-    func waitUntilRefreshRequested() async {
-        while refreshCount == 0 { await Task.yield() }
-    }
-
-    func resumeRefresh() {
-        refreshContinuation?.resume(returning: SheetState(sheetRevision: "rev-1"))
-        refreshContinuation = nil
-    }
-
-    func enqueue(_ submission: AttendanceSubmission) async throws -> UUID { UUID() }
-
-    func enqueue(
-        draft: AttendanceDraft,
-        mode: SubmissionMode,
-        deviceName: String?
-    ) async throws -> UUID { UUID() }
-
-    func drain() async {}
-
-    func addMember(name: String) async throws -> AddMemberResult {
-        addedMembers.append(name)
-        if suspendAddMember { await withCheckedContinuation { addMemberContinuation = $0 } }
-        if addMemberFailures > 0 {
-            addMemberFailures -= 1
-            throw ViewModelTestError.offline
-        }
-        return AddMemberResult(
-            roster: [RosterEntry(name: name, colIndex: 1)],
-            sheetRevision: "rev-2"
-        )
-    }
-
-    func waitUntilAddMemberRequested() async {
-        while addMemberContinuation == nil { await Task.yield() }
-    }
-
-    func resumeAddMember() {
-        addMemberContinuation?.resume()
-        addMemberContinuation = nil
-    }
-
-    func addRun(_ request: AddRunRequest) async throws -> AddRunResult {
-        addedRuns.append(request)
-        if addRunFailures > 0 {
-            addRunFailures -= 1
-            throw ViewModelTestError.offline
-        }
-        return AddRunResult(runs: [], sheetRevision: "rev-2")
-    }
-
-    func resolveConflict(
-        id: UUID,
-        action: ConflictResolutionAction
-    ) async throws -> UUID? {
-        resolutions.append(ResolutionCall(id: id, action: action))
-        if resolutionFailures > 0 {
-            resolutionFailures -= 1
-            throw ViewModelTestError.offline
-        }
-        return action == .discard ? nil : UUID()
-    }
-
-    func emit(_ event: SyncEvent) {
-        eventBroadcaster.yield(event)
-    }
-}
-
-private final class MemoryConfigPersistence: AppConfigPersisting, @unchecked Sendable {
-    private var config: AppConfig
-
-    init(config: AppConfig) {
-        self.config = config
-    }
-
-    func load() throws -> AppConfig { config }
-
-    func save(_ config: AppConfig) throws {
-        self.config = config
-    }
-}
-
-private final class MemorySecretStore: SecretStoring, @unchecked Sendable {
-    var value: String?
-
-    func readSecret() throws -> String? { value }
-
-    func writeSecret(_ value: String) throws {
-        self.value = value
     }
 }
