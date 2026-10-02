@@ -39,17 +39,12 @@ struct FCTCAttendanceApp: App {
                     "FCTCAttendance-UITest",
                     schema: AttendanceSchema.schema,
                     url: FileManager.default.temporaryDirectory
-                        .appending(path: "fctc-uitest-\(UITestSupport.storeName).store")
+                        .appending(path: "fctc-uitest-\(UITestSupport.storeName).store"),
+                    cloudKitDatabase: .none
                 )
-                : ModelConfiguration(
-                    "FCTCAttendance",
-                    schema: AttendanceSchema.schema,
-                    isStoredInMemoryOnly: false
-                )
-            let container = try ModelContainer(
-                for: AttendanceSchema.schema,
-                configurations: configuration
-            )
+                : AttendanceSchema.appStoreConfiguration()
+            // A store that cannot open is set aside and replaced (StoreRecovery).
+            let container = try StoreRecovery.openContainer(configuration)
             modelContainer = container
             let runtime = isUITesting
                 ? UITestSupport.makeRuntime(modelContainer: container)
@@ -58,7 +53,8 @@ struct FCTCAttendanceApp: App {
             backgroundDrain = BackgroundOutboxDrainFactory.make(runtime: runtime)
             _ = backgroundDrain.register()
         } catch {
-            // Fail loudly until the app has a user-visible cache recovery path.
+            // Only reached when setting the store aside was unsafe or did not help.
+            // The old files are untouched or in the set-aside folder.
             fatalError("Unable to create ModelContainer: \(error)")
         }
     }
@@ -66,6 +62,7 @@ struct FCTCAttendanceApp: App {
     var body: some Scene {
         WindowGroup {
             AppRootView(runtime: runtime, pendingRoutes: .shared)
+                .storeRecoveryNotice()
         }
         .modelContainer(modelContainer)
         .onChange(of: scenePhase) { _, phase in
