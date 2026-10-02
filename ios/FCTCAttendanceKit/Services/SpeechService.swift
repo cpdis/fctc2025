@@ -120,11 +120,7 @@ public final class SpeechService: Transcriber {
     }
 
     public func requestAuthorization() async -> TranscriberAuthorization {
-        let speechStatus = await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { status in
-                continuation.resume(returning: status)
-            }
-        }
+        let speechStatus = await Self.speechAuthorizationStatus()
 
         let speechAuthorization = Self.authorization(from: speechStatus)
         guard speechAuthorization == .authorized else { return speechAuthorization }
@@ -162,6 +158,9 @@ public final class SpeechService: Transcriber {
         self.updateHandler = updateHandler
         self.sessionID = sessionID
 
+        // The handler below is formed in a @MainActor class, so it relies on
+        // the main queue. Pin it explicitly instead of trusting the default.
+        recognizer.queue = .main
         recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
             let isTerminal = result?.isFinal == true || error != nil
             let update = TranscriptionUpdate(
@@ -255,6 +254,18 @@ public final class SpeechService: Transcriber {
     /// trap there, so the block is formed in a nonisolated context instead.
     private nonisolated static func tapBlock(appendingTo box: AudioRequestBox) -> AVAudioNodeTapBlock {
         { buffer, _ in box.request.append(buffer) }
+    }
+
+    /// The permission service calls this completion handler on a background
+    /// queue. A closure written inside this `@MainActor` class would be inferred
+    /// main-actor isolated and trap on that queue, so it is formed in a
+    /// nonisolated context instead.
+    private nonisolated static func speechAuthorizationStatus() async -> SFSpeechRecognizerAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { status in
+                continuation.resume(returning: status)
+            }
+        }
     }
 
     private static func authorization(
