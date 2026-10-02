@@ -8,25 +8,6 @@
 
 import Foundation
 
-public enum SyncBannerKind: Hashable, Sendable {
-    case success
-    case offline
-    case parked
-    case conflict
-    case authentication
-    case error
-}
-
-public struct SyncBanner: Hashable, Sendable {
-    public var kind: SyncBannerKind
-    public var message: String
-
-    public init(kind: SyncBannerKind, message: String) {
-        self.kind = kind
-        self.message = message
-    }
-}
-
 public enum UserFacingError {
     public static let checkingSavedChanges = "Checking saved changes"
     public static let offline = "The sheet is offline. Your submission is safe in the outbox."

@@ -120,12 +120,12 @@ actor UITestSharedGuestAPI: SheetAPIClient {
         value.sheetRevision = "ui-\(revision)"
         return value
     }
-    func sharedRead(action: String, fields: [String: GuestJSON]) async throws -> GuestJSON {
+    func sharedRead(action: SharedReadAction, fields: [String: GuestJSON]) async throws -> GuestJSON {
         let guestID = fields["guestId"]?.string ?? ""
         guard let guest = guests.first(where: { $0.guestId == guestID }) else { throw SheetAPIError.badPayload(message: "Choose a guest.") }
         switch action {
-        case "getGuestHistory": return try .value(GuestHistory(guest: guest, guestRevision: "ui-\(revision)", attendance: histories[guestID] ?? []))
-        case "previewPromotion":
+        case .getGuestHistory: return try .value(GuestHistory(guest: guest, guestRevision: "ui-\(revision)", attendance: histories[guestID] ?? []))
+        case .previewPromotion:
             if ProcessInfo.processInfo.arguments.contains("-ui-promotion-fails") { throw SheetAPIError.server(code: "allocation_missing", message: "Correct the guest allocation before promotion.") }
             let entries = histories[guestID] ?? []
             let changes = entries.compactMap { entry -> PromotionPreview.Change? in
@@ -139,7 +139,7 @@ actor UITestSharedGuestAPI: SheetAPIClient {
                 confirmedRuns: guest.confirmedRuns ?? entries.count, previewToken: "ui-preview-\(revision)",
                 targetMode: PromotionTargetMode(rawValue: fields["targetMode"]?.string ?? "create") ?? .create,
                 seasons: seasons.values.map { s in PromotionPreview.Season(seasonYear: s.seasonYear, seasonSheetId: s.seasonSheetId!, runs: entries.filter { $0.seasonSheetId == s.seasonSheetId }.count) }, changes: changes))
-        case "previewGuestImport":
+        case .previewGuestImport:
             let entries: [GuestImportEntry] = try fields["entries"]!.decoded()
             let changes = try entries.map { entry in
                 guard let run = seasons[entry.seasonSheetId]?.runs.first(where: { $0.runId == entry.runId }) else { throw SheetAPIError.badPayload(message: "Select the original run.") }
@@ -150,7 +150,7 @@ actor UITestSharedGuestAPI: SheetAPIClient {
                     unnamedBefore: run.unnamedGuests ?? 0, unnamedAfter: (run.unnamedGuests ?? 0) - (already ? 0 : 1))
             }
             return try .value(GuestImportPreview(guestId: guestID, baseGuestRevision: guest.revision, baseRevision: "ui-review", entries: entries, changes: changes, confirmedRuns: guest.confirmedRuns ?? 0))
-        default: throw SheetAPIError.notImplemented
+        case .getState, .getOperationStatus: throw SheetAPIError.notImplemented
         }
     }
     func perform(_ operation: SharedGuestOperation) async throws -> GuestJSON {

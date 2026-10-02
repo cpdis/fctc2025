@@ -166,10 +166,20 @@ public actor URLSessionTransport: HTTPTransport {
 
 // MARK: - Client
 
+/// The read-only shared-guest actions. Raw values are the wire names the Apps
+/// Script dispatches on, so a typo is a compile error, not a 400 (PLAT-18).
+public enum SharedReadAction: String, Sendable {
+    case getState
+    case getOperationStatus
+    case getGuestHistory
+    case previewPromotion
+    case previewGuestImport
+}
+
 public protocol SheetAPIClient: Sendable {
     var endpointIdentity: String? { get }
     func getState(seasonSheetId: Int?) async throws -> SheetState
-    func sharedRead(action: String, fields: [String: GuestJSON]) async throws -> GuestJSON
+    func sharedRead(action: SharedReadAction, fields: [String: GuestJSON]) async throws -> GuestJSON
     func perform(_ operation: SharedGuestOperation) async throws -> GuestJSON
     func operationStatus(id: UUID) async throws -> GuestOperationReceipt?
     func getState() async throws -> SheetState

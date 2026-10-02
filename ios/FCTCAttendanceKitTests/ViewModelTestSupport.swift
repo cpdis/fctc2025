@@ -163,4 +163,8 @@ final class MemorySecretStore: SecretStoring, @unchecked Sendable {
     func writeSecret(_ value: String) throws {
         self.value = value
     }
+
+    func deleteSecret() throws {
+        value = nil
+    }
 }

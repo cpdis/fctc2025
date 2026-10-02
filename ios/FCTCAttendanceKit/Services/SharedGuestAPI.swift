@@ -6,7 +6,7 @@ extension SheetAPIClient {
         guard seasonSheetId == nil else { throw SheetAPIError.notImplemented }
         return try await getState()
     }
-    public func sharedRead(action: String, fields: [String: GuestJSON]) async throws -> GuestJSON {
+    public func sharedRead(action: SharedReadAction, fields: [String: GuestJSON]) async throws -> GuestJSON {
         throw SheetAPIError.notImplemented
     }
     public func perform(_ operation: SharedGuestOperation) async throws -> GuestJSON { throw SheetAPIError.notImplemented }
@@ -18,11 +18,11 @@ extension SheetAPI {
     public func getState(seasonSheetId: Int?) async throws -> SheetState {
         var fields: [String: GuestJSON] = ["apiVersion": .number(2)]
         if let seasonSheetId { fields["seasonSheetId"] = .number(Double(seasonSheetId)) }
-        return try await sharedRead(action: "getState", fields: fields).decoded()
+        return try await sharedRead(action: .getState, fields: fields).decoded()
     }
-    public func sharedRead(action: String, fields: [String: GuestJSON] = [:]) async throws -> GuestJSON {
+    public func sharedRead(action: SharedReadAction, fields: [String: GuestJSON] = [:]) async throws -> GuestJSON {
         var request = fields
-        request["action"] = .string(action); request["secret"] = .string(config.secret)
+        request["action"] = .string(action.rawValue); request["secret"] = .string(config.secret)
         let response = try await send(GuestJSON.object(request), as: GuestJSON.self)
         try throwConflict(response)
         return response
@@ -33,7 +33,7 @@ extension SheetAPI {
         return response
     }
     public func operationStatus(id: UUID) async throws -> GuestOperationReceipt? {
-        let response = try await sharedRead(action: "getOperationStatus", fields: ["operationId": .string(id.uuidString.lowercased())])
+        let response = try await sharedRead(action: .getOperationStatus, fields: ["operationId": .string(id.uuidString.lowercased())])
         guard let value = response["operation"], value != .null else { return nil }
         return try value.decoded()
     }

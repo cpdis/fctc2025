@@ -63,4 +63,22 @@ extension ViewModelTests {
             ($0 as? String) == "qr-secret-not-real"
         })
     }
+
+    @Test("Saving an empty secret deletes the stored one")
+    func emptySecretDeletes() throws {
+        let suite = "FCTCAttendanceKitTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let secretStore = MemorySecretStore()
+        secretStore.value = "old-secret-not-real"
+        let persistence = UserDefaultsAppConfigPersistence(defaults: defaults, secretStore: secretStore)
+
+        var config = try persistence.load()
+        config.secret = ""
+        try persistence.save(config)
+
+        // Deleted (nil), not overwritten with an empty string.
+        #expect(secretStore.value == nil)
+        #expect(try persistence.load().secret == "")
+    }
 }

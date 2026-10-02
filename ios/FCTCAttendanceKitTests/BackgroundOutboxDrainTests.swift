@@ -231,6 +231,8 @@ private struct FakeSecretStore: SecretStoring {
     }
 
     func writeSecret(_ value: String) throws {}
+
+    func deleteSecret() throws {}
 }
 
 private final class FakeBackgroundScheduler: BackgroundRefreshScheduling {

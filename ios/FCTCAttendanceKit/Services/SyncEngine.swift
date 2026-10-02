@@ -404,9 +404,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         guard let state = conflicted.conflictState else {
             throw SyncEngineError.missingConflictState
         }
-        let serverRun = state.runs.first {
-            $0.date == conflicted.expectedDate && $0.run == conflicted.expectedRun
-        } ?? state.runs.first { $0.rowIndex == conflicted.rowIndex }
+        let serverRun = state.run(matching: conflicted)
 
         let replacement = PendingSubmission(
             rowIndex: serverRun?.rowIndex ?? conflicted.rowIndex,
