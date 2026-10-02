@@ -64,6 +64,8 @@ struct RunMatchingTests {
 
         row.expectedRun = "Renamed"
         #expect(Self.twins.run(matching: row)?.rowIndex == 11)
-        #expect(Self.twins.run(matching: snapshot(identity: nil, rowIndex: 11))?.rowIndex == 11)
+        // A snapshot whose date and name still match resolves by them, the
+        // same as the store row did above; the saved row index comes second.
+        #expect(Self.twins.run(matching: snapshot(identity: nil, rowIndex: 11))?.rowIndex == 10)
     }
 }
