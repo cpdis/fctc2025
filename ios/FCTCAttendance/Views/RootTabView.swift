@@ -100,21 +100,17 @@ struct RootTabView: View {
             handlePendingRoute()
             offerSharedScreenshots()
         }
-        .alert(
-            "Import \(sharedScreenshotCount) shared screenshot\(sharedScreenshotCount == 1 ? "" : "s")?",
-            isPresented: $showingSharedScreenshotOffer
-        ) {
-            Button("Import") {
+        .modifier(SharedScreenshotOffer(
+            count: sharedScreenshotCount,
+            isPresented: $showingSharedScreenshotOffer,
+            message: "Open today's checklist and review the imported poll.",
+            onImport: {
                 guard let todayRun = runsModel.todayRun else { return }
                 selection = .runs
                 runsPath.append(.checklist(todayRun, .sharedScreenshots))
-            }
-            Button("Dismiss", role: .cancel) {
-                try? runtime.sharedScreenshotInbox.clear()
-            }
-        } message: {
-            Text("Open today's checklist and review the imported poll.")
-        }
+            },
+            delete: runtime.sharedScreenshotInbox.clear
+        ))
     }
 
     /// Takes a newly stored route, or retries the waiting one, and lands it on

@@ -34,6 +34,11 @@ struct ChecklistView: View {
     @State private var showingSharedScreenshotOffer = false
     @State private var sharedScreenshotCount = 0
     @State private var sharedImportURLs: [URL] = []
+    /// The route's entry (dictation, shared screenshots) runs once. `.task`
+    /// runs again after every pop back here, which reopened the voice sheet.
+    @State private var didRunEntryPresentation = false
+    /// A Confirm that failed, shown as an alert rather than a row below the fold.
+    @State private var confirmError: String?
     /// Each roster member's runs and streak, recomputed when a streak input
     /// changes (`streakFingerprint`), never per render.
     @State private var memberStats: [String: MemberStats] = [:]
@@ -246,7 +251,9 @@ struct ChecklistView: View {
         }
         .sheet(
             isPresented: $showingScreenshotImport,
-            onDismiss: clearSharedImportState
+            // Closing the sheet keeps the inbox: only Delete Screenshots or a
+            // finished import empties it.
+            onDismiss: { sharedImportURLs = [] }
         ) {
             ScreenshotImportView(
                 roster: viewModel.roster,
@@ -260,7 +267,7 @@ struct ChecklistView: View {
                     viewModel.applyProposals(checks: checks, from: set)
                     showingScreenshotImport = false
                 },
-                onAddPerson: addScreenshotPerson,
+                onAddPerson: viewModel.addProposedPerson,
                 onCancel: {
                     showingScreenshotImport = false
                 }
@@ -269,6 +276,8 @@ struct ChecklistView: View {
         }
         .task {
             updateCachedValues()
+            guard !didRunEntryPresentation else { return }
+            didRunEntryPresentation = true
             switch presentation {
             case .dictation:
                 showingVoiceEntry = true
@@ -283,17 +292,14 @@ struct ChecklistView: View {
         .onReceive(NotificationCenter.default.publisher(for: .fctcAppDidActivate)) { _ in
             checkSharedScreenshotInbox()
         }
-        .alert(
-            "Import \(sharedScreenshotCount) shared screenshot\(sharedScreenshotCount == 1 ? "" : "s")?",
-            isPresented: $showingSharedScreenshotOffer
-        ) {
-            Button("Import") { loadSharedImagesAndPresent() }
-            Button("Dismiss", role: .cancel) {
-                try? runtime.sharedScreenshotInbox.clear()
-            }
-        } message: {
-            Text("Review these images through the existing poll import flow.")
-        }
+        .modifier(SharedScreenshotOffer(
+            count: sharedScreenshotCount,
+            isPresented: $showingSharedScreenshotOffer,
+            message: "Review these images through the existing poll import flow.",
+            onImport: loadSharedImagesAndPresent,
+            delete: runtime.sharedScreenshotInbox.clear
+        ))
+        .actionErrorAlert("Could not confirm", message: $confirmError)
         .alert("Attendance recorded", isPresented: $showingCatchUp) {
             Button("Next unrecorded run") { finishConfirmation(with: nextCatchUpRun) }
                 .accessibilityIdentifier("catchup-next")
@@ -388,7 +394,11 @@ struct ChecklistView: View {
                 } else {
                     finishConfirmation(with: nil)
                 }
-            } catch {}
+            } catch is CancellationError {
+                // A second tap while the first submit ran; nothing failed.
+            } catch {
+                confirmError = viewModel.errorMessage ?? UserFacingError.sync(error)
+            }
         }
     }
 
@@ -413,7 +423,9 @@ struct ChecklistView: View {
     }
 
     private func checkSharedScreenshotInbox() {
+        // Never offer over the voice sheet or another presentation.
         guard !showingScreenshotImport,
+              !showingVoiceEntry,
               !showingSharedScreenshotOffer,
               let count = try? runtime.sharedScreenshotInbox.list().count,
               count > 0
@@ -429,20 +441,9 @@ struct ChecklistView: View {
         showingScreenshotImport = true
     }
 
+    /// The import has copied the shared files. If this delete fails they
+    /// stay in the inbox and the next offer brings them back.
     private func clearSharedScreenshotInbox() {
         try? runtime.sharedScreenshotInbox.clear()
-    }
-
-    private func clearSharedImportState() {
-        clearSharedScreenshotInbox()
-        sharedImportURLs = []
-    }
-
-    private func addScreenshotPerson(_ name: String) async throws {
-        viewModel.quickAddName = name
-        try await viewModel.commitQuickAdd()
-        // Quick-add is normally a manual checklist action. This name came from an
-        // explicit proposal choice, so the frozen apply seam supplies provenance.
-        viewModel.uncheckMember(name)
     }
 }

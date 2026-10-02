@@ -128,7 +128,6 @@ struct SeasonUnavailableView: View {
 
 struct HomeSyncBanner: View {
     let banner: SyncBanner
-    let runtime: AppRuntime
     let retry: @MainActor () async -> Void
 
     var body: some View {
@@ -145,23 +144,18 @@ struct HomeSyncBanner: View {
                 }
                 .accessibilityIdentifier("home-sync-retry")
             case .conflict:
-                NavigationLink {
-                    OutboxView(runtime: runtime)
-                } label: {
+                // Value links, so Home's typed path sees every push.
+                NavigationLink(value: HomeRoute.outbox) {
                     Label("Review Conflict", systemImage: "exclamationmark.triangle")
                 }
                 .accessibilityIdentifier("home-review-conflict")
             case .authentication:
-                NavigationLink {
-                    SettingsView(runtime: runtime)
-                } label: {
+                NavigationLink(value: HomeRoute.settings) {
                     Label("Open Settings", systemImage: "gearshape")
                 }
                 .accessibilityIdentifier("home-open-settings")
             case .error:
-                NavigationLink {
-                    OutboxView(runtime: runtime)
-                } label: {
+                NavigationLink(value: HomeRoute.outbox) {
                     Label("Open Outbox", systemImage: "tray.and.arrow.up")
                 }
             case .success:

@@ -296,6 +296,9 @@ private struct ConflictResolutionView: View {
     let viewModel: OutboxViewModel
 
     @Environment(\.dismiss) private var dismiss
+    /// Discard and Overwrite both destroy data, so each asks first.
+    @State private var confirmingDiscard = false
+    @State private var confirmingOverwrite = false
 
     var body: some View {
         NavigationStack {
@@ -366,9 +369,20 @@ private struct ConflictResolutionView: View {
                             .accessibilityIdentifier("conflict-merge")
                     }
 
-                    Button("Overwrite Sheet") { resolve(.overwrite) }
+                    Button("Overwrite Sheet") { confirmingOverwrite = true }
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("conflict-overwrite")
+                        .confirmationDialog(
+                            "Overwrite the sheet with this attendance?",
+                            isPresented: $confirmingOverwrite,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Overwrite Sheet", role: .destructive) { resolve(.overwrite) }
+                                .accessibilityIdentifier("conflict-overwrite-confirm")
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("The sheet's attendance for this run is replaced.")
+                        }
 
                     } else {
                         if !submission.guestNames.isEmpty {
@@ -377,9 +391,20 @@ private struct ConflictResolutionView: View {
                         Text("This older submission has no verified workbook or season. It remains saved here. Open the original run and compare these details before recording it again.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
-                    Button("Discard Local Submission", role: .destructive) { resolve(.discard) }
+                    Button("Discard Local Submission", role: .destructive) { confirmingDiscard = true }
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("conflict-discard")
+                        .confirmationDialog(
+                            "Discard this attendance?",
+                            isPresented: $confirmingDiscard,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Discard Attendance", role: .destructive) { resolve(.discard) }
+                                .accessibilityIdentifier("conflict-discard-confirm")
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("This phone's attendance is deleted. The sheet does not change.")
+                        }
                 } footer: {
                     Text(requiresGuestOverwrite
                          ? "This guest correction needs an overwrite. Review the local and sheet allocations above. Overwrite uses the local checklist exactly."
@@ -440,7 +465,8 @@ private struct ConflictResolutionView: View {
                 _ = try await viewModel.resolve(id: submission.id, action: action)
                 dismiss()
             } catch {
-                // The view model retains the message so this sheet can show a retry.
+                // A CancellationError is a second tap and needs nothing. Any
+                // other failure stays in the view model for this sheet to show.
             }
         }
     }

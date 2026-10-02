@@ -15,6 +15,8 @@ struct SettingsView: View {
     @State private var viewModel: SettingsViewModel
     @State private var showingSetupScanner = false
     @State private var currentAlternateIcon: String?
+    /// A Save that failed, shown as an alert rather than a row below the fold.
+    @State private var saveError: String?
     /// The selection rings slide between choices rather than jumping.
     @Namespace private var selectionRing
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -157,6 +159,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings-save")
             }
         }
+        .actionErrorAlert("Could not save", message: $saveError)
         .sheet(isPresented: $showingSetupScanner) {
             SetupCodeScannerView { payload in
                 let config = try viewModel.importAndSaveSetupCode(payload)
@@ -266,6 +269,8 @@ struct SettingsView: View {
             runtime.apply(config)
             viewModel.replaceEngine(runtime.engine)
             if !configurationRequired { dismiss() }
-        } catch {}
+        } catch {
+            saveError = viewModel.errorMessage ?? error.localizedDescription
+        }
     }
 }

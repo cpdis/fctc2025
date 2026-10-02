@@ -71,6 +71,16 @@ final class SharedGuestUITests: XCTestCase {
         XCTAssertFalse(app.buttons["promotion-confirm"].exists)
         capture("shared-guests-promotion-completed")
     }
+    /// CA-9: a legacy row with guest names must surface the Home reminder.
+    func testRecoveryReminderAppearsOnHome() {
+        launch(["-ui-recovery", "-ui-store-name", UUID().uuidString])
+        let reminder = app.buttons["recover-guests-reminder"]
+        // The reminder is the last Home section; scroll until it loads in.
+        for _ in 0..<4 where !reminder.waitForExistence(timeout: 2) { app.swipeUp() }
+        XCTAssertTrue(reminder.waitForExistence(timeout: 4))
+        capture("shared-guests-recovery-home-reminder")
+    }
+
     func testRecoveryReminderCanBeDismissedAndReopenedAfterRelaunch() {
         let store = UUID().uuidString
         launch(["-ui-recovery", "-ui-store-name", store])

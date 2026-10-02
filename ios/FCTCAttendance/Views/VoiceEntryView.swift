@@ -17,14 +17,12 @@ struct VoiceEntryView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel: VoiceEntryViewModel
-    @State private var addPersonError: String?
 
     init(
         checklistViewModel: ChecklistViewModel,
         transcriber: any Transcriber = SpeechService()
     ) {
         self.checklistViewModel = checklistViewModel
-        _addPersonError = State(initialValue: nil)
         _viewModel = State(
             initialValue: VoiceEntryViewModel(
                 roster: checklistViewModel.roster,
@@ -63,14 +61,6 @@ struct VoiceEntryView: View {
             }
         }
         .onDisappear { viewModel.stop() }
-        .alert(
-            "Could not add person",
-            isPresented: addPersonErrorShown
-        ) {
-            Button("OK") { addPersonError = nil }
-        } message: {
-            Text(addPersonError ?? "Try again.")
-        }
     }
 
     @ViewBuilder
@@ -98,15 +88,9 @@ struct VoiceEntryView: View {
             roster: checklistViewModel.roster,
             onGuestNames: guestReview,
             onApply: apply,
-            onAddPerson: addPerson,
+            // Awaited one name at a time; the triage shows a failure itself.
+            onAddPerson: checklistViewModel.addProposedPerson,
             onCancel: viewModel.returnToRecording
-        )
-    }
-
-    private var addPersonErrorShown: Binding<Bool> {
-        Binding(
-            get: { addPersonError != nil },
-            set: { if !$0 { addPersonError = nil } }
         )
     }
 
@@ -311,19 +295,6 @@ struct VoiceEntryView: View {
                 Task { await viewModel.startRecording() }
             }
             .buttonStyle(.borderedProminent)
-        }
-    }
-
-    private func addPerson(_ name: String) {
-        guard !checklistViewModel.isAddingPerson else { return }
-        checklistViewModel.quickAddName = name
-        Task { @MainActor in
-            do {
-                try await checklistViewModel.commitQuickAdd()
-                viewModel.updateRoster(checklistViewModel.roster)
-            } catch {
-                addPersonError = UserFacingError.sync(error)
-            }
         }
     }
 }

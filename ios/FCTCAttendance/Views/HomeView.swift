@@ -49,6 +49,9 @@ struct HomeView: View {
     @State private var recovery: [GuestRecoverySnapshot] = []
     /// Flips once per launch so the header cards stagger in on first sight only.
     @State private var hasEntered = false
+    /// Bumped to restart the refresh task: an activation after a failed
+    /// refresh, or an engine swap. The task also runs on every appear.
+    @State private var refreshRequest = 0
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -168,14 +171,14 @@ struct HomeView: View {
                                 for candidate in recovery where candidate.status == .pending {
                                     try? await runtime.engine.updateRecoveryCandidate(id: candidate.id, guestId: candidate.selectedGuestId, run: candidate.selectedRun, status: .dismissed)
                                 }
-                                recovery = (try? await runtime.engine.recoveryCandidates()) ?? []
+                                await loadRecovery()
                             }
                         }
                     } footer: { Text("Names from this phone need review. You can recover them later in Settings.") }
                 }
 
                 if let banner = viewModel.syncBanner {
-                    HomeSyncBanner(banner: banner, runtime: runtime) {
+                    HomeSyncBanner(banner: banner) {
                         await viewModel.retry(hasCachedState: !activeRuns.isEmpty)
                         updateFromCache()
                     }
@@ -217,7 +220,9 @@ struct HomeView: View {
                 updateFromCache()
             }
             .onAppear { hasEntered = true }
-            .task {
+            // One refresh at a time: a new request cancels the one in flight,
+            // and leaving Home cancels it too.
+            .task(id: refreshRequest) {
                 updateFromCache()
                 await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
                 updateFromCache()
@@ -225,28 +230,23 @@ struct HomeView: View {
             .onChange(of: viewModel.activeState) { _, state in
                 runtime.activeState = state
                 updateFromCache()
-                Task { recovery = (try? await runtime.engine.recoveryCandidates()) ?? [] }
             }
+            // Recovery evidence can change with each refresh, so it reloads
+            // with the season state.
+            .task(id: viewModel.activeState) { await loadRecovery() }
             .onChange(of: cacheFingerprint) { _, _ in
                 updateFromCache()
             }
             // A refresh that failed (a dropped connection, the sheet waking up)
             // tries again when the app comes back, so its banner clears itself.
             .onReceive(NotificationCenter.default.publisher(for: .fctcAppDidActivate)) { _ in
-                guard viewModel.refreshFailed else { return }
-                Task {
-                    await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
-                    updateFromCache()
-                }
+                if viewModel.refreshFailed { refreshRequest += 1 }
             }
             // RootTabView resets the path on a swap; the model follows the new
             // engine here, next to the refresh it drives.
             .onChange(of: runtime.generation) { _, _ in
                 viewModel.replaceEngine(runtime.engine)
-                Task {
-                    await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
-                    updateFromCache()
-                }
+                refreshRequest += 1
             }
         }
     }
@@ -322,6 +322,14 @@ struct HomeView: View {
         let guestChanges = pendingGuestOperations.map { "\($0.id):\($0.phaseRaw)" }.joined(separator: "|")
         return [runtime.activeRunsFingerprint(runs: cachedRuns, caches: sheetCaches), submissions, guestChanges]
             .joined(separator: "#")
+    }
+
+    /// Pending names from legacy rows, for the review reminder. Dismissed
+    /// ones stay out: the reminder is only for names nobody has looked at.
+    private func loadRecovery() async {
+        let candidates = (try? await runtime.engine.recoveryCandidates(includeDismissed: false)) ?? []
+        guard !Task.isCancelled else { return }
+        recovery = candidates
     }
 
     /// The one place Runs resolves the season cache.

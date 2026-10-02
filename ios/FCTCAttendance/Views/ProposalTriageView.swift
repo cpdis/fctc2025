@@ -121,15 +121,6 @@ struct ProposalTriageView: View {
                     }
                 }
 
-                if let applyErrorMessage {
-                    Section {
-                        Label(applyErrorMessage, systemImage: "exclamationmark.triangle")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                            .accessibilityIdentifier("triage-apply-error")
-                    }
-                }
-
                 Section {} footer: {
                     provenanceLegend
                 }
@@ -157,6 +148,7 @@ struct ProposalTriageView: View {
             }
         }
         .interactiveDismissDisabled(isApplying)
+        .actionErrorAlert("Could not apply", message: $applyErrorMessage)
         .onDisappear {
             applyTask?.cancel()
             applyTask = nil
