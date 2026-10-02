@@ -88,7 +88,8 @@
 - Verification on iPhone 17 Pro (iOS 26.5): kit 487 tests in 69 suites on the P8 head with the
   guest detail fix, and 489 after P9; the package UI suites after each merge (28 guest, home and
   outbox tests on the fixed head; TabNavigation, SetupLink and ChecklistKeyboard after P9, all
-  green).
+  green). Final pass on `6c84589`: a Release build with `CODE_SIGNING_ALLOWED=NO` succeeds, and
+  every UI suite passes together (71 tests, the opt-in screen tour skipped, 21 minutes).
 - Integration lessons: gate a queued job on the previous process's exit (`kill -0 <pid>`),
   never on a text marker that another step can echo. One overlapped run voided 34 of 35 UI
   tests and had to be redone. `simctl openurl` on the custom scheme raises an "Open in FCTC?"
