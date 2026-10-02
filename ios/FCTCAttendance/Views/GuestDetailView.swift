@@ -6,12 +6,13 @@ struct GuestDetailView: View {
     let runtime: AppRuntime
     let guest: SharedGuest
     let checklist: ChecklistViewModel?
-    // Unfiltered on purpose: a filter built in a custom `init` is rebuilt on
-    // every parent render, which spun this screen and froze it under UI tests.
-    // Both readers filter in memory, as before.
+    // All four queries are unfiltered on purpose. A filtered `@Query` on this
+    // screen (P8 tried two forms) made SwiftUI re-render and refetch without
+    // end once the promotion screen was pushed on top; Home and Outbox carry
+    // the same filter without trouble, so the cause is this screen's shape,
+    // not the predicate. The readers filter in memory, as before P8.
     @Query private var guestOperations: [PendingGuestOperation]
-    /// Outstanding rows only; `hasPendingAttendance` ignores done ones.
-    @Query(filter: PendingSubmission.outstandingPredicate) private var submissions: [PendingSubmission]
+    @Query private var submissions: [PendingSubmission]
     @Query private var cachedGuests: [CachedGuest]
     /// Unfiltered on purpose: the endpoint comes from `runtime.config`, which
     /// can change while this screen is open, and a `@Query` filter is fixed
