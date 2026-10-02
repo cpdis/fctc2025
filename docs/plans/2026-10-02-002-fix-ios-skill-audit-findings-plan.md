@@ -445,8 +445,9 @@ is `git revert -m 1 <merge commit>`; rollback of everything is a reset to the ch
 - Merged on `claude/ios-keyboard-dismissal-bugs-07a47b`, one merge commit each: P2 `e841a88`,
   P1 `7321a44`, P3 `7ad1857`, P5a `05b82e5`, P4 `3ea2079`, P7 `8ee9b74`, P6 `968b39e`,
   P3b `b88b0eb` (the deferred items that touched `FCTCAttendanceApp.swift`, `SettingsView.swift`
-  and `ChecklistView.swift`), P8 `5fc1b6d`.
-- Awaiting Colin: P5b on `fix/p5b-colour` (`3913817`) with its review page; the P9 notice copy.
+  and `ChecklistView.swift`), P8 `5fc1b6d`, P9 `d954d8f`.
+- Awaiting Colin: P5b on `fix/p5b-colour` (`3913817`) with its review page
+  (`review/contrast/index.html`, 64 captures); a read of the P9 notice copy.
 - Found and fixed during integration, outside the audit: the speech permission callback
   isolation crash (`00cb904`); the guest detail render loop from P8's filtered `@Query`,
   bisected by merge and reverted (`9c1ed6a`).
