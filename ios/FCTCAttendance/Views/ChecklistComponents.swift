@@ -41,9 +41,10 @@ struct MemberCheckRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(name)
         .accessibilityValue(accessibilityValueText)
-        // Toggle is a refinement of button: keep both, or the row stops being a
-        // button to VoiceOver and to the UI tests that look it up as one.
-        .accessibilityAddTraits([.isButton, .isToggle])
+        // Not `.isToggle`: XCUITest then files the row as a switch and every
+        // `app.buttons["member-…"]` lookup breaks. The value already says
+        // "Checked" or "Not checked", so the button trait carries the state.
+        .accessibilityAddTraits(.isButton)
         // Stats stay one swipe away for VoiceOver without crowding the value.
         .accessibilityCustomContent("Season attendances", Text("\(stats.attendanceCount)"))
         .accessibilityCustomContent("Last attended", Text(lastAttendedLabel))
