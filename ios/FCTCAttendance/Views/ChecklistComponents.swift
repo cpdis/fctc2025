@@ -41,7 +41,9 @@ struct MemberCheckRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(name)
         .accessibilityValue(accessibilityValueText)
-        .accessibilityAddTraits(.isToggle)
+        // Toggle is a refinement of button: keep both, or the row stops being a
+        // button to VoiceOver and to the UI tests that look it up as one.
+        .accessibilityAddTraits([.isButton, .isToggle])
         // Stats stay one swipe away for VoiceOver without crowding the value.
         .accessibilityCustomContent("Season attendances", Text("\(stats.attendanceCount)"))
         .accessibilityCustomContent("Last attended", Text(lastAttendedLabel))
