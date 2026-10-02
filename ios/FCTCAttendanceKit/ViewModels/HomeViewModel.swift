@@ -128,29 +128,12 @@ public final class HomeViewModel {
         let generation = engineGeneration
         eventMonitor.start(engine: engine) { [weak self] event in
             guard let self, generation == engineGeneration else { return }
-            switch event {
-            case .written:
-                syncBanner = SyncBanner(kind: .success, message: "Attendance synced.")
-                bannerSource = .sync
-            case .conflict:
-                syncBanner = SyncBanner(kind: .conflict, message: UserFacingError.conflict)
-                bannerSource = .sync
-            case .parked(_, let message):
-                syncBanner = SyncBanner(
-                    kind: message == UserFacingError.offline ? .offline : .parked,
-                    message: message
-                )
-                bannerSource = .sync
-            case .authenticationRequired:
-                syncBanner = SyncBanner(kind: .authentication, message: UserFacingError.authentication)
-                bannerSource = .sync
-            case .failed(_, let message), .serviceFailed(let message):
-                syncBanner = SyncBanner(kind: .error, message: message)
-                bannerSource = .sync
-            case .syncActivity(let isActive):
+            if case .syncActivity(let isActive) = event {
                 isSyncing = isActive
-            case .queued, .rosterRefreshed:
-                break
+            } else if let banner = SyncBanner(event: event) {
+                // Home is the one screen that also confirms a success.
+                syncBanner = banner
+                bannerSource = .sync
             }
         }
     }

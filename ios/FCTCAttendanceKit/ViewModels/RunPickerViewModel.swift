@@ -155,18 +155,10 @@ public final class RunPickerViewModel {
 
     private func observeEvents() {
         eventMonitor.start(engine: engine) { [weak self] event in
-            switch event {
-            case .failed(_, let message), .serviceFailed(let message):
-                self?.errorMessage = message
-            case .authenticationRequired:
-                self?.errorMessage = UserFacingError.authentication
-            case .parked(_, let message):
-                self?.errorMessage = message
-            case .conflict:
-                self?.errorMessage = UserFacingError.conflict
-            case .queued, .written, .rosterRefreshed, .syncActivity:
-                break
-            }
+            // These screens show problems only; a success leaves the last
+            // error in place, as before.
+            guard let banner = SyncBanner(event: event), banner.isProblem else { return }
+            self?.errorMessage = banner.message
         }
     }
 

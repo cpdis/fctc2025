@@ -6,9 +6,17 @@ struct GuestDetailView: View {
     let runtime: AppRuntime
     let guest: SharedGuest
     let checklist: ChecklistViewModel?
+    /// Unsettled operations only: both readers skip completed and superseded
+    /// rows. The guest ID lives inside the encoded request, so it is matched
+    /// in memory.
     @Query private var guestOperations: [PendingGuestOperation]
-    @Query private var submissions: [PendingSubmission]
+    /// Outstanding rows only; `hasPendingAttendance` ignores done ones.
+    @Query(filter: PendingSubmission.outstandingPredicate) private var submissions: [PendingSubmission]
+    /// This guest's rows in every workbook; the workbook is picked in memory.
     @Query private var cachedGuests: [CachedGuest]
+    /// Unfiltered on purpose: the endpoint comes from `runtime.config`, which
+    /// can change while this screen is open, and a `@Query` filter is fixed
+    /// at init.
     @Query private var sharedCaches: [SharedSheetCache]
     @State private var history: GuestHistory?
     @State private var error: String?
@@ -16,6 +24,18 @@ struct GuestDetailView: View {
     @State private var isWorking = false
     @State private var historicalRun: RunSnapshot?
     @State private var showingRename = false
+
+    init(runtime: AppRuntime, guest: SharedGuest, checklist: ChecklistViewModel?) {
+        self.runtime = runtime
+        self.guest = guest
+        self.checklist = checklist
+        // #Predicate needs plain captured values, not enum calls or `guest`.
+        let completed = GuestOperationPhase.completed.rawValue
+        let superseded = GuestOperationPhase.superseded.rawValue
+        _guestOperations = Query(filter: #Predicate { $0.phaseRaw != completed && $0.phaseRaw != superseded })
+        let guestId = guest.guestId
+        _cachedGuests = Query(filter: #Predicate { $0.guestId == guestId })
+    }
 
     // A confirmed name mutation updates the cache before history is fetched again.
     private var currentGuest: SharedGuest {

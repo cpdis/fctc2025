@@ -11,7 +11,10 @@ import Security
 
 public protocol SecretStoring: Sendable {
     func readSecret() throws -> String?
+    /// Stores a non-empty secret. `save` routes an empty one to `deleteSecret`.
     func writeSecret(_ value: String) throws
+    /// Removes the stored secret. A missing secret counts as success (PLAT-18).
+    func deleteSecret() throws
 }
 
 public protocol AppConfigPersisting: Sendable {
@@ -56,7 +59,12 @@ public final class UserDefaultsAppConfigPersistence: AppConfigPersisting, @unche
     public func save(_ config: AppConfig) throws {
         // Write the sensitive value first. If Keychain rejects the write, the visible
         // endpoint does not move ahead to a configuration the app cannot use.
-        try secretStore.writeSecret(config.secret)
+        // An empty secret means "forget it", never "store an empty string".
+        if config.secret.isEmpty {
+            try secretStore.deleteSecret()
+        } else {
+            try secretStore.writeSecret(config.secret)
+        }
         defaults.set(config.endpoint?.absoluteString, forKey: Key.endpoint)
         defaults.set(config.deviceName, forKey: Key.deviceName)
     }
@@ -89,11 +97,6 @@ public struct KeychainSecretStore: SecretStoring {
     }
 
     public func writeSecret(_ value: String) throws {
-        if value.isEmpty {
-            try deleteSecret()
-            return
-        }
-
         let data = Data(value.utf8)
         let updateStatus = SecItemUpdate(
             baseQuery() as CFDictionary,

@@ -4,7 +4,18 @@ import SwiftData
 extension SyncEngine {
     func drainGuestOperations() async {
         do {
-            let rows = try modelContext.fetch(FetchDescriptor<PendingGuestOperation>(sortBy: [SortDescriptor(\.createdAt)]))
+            // Exclude the terminal phases rather than match the two live ones:
+            // an unknown raw phase reads as `.checking` and must still drain.
+            let completed = GuestOperationPhase.completed.rawValue, conflict = GuestOperationPhase.conflict.rawValue
+            let rejected = GuestOperationPhase.rejected.rawValue, superseded = GuestOperationPhase.superseded.rawValue
+            let rows = try modelContext.fetch(FetchDescriptor<PendingGuestOperation>(
+                predicate: #Predicate {
+                    $0.phaseRaw != completed && $0.phaseRaw != conflict && $0.phaseRaw != rejected && $0.phaseRaw != superseded
+                },
+                sortBy: [SortDescriptor(\.createdAt)]
+            ))
+            // Checked again per row: another call can settle a row while an
+            // earlier one is awaiting the sheet.
             for row in rows where row.phase == .queued || row.phase == .checking {
                 await drainGuestOperation(id: row.id)
                 // Retrying an unsent head must not let newer structural changes
@@ -47,17 +58,20 @@ extension SyncEngine {
             row.phase = .completed; row.lastError = nil; row.responseData = try JSONEncoder().encode(response)
             row.conflictData = nil
             if let guestJSON = response["guest"], let guest = try? guestJSON.decoded(SharedGuest.self) {
-                let cached = try modelContext.fetch(FetchDescriptor<CachedGuest>()).first { $0.spreadsheetId == row.spreadsheetId && $0.guestId == guest.guestId }
-                if let cached {
+                if let cached = try cachedGuest(spreadsheetId: row.spreadsheetId, guestId: guest.guestId) {
                     // Mutation responses need not contain a total. Preserve the
                     // confirmed snapshot until an authoritative state refresh.
                     try cached.updateGuest(guest, preserveMissingTotals: true)
                 } else { modelContext.insert(try CachedGuest(spreadsheetId: row.spreadsheetId, guest: guest)) }
-                for provisional in try modelContext.fetch(FetchDescriptor<ProvisionalGuest>()) where provisional.operationId == id {
+                let provisionals = try modelContext.fetch(FetchDescriptor<ProvisionalGuest>(predicate: #Predicate { $0.operationId == id }))
+                for provisional in provisionals {
                     provisional.resolvedGuestId = guest.guestId
                 }
             }
-            for candidate in try modelContext.fetch(FetchDescriptor<GuestRecoveryCandidate>()) where candidate.operationId == id {
+            // Optional on both sides: #Predicate will not promote a UUID to UUID?.
+            let operationId: UUID? = id
+            let candidates = try modelContext.fetch(FetchDescriptor<GuestRecoveryCandidate>(predicate: #Predicate { $0.operationId == operationId }))
+            for candidate in candidates {
                 candidate.status = .imported
             }
             try modelContext.save()

@@ -25,6 +25,8 @@ struct EventsView: View {
     /// The Events tab's stack, owned by RootTabView so an engine swap can reset it.
     @Binding var path: NavigationPath
 
+    // These four stay unfiltered: `ActiveSeason` picks the endpoint and season
+    // from `runtime.config` at read time, and a `@Query` filter is fixed at init.
     @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
     @Query(sort: \Member.name) private var cachedMembers: [Member]
     /// Every outbox row, finished ones included: a confirmed shared row stays in
