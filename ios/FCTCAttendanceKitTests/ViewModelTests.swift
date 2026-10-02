@@ -433,7 +433,9 @@ struct ViewModelTests {
     /// CA-16: a refused Confirm or Save says why instead of failing silently.
     @Test("Refused confirm and save set a message")
     func refusalsSetMessages() async throws {
-        let checklist = ChecklistViewModel(run: run(row: 42, dayOffset: 0), roster: ["Aaron"], engine: ViewModelSyncClient())
+        // The sheet already holds the distance, so the seeded draft is unchanged.
+        // (With only an approx km the draft would differ and Confirm would pass.)
+        let checklist = ChecklistViewModel(run: run(row: 42, dayOffset: 0, actualKm: 7.1), roster: ["Aaron"], engine: ViewModelSyncClient())
         await #expect(throws: ChecklistError.unchangedDraft) { try await checklist.confirm(mode: .merge) }
         #expect(checklist.errorMessage == ChecklistError.unchangedDraft.errorDescription)
 
