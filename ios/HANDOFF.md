@@ -21,6 +21,31 @@
   always round-trips through `parse`; `parse` rejects `nan` and `inf`. The Add Run form state
   is `AddRunDraft` in the kit (`canAdd`, `request`), with unit tests.
 
+## Audit fixes, waves 1 and 2 (2 October 2026)
+
+- Plan: `docs/plans/2026-10-02-002-fix-ios-skill-audit-findings-plan.md`. Rollback tag
+  `checkpoint-2026-10-02-before-audit-fixes`. Each package is one merge commit:
+  P2 `e841a88` (SwiftUI and view models), P1 `7321a44` (shared sync), P3 `7ad1857` (test
+  hygiene), P5a `05b82e5` (accessibility mechanics and copy), P4 `3ea2079` (drain and
+  background), plus small follow-up commits for test expectations the packages changed.
+- Found during integration, fixed in `00cb904`: the first dictation on a fresh install
+  crashed in `SpeechService.requestAuthorization`. The permission callback was formed inside
+  the `@MainActor` class, so it was inferred main-actor isolated and trapped on the
+  permission service's background queue. Same class as the audio-tap finding, one function
+  away. Reset the simulator's speech and microphone privacy to reproduce.
+- Decisions: checklist rows keep the button trait and not the toggle trait, because XCUITest
+  files a toggle-trait element as a switch and six test files look rows up as buttons; the
+  row value carries "Checked" / "Not checked" and the provenance ("Checked, Voice").
+- Product observation, not changed: on a fresh unrecorded run the draft seeds its distance
+  from the approx km, so Confirm is enabled before anyone is checked and confirming writes
+  the approx value as actual.
+- Verification after each merge on iPhone 17 Pro (iOS 26.5): full kit target (477 tests,
+  66 suites after P4), the package's UI suites, and a five-iteration kit run after P3.
+  One simulator at a time: CoreSimulatorService crashed nineteen times under three
+  parallel boots and needed a Mac restart.
+- Still to come (wave 3): P5b colour and contrast with a review page for Colin, P6 platform
+  details and dead code, P7 predicates and test-file splits; then P8 and P9.
+
 ## Skill audit (2 October 2026)
 
 - Seven Opus subagents audited the iOS code read-only, each following a group of third-party
