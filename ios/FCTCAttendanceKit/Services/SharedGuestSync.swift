@@ -70,7 +70,7 @@ extension SyncEngine {
                 var preserved = state
                 let rosterNames = Set(state.roster.map(\.name))
                 preserved.birthdays = existing.state?.birthdays?.filter { rosterNames.contains($0.name) }
-                newCache.stateData = try JSONEncoder().encode(preserved)
+                newCache.stateData = try JSONCoding.encoder.encode(preserved)
             }
             existing.stateData = newCache.stateData; existing.refreshedAt = seenAt
         } else { modelContext.insert(newCache) }
@@ -93,7 +93,7 @@ extension SyncEngine {
             result.guest = try cached.updateGuest(result.guest)
             // Do not persist old history over a newer identity's confirmed cache.
             if result.guest.revision == receivedRevision {
-                cached.historyData = try JSONEncoder().encode(result)
+                cached.historyData = try JSONCoding.encoder.encode(result)
             }
         }
         try modelContext.save()
@@ -200,7 +200,7 @@ extension SyncEngine {
         guard let row = try guestOperationRecord(id: id) else { return nil }
         return GuestOperationSnapshot(id: row.id, action: row.operation?.action ?? "", phase: row.phase,
             message: row.lastError, conflict: row.conflict,
-            response: row.responseData.flatMap { try? JSONDecoder().decode(GuestJSON.self, from: $0) },
+            response: row.responseData.flatMap { try? JSONCoding.decoder.decode(GuestJSON.self, from: $0) },
             guestId: row.operation?.request["guestId"]?.string,
             proposedName: row.operation?.request["displayName"]?.string)
     }

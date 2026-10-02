@@ -37,7 +37,7 @@ extension SyncEngine {
             throw SheetAPIError.server(code: "pending_verification", message: UserFacingError.checkingSavedChanges)
         }
         candidate.selectedGuestId = guestId
-        candidate.selectedRunData = try run.map { try JSONEncoder().encode($0) }
+        candidate.selectedRunData = try run.map { try JSONCoding.encoder.encode($0) }
         candidate.status = status
         try modelContext.save()
     }

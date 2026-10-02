@@ -26,9 +26,9 @@ public final class SharedSheetCache {
         guard let book = state.spreadsheetId, let season = state.seasonSheetId else { throw SheetAPIError.badPayload(message: "Missing workbook identity.") }
         key = Self.key(endpoint: endpointIdentity, spreadsheetId: book, seasonSheetId: season); self.endpointIdentity = endpointIdentity
         spreadsheetId = book; seasonSheetId = season
-        stateData = try JSONEncoder().encode(state); self.refreshedAt = refreshedAt
+        stateData = try JSONCoding.encoder.encode(state); self.refreshedAt = refreshedAt
     }
-    public var state: SheetState? { try? JSONDecoder().decode(SheetState.self, from: stateData) }
+    public var state: SheetState? { try? JSONCoding.decoder.decode(SheetState.self, from: stateData) }
 
     /// The endpoint's live season among its cached rows, for a cold launch
     /// (no in-memory state yet). The engine's writes and the app's tabs both
@@ -62,10 +62,10 @@ public final class CachedGuest {
     public var historyData: Data?
     public init(spreadsheetId: String, guest: SharedGuest) throws {
         key = "\(spreadsheetId):\(guest.guestId)"; self.spreadsheetId = spreadsheetId; guestId = guest.guestId
-        valueData = try JSONEncoder().encode(guest)
+        valueData = try JSONCoding.encoder.encode(guest)
     }
-    public var guest: SharedGuest? { try? JSONDecoder().decode(SharedGuest.self, from: valueData) }
-    public var history: GuestHistory? { historyData.flatMap { try? JSONDecoder().decode(GuestHistory.self, from: $0) } }
+    public var guest: SharedGuest? { try? JSONCoding.decoder.decode(SharedGuest.self, from: valueData) }
+    public var history: GuestHistory? { historyData.flatMap { try? JSONCoding.decoder.decode(GuestHistory.self, from: $0) } }
 
     /// Reads and mutation receipts can arrive out of order. Identity revisions
     /// never go backwards; equal revisions still carry refreshed attendance totals.
@@ -78,7 +78,7 @@ public final class CachedGuest {
             updated.confirmedRuns = incoming.confirmedRuns ?? current?.confirmedRuns
             updated.lastAttendance = incoming.lastAttendance ?? current?.lastAttendance
         }
-        valueData = try JSONEncoder().encode(updated)
+        valueData = try JSONCoding.encoder.encode(updated)
         return updated
     }
 }
@@ -99,15 +99,15 @@ public final class PendingGuestOperation {
     public var createdAt: Date
     public init(operation: SharedGuestOperation, endpointIdentity: String, spreadsheetId: String) throws {
         id = operation.id; self.endpointIdentity = endpointIdentity; self.spreadsheetId = spreadsheetId
-        operationData = try JSONEncoder().encode(operation); phaseRaw = GuestOperationPhase.queued.rawValue
+        operationData = try JSONCoding.encoder.encode(operation); phaseRaw = GuestOperationPhase.queued.rawValue
         createdAt = .now
     }
-    public var operation: SharedGuestOperation? { try? JSONDecoder().decode(SharedGuestOperation.self, from: operationData) }
+    public var operation: SharedGuestOperation? { try? JSONCoding.decoder.decode(SharedGuestOperation.self, from: operationData) }
     public var phase: GuestOperationPhase {
         get { GuestOperationPhase(rawValue: phaseRaw) ?? .checking }
         set { phaseRaw = newValue.rawValue }
     }
-    public var conflict: SharedGuestConflict? { conflictData.flatMap { try? JSONDecoder().decode(SharedGuestConflict.self, from: $0) } }
+    public var conflict: SharedGuestConflict? { conflictData.flatMap { try? JSONCoding.decoder.decode(SharedGuestConflict.self, from: $0) } }
 }
 
 @Model
@@ -151,5 +151,5 @@ public final class GuestRecoveryCandidate {
         get { GuestRecoveryStatus(rawValue: statusRaw) ?? .pending }
         set { statusRaw = newValue.rawValue }
     }
-    public var selectedRun: GuestImportEntry? { selectedRunData.flatMap { try? JSONDecoder().decode(GuestImportEntry.self, from: $0) } }
+    public var selectedRun: GuestImportEntry? { selectedRunData.flatMap { try? JSONCoding.decoder.decode(GuestImportEntry.self, from: $0) } }
 }

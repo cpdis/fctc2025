@@ -31,7 +31,7 @@ extension SyncEngine {
                   row.phase == .queued || row.phase == .checking else { return }
             // Decode explicitly: corrupt bytes must reject the row, not return
             // early and leave a head that blocks every later operation.
-            let operation = try JSONDecoder().decode(SharedGuestOperation.self, from: row.operationData)
+            let operation = try JSONCoding.decoder.decode(SharedGuestOperation.self, from: row.operationData)
             guard row.endpointIdentity == api.endpointIdentity,
                   try currentSharedState()?.spreadsheetId == row.spreadsheetId else {
                 row.lastError = "Return to the original sheet to check this saved change."; try modelContext.save(); return
@@ -55,7 +55,7 @@ extension SyncEngine {
                 attemptedDispatch = true
                 response = try await api.perform(operation)
             }
-            row.phase = .completed; row.lastError = nil; row.responseData = try JSONEncoder().encode(response)
+            row.phase = .completed; row.lastError = nil; row.responseData = try JSONCoding.encoder.encode(response)
             row.conflictData = nil
             if let guestJSON = response["guest"], let guest = try? guestJSON.decoded(SharedGuest.self) {
                 if let cached = try cachedGuest(spreadsheetId: row.spreadsheetId, guestId: guest.guestId) {
@@ -82,7 +82,7 @@ extension SyncEngine {
                 row.phase = conflict.operationId != nil && conflict.operationId != id.uuidString.lowercased() ? .queued : .checking
                 row.lastError = UserFacingError.checkingSavedChanges
             } else {
-                row.phase = .conflict; row.conflictData = try? JSONEncoder().encode(conflict); row.lastError = conflict.message
+                row.phase = .conflict; row.conflictData = try? JSONCoding.encoder.encode(conflict); row.lastError = conflict.message
             }
             try? modelContext.save()
         } catch {
@@ -103,7 +103,7 @@ extension SyncEngine {
         guard row.phase == .completed, let data = row.responseData else {
             throw SheetAPIError.server(code: "pending_verification", message: row.lastError ?? UserFacingError.checkingSavedChanges)
         }
-        return try JSONDecoder().decode(GuestJSON.self, from: data)
+        return try JSONCoding.decoder.decode(GuestJSON.self, from: data)
     }
     func addSharedMember(name: String, state: SheetState) async throws -> AddMemberResult {
         guard let season = state.seasonSheetId else { throw SheetAPIError.notConfigured }
