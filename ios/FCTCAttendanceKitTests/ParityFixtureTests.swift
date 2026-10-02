@@ -117,6 +117,19 @@ struct ParityFixtureTests {
         #expect(ClubDays.weekdays(for: season).map(\.shortName) == fixture.clubWeekdays)
     }
 
+    @Test("Every parity fixture in the bundle is covered by `seasons`")
+    func everyFixtureIsListed() throws {
+        // Locate the directory through a known fixture, so the lookup follows
+        // whatever layout the bundle uses for `attendance/parity`.
+        let directory = try Fixtures.url("parity/\(ParityFixture.seasons[0]).json").deletingLastPathComponent()
+        let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+        let years = files
+            .filter { $0.pathExtension == "json" }
+            .compactMap { Int($0.deletingPathExtension().lastPathComponent) }
+        // A new season file with no entry in `seasons` would never be checked.
+        #expect(Set(years) == Set(ParityFixture.seasons))
+    }
+
     @Test("RunLabel parses every raw run and meet into the golden fields", arguments: ParityFixture.seasons)
     func labels(season: Int) throws {
         let fixture = try ParityFixture.load(season)
@@ -141,7 +154,7 @@ struct ParityFixtureTests {
         #expect(model.headline.runners == expected.totals.runners)
 
         let members = model.leaderboard.byRuns.sorted { codeUnitPrecedes($0.name, $1.name) }
-        #expect(members.map(\.name) == expected.members.map(\.name))
+        try #require(members.map(\.name) == expected.members.map(\.name))
         for (member, wanted) in zip(members, expected.members) {
             #expect(member.runs == wanted.runs, "\(wanted.name)")
             #expect(roundKm(member.memberKm) == wanted.memberKm, "\(wanted.name)")

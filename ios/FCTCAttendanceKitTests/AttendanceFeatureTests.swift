@@ -184,7 +184,7 @@ struct RoundTwoHelperTests {
     }
 }
 
-@Suite("Run reminders")
+@Suite("Run reminders", .timeLimit(.minutes(1)))
 struct RunReminderTests {
     @Test("Reconcile cancels old reminders and schedules only future blank runs")
     func reminderReconcile() async throws {
@@ -431,6 +431,7 @@ struct SharedScreenshotInboxTests {
     func listingAndClearing() throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: "fctc-share-inbox-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
         let inbox = SharedScreenshotInbox(containerURL: root)
         let folder = try inbox.inboxURL()
         try Data([2]).write(to: folder.appending(path: "b.png"))
@@ -448,7 +449,7 @@ struct SharedScreenshotInboxTests {
     }
 }
 
-@Suite("Background outbox drain")
+@Suite("Background outbox drain", .timeLimit(.minutes(1)))
 struct BackgroundOutboxDrainTests {
     @Test("Scheduler registers and submits only for configured outstanding work")
     func schedulerPolicy() async {

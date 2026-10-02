@@ -10,7 +10,7 @@ import Testing
 
 @testable import FCTCAttendanceKit
 
-@Suite("U4 view models")
+@Suite("U4 view models", .timeLimit(.minutes(1)))
 @MainActor
 struct ViewModelTests {
 
@@ -123,15 +123,15 @@ struct ViewModelTests {
         #expect(viewModel.conflictCount == 1)
 
         await client.emit(.parked(id: UUID(), message: UserFacingError.busy))
-        await waitUntil { viewModel.syncBanner?.kind == .parked }
+        #expect(await waitUntil { viewModel.syncBanner?.kind == .parked })
         #expect(viewModel.syncBanner?.message == UserFacingError.busy)
 
         await client.emit(.parked(id: UUID(), message: UserFacingError.offline))
-        await waitUntil { viewModel.syncBanner?.kind == .offline }
+        #expect(await waitUntil { viewModel.syncBanner?.kind == .offline })
         #expect(viewModel.syncBanner?.message == UserFacingError.offline)
 
         await client.emit(.authenticationRequired(id: UUID()))
-        await waitUntil { viewModel.syncBanner?.kind == .authentication }
+        #expect(await waitUntil { viewModel.syncBanner?.kind == .authentication })
         #expect(viewModel.syncBanner?.message == "The shared secret was rejected. Open Settings and scan a new setup code.")
     }
 
@@ -463,7 +463,7 @@ struct ViewModelTests {
     }
 
     @Test("Outbox and Home show sync activity only while the engine drains")
-    func syncActivityTracksDrains() async {
+    func syncActivityTracksDrains() async throws {
         let client = ViewModelSyncClient()
         let outbox = OutboxViewModel(engine: client)
         let home = HomeViewModel(engine: client)
@@ -471,18 +471,18 @@ struct ViewModelTests {
         #expect(!home.isSyncing)
 
         await client.emit(.syncActivity(isActive: true))
-        await waitUntil { outbox.isSyncing && home.isSyncing }
+        #expect(await waitUntil { outbox.isSyncing && home.isSyncing })
         #expect(outbox.isSyncing)
         #expect(home.isSyncing)
 
         await client.emit(.syncActivity(isActive: false))
-        await waitUntil { !outbox.isSyncing && !home.isSyncing }
+        #expect(await waitUntil { !outbox.isSyncing && !home.isSyncing })
         #expect(!outbox.isSyncing)
         #expect(!home.isSyncing)
 
         // A replaced connection must not inherit the old engine's spinner.
         await client.emit(.syncActivity(isActive: true))
-        await waitUntil { outbox.isSyncing && home.isSyncing }
+        try #require(await waitUntil { outbox.isSyncing && home.isSyncing })
         outbox.replaceEngine(ViewModelSyncClient())
         home.replaceEngine(ViewModelSyncClient())
         #expect(!outbox.isSyncing)
@@ -587,8 +587,10 @@ struct ViewModelTests {
         )
     }
 
-    private func waitUntil(_ condition: @escaping @MainActor () -> Bool) async {
+    /// Yields up to 30 times; returns whether the condition became true.
+    private func waitUntil(_ condition: @escaping @MainActor () -> Bool) async -> Bool {
         for _ in 0..<30 where !condition() { await Task.yield() }
+        return condition()
     }
 }
 

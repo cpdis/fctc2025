@@ -15,7 +15,7 @@ import Testing
 
 @testable import FCTCAttendanceKit
 
-@Suite("Previous-season snapshot", .serialized)
+@Suite("Previous-season snapshot")
 struct SeasonSnapshotTests {
     @Test("Fetching last season leaves members, runs, guests, reminders and the live season alone")
     func readOnly() async throws {
@@ -57,7 +57,8 @@ struct SeasonSnapshotTests {
         let cold = snapshotEngine(container, offline)
         #expect(await cold.latestState == nil)
         #expect(try await cold.currentSharedState()?.seasonSheetId == 26)
-        await #expect(throws: (any Error).self) {
+        // Offline delivery is unproven, so the add is saved and waits on its receipt.
+        await #expect(throws: SheetAPIError.server(code: "pending_verification", message: UserFacingError.checkingSavedChanges)) {
             try await cold.addRun(AddRunRequest(date: "Fri, 13-Jan", meet: "Example beach", run: "Tempo"))
         }
         let operation = try #require(ModelContext(container).fetch(FetchDescriptor<PendingGuestOperation>()).first?.operation)
@@ -212,7 +213,7 @@ struct SeasonSnapshotTests {
         _ = try await engine.refreshState()
         let before = try footprint(container)
 
-        await #expect(throws: (any Error).self) { try await engine.previousSeasonSnapshot() }
+        await #expect(throws: expectedError(failure)) { try await engine.previousSeasonSnapshot() }
         let rows = try ModelContext(container).fetch(FetchDescriptor<SharedSheetCache>())
         #expect(rows.map(\.seasonSheetId) == [26])
         #expect(try footprint(container) == before)
@@ -268,6 +269,15 @@ private func failureStep(_ failure: SeasonSnapshotTests.Failure, live: Data) -> 
     case .rejected: .response(json("{\"ok\":false,\"error\":\"bad_secret\",\"message\":\"Rejected\"}"))
     // The server answered, but with the live season instead of last season.
     case .wrongSeason: .response(live)
+    }
+}
+
+/// What `failureStep` surfaces when no cached row can cover for it.
+private func expectedError(_ failure: SeasonSnapshotTests.Failure) -> SheetAPIError {
+    switch failure {
+    case .offline: .network("offline")
+    case .rejected: .badSecret(message: "Rejected")
+    case .wrongSeason: .badPayload(message: "The sheet did not return the season it was asked for.")
     }
 }
 

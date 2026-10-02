@@ -3,7 +3,7 @@ import SwiftData
 import Testing
 @testable import FCTCAttendanceKit
 
-@Suite("Shared guest sync", .serialized)
+@Suite("Shared guest sync")
 struct SharedGuestSyncTests {
     @Test("Two clients reconstruct the same confirmed guest history from the server")
     func secondDevice() async throws {
@@ -41,6 +41,7 @@ struct SharedGuestSyncTests {
     @Test("An unknown attendance result resumes receipt checking without another submit")
     func unknownResultRestart() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fctc-shared-restart-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent("store.sqlite")
         let container = try guestContainer(url)
@@ -103,6 +104,7 @@ struct SharedGuestSyncTests {
     @Test("Ambiguous offline identity parks attendance until an explicit existing selection")
     func identityDependency() async throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("fctc-provisional-\(UUID()).sqlite")
+        defer { for suffix in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: url.path + suffix) } }
         let container = try guestContainer(url)
         let transport = StubTransport([.response(try guestStateResponse()), .response(json("{\"ok\":true,\"conflict\":{\"reason\":\"identity_ambiguous\",\"message\":\"Choose a person.\",\"guestIds\":[\"00000001-1111-4111-8111-111111111111\"]}}"))])
         let engine = guestEngine(container, transport)
@@ -199,11 +201,12 @@ func guestDraft() -> AttendanceDraft {
         endpointIdentity: configuredAPI.endpoint?.absoluteString, unnamedGuests: 0)
 }
 
-@Suite("Shared guest mutation recovery", .serialized)
+@Suite("Shared guest mutation recovery")
 struct SharedGuestMutationRecoveryTests {
     @Test("A lost promotion response is checked after restart without another commit")
     func structuralReceipt() async throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("fctc-promotion-\(UUID()).sqlite")
+        defer { for suffix in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: url.path + suffix) } }
         let container = try guestContainer(url)
         let fixture = try JSONDecoder().decode(GuestJSON.self, from: Data(contentsOf: Fixtures.url("guests/contract.json")))
         let preview: PromotionPreview = try fixture["responses"]!["previewPromotion"]!.decoded()
@@ -291,7 +294,7 @@ struct SharedGuestMutationRecoveryTests {
         let transport = StubTransport([.response(stateResponse)])
         let engine = guestEngine(container, transport)
         _ = try await engine.refreshState()
-        await #expect(throws: (any Error).self) { try await engine.createGuest(name: "Rene", confirmDistinct: false) }
+        await #expect(throws: SheetAPIError.notImplemented) { try await engine.createGuest(name: "Rene", confirmDistinct: false) }
         #expect(await transport.requestCount == 1)
         #expect(try ModelContext(container).fetch(FetchDescriptor<ProvisionalGuest>()).isEmpty)
     }

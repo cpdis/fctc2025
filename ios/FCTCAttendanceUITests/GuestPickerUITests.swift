@@ -4,6 +4,11 @@ import XCTest
 final class GuestPickerUITests: XCTestCase {
     private var app: XCUIApplication!
 
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
     private func openGuests(row: Int, largeText: Bool = false) {
         app = XCUIApplication()
         app.launchArguments = ["-ui-testing", "-ui-shared-guests"]
@@ -25,6 +30,15 @@ final class GuestPickerUITests: XCTestCase {
         XCTAssertTrue(element.waitForExistence(timeout: 5))
         XCTAssertTrue(element.isHittable)
         element.tap()
+    }
+
+    /// Waits for a keyboard-toolbar button, then taps it. Never swipes: a swipe
+    /// would scroll the list instead of reaching a button pinned to the keyboard.
+    private func tapKeyboardButton(_ identifier: String) {
+        let button = app.buttons[identifier]
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        XCTAssertTrue(button.isHittable)
+        button.tap()
     }
 
     private func capture(_ name: String) {
@@ -72,7 +86,7 @@ final class GuestPickerUITests: XCTestCase {
         let field = app.textFields["guest-picker-name"]
         field.tap()
         field.typeText("Adam X")
-        tap(app.buttons["guest-picker-keyboard-done"])
+        tapKeyboardButton("guest-picker-keyboard-done")
         assertKeyboardDismissed()
         capture("guest-picker-new-name")
         tap(app.buttons["guest-picker-create"])
@@ -103,7 +117,7 @@ final class GuestPickerUITests: XCTestCase {
         tap(field)
         field.typeText("T")
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
-        tap(app.buttons["guest-keyboard-done"])
+        tapKeyboardButton("guest-keyboard-done")
         assertKeyboardDismissed()
 
         tap(field)

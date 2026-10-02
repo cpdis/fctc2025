@@ -3,7 +3,7 @@ import SwiftData
 import Testing
 @testable import FCTCAttendanceKit
 
-@Suite("Guest store migration", .serialized)
+@Suite("Guest store migration")
 struct GuestMigrationTests {
     @Test("The installed on-disk schema retains queued names and ambiguous done evidence")
     func installedStoreUpgrade() async throws {
@@ -11,6 +11,7 @@ struct GuestMigrationTests {
         // guest changes. Work only on a copy; never mutate the baseline evidence.
         let source = try Fixtures.url("guests/legacy-v1.store")
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fctc-migration-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let destination = directory.appendingPathComponent("legacy.store")
         try FileManager.default.copyItem(at: source, to: destination)
@@ -50,9 +51,14 @@ struct GuestMigrationTests {
     @Test("A build 8 store opens with liveAt and keeps its shared cache rows")
     func build8StoreUpgrade() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fctc-migration-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let destination = directory.appendingPathComponent("build8.store")
-        try FileManager.default.copyItem(at: try Fixtures.url("guests/build8-shared.store"), to: destination)
+        let source = try Fixtures.url("guests/build8-shared.store")
+        try FileManager.default.copyItem(at: source, to: destination)
+        for suffix in ["-wal", "-shm"] where FileManager.default.fileExists(atPath: source.path + suffix) {
+            try FileManager.default.copyItem(atPath: source.path + suffix, toPath: destination.path + suffix)
+        }
         let container = try ModelContainer(for: AttendanceSchema.schema,
             configurations: ModelConfiguration(schema: AttendanceSchema.schema, url: destination))
         let context = ModelContext(container)

@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import FCTCAttendanceKit
 
-@Suite("Home refresh binding")
+@Suite("Home refresh binding", .timeLimit(.minutes(1)))
 @MainActor
 struct HomeRefreshBindingTests {
     @Test("Old engine success or failure cannot replace the current workbook", arguments: [false, true])

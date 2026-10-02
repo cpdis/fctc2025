@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import FCTCAttendanceKit
 
-@Suite("Shared guest presentation")
+@Suite("Shared guest presentation", .timeLimit(.minutes(1)))
 @MainActor
 struct SharedGuestViewModelTests {
     static let reneID = "11111111-1111-4111-8111-111111111111"

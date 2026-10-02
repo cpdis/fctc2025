@@ -71,7 +71,7 @@ struct EffectiveRunsOverlayTests {
         await engine.drain()
         #expect(try ModelContext(container).fetch(FetchDescriptor<PendingSubmission>()).first?.status == .queued)
 
-        let evening = try #require(Calendar.current.date(from: DateComponents(year: 2026, month: 9, day: 28, hour: 19)))
+        let evening = try #require(Calendar(identifier: .gregorian).date(from: DateComponents(year: 2026, month: 9, day: 28, hour: 19)))
         let members = ["Aaron", "Col", "Dan"]
         let cached = MemberStats.calculateAll(members: members, runs: try storeInputs(container).cached, now: evening)
         #expect(cached["Aaron"]?.attendanceCount == 6)
@@ -139,7 +139,7 @@ struct EffectiveRunsOverlayTests {
         #expect(attendance(of: contractRun23, in: effective) == namedAndUnnamed.server)
         #expect(effective.unsyncedCount == 0)
 
-        await #expect(throws: (any Error).self) { try await engine.refreshState() }
+        await #expect(throws: SheetAPIError.network("offline")) { try await engine.refreshState() }
         effective = try effectiveRuns(container)
         #expect(attendance(of: contractRun23, in: effective) == namedAndUnnamed.server)
 

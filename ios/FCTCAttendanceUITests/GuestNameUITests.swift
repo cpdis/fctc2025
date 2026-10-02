@@ -4,6 +4,11 @@ import XCTest
 final class GuestNameUITests: XCTestCase {
     private var app: XCUIApplication!
 
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
     private func launch(_ arguments: [String] = []) {
         app = XCUIApplication()
         app.launchArguments = ["-ui-testing", "-ui-shared-guests"] + arguments
@@ -18,6 +23,15 @@ final class GuestNameUITests: XCTestCase {
         XCTAssertTrue(element.waitForExistence(timeout: 5))
         element.tap()
     }
+    /// Waits for a keyboard-toolbar button, then taps it. Never swipes: a swipe
+    /// would scroll the list instead of reaching a button pinned to the keyboard.
+    private func tapKeyboardButton(_ identifier: String) {
+        let button = app.buttons[identifier]
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        XCTAssertTrue(button.isHittable)
+        button.tap()
+    }
+
     private func capture(_ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
@@ -37,7 +51,7 @@ final class GuestNameUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 4) + "Adam X")
-        tap(app.buttons["guest-name-keyboard-done"])
+        tapKeyboardButton("guest-name-keyboard-done")
         capture("guest-name-correction")
         tap(app.buttons["guest-name-save"])
         XCTAssertTrue(app.navigationBars["Adam X"].waitForExistence(timeout: 8))
@@ -81,7 +95,7 @@ final class GuestNameUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 4) + "Adam X")
-        tap(app.buttons["guest-name-keyboard-done"])
+        tapKeyboardButton("guest-name-keyboard-done")
         tap(app.buttons["guest-name-save"])
         let pendingReason = app.staticTexts["guest-name-pending-reason"]
         XCTAssertTrue(pendingReason.waitForExistence(timeout: 8))

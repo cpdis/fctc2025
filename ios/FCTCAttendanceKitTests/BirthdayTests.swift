@@ -183,6 +183,7 @@ struct BirthdayCacheTests {
     @Test("A store reopened without a network refresh retains the scoped birthday")
     func offlineRelaunch() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("birthday-cache-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent("cache.store")
         try await populateStore(at: url)
@@ -194,6 +195,7 @@ struct BirthdayCacheTests {
     @Test("Current birthdays survive historical refresh, an older response, and offline relaunch", arguments: [false, true])
     func sharedSeasonOfflineRelaunch(clearAfterward: Bool) async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("birthday-seasons-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent("cache.store")
         try await populateSeasonSnapshots(at: url, clearAfterward: clearAfterward)

@@ -36,6 +36,6 @@ struct SharedOperationEncodingTests {
     func canonicalEdges() throws {
         let value = GuestJSON.object(["é": .string("René /\n"), "z": .array([.number(-0), .number(1e-7), .number(1e-6), .number(1e20), .number(1e21)])])
         #expect(try value.canonical() == "{\"z\":[0,1e-7,0.000001,100000000000000000000,1e+21],\"é\":\"René /\\n\"}")
-        #expect(throws: (any Error).self) { try GuestJSON.number(.infinity).canonical() }
+        #expect(throws: SheetAPIError.badPayload(message: "Use finite numbers.")) { try GuestJSON.number(.infinity).canonical() }
     }
 }
