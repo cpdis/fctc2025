@@ -177,10 +177,13 @@ extension PendingSubmission {
 
     /// Rows not yet done. Shared by the `@Query` lists and the outstanding count.
     /// A `#Predicate` cannot call into the enum, so the raw value is captured first.
-    public static var outstandingPredicate: Predicate<PendingSubmission> {
+    /// One stored instance, not a computed property: a `@Query` given a fresh
+    /// predicate on every render refetches and re-renders without end, which
+    /// froze the guest history screen.
+    public static let outstandingPredicate: Predicate<PendingSubmission> = {
         let done = SubmissionStatus.done.rawValue
         return #Predicate { $0.stateRaw != done }
-    }
+    }()
 
     /// Rows not yet done for one endpoint. SyncEngine only sends a row to the
     /// endpoint it was saved for, so a connection switch leaves these parked.
