@@ -25,8 +25,4 @@ public enum AttendanceSchema {
     public static var schema: Schema {
         Schema(models)
     }
-
-    /// Optional additive fields permit lightweight migration from installed stores.
-    /// The on-disk upgrade test verifies old submissions and names survive.
-    public static let version = "0.3.0"
 }

@@ -90,10 +90,7 @@ public struct KeychainSecretStore: SecretStoring {
 
     public func writeSecret(_ value: String) throws {
         if value.isEmpty {
-            let status = SecItemDelete(baseQuery() as CFDictionary)
-            guard status == errSecSuccess || status == errSecItemNotFound else {
-                throw KeychainStoreError(status: status)
-            }
+            try deleteSecret()
             return
         }
 
@@ -113,6 +110,14 @@ public struct KeychainSecretStore: SecretStoring {
         let insertStatus = SecItemAdd(insert as CFDictionary, nil)
         guard insertStatus == errSecSuccess else {
             throw KeychainStoreError(status: insertStatus)
+        }
+    }
+
+    /// Removes the stored secret. A missing item counts as success.
+    public func deleteSecret() throws {
+        let status = SecItemDelete(baseQuery() as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw KeychainStoreError(status: status)
         }
     }
 

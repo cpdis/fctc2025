@@ -53,8 +53,7 @@ public struct SystemSyncClock: SyncClock {
     public func now() async -> Date { Date() }
 
     public func sleep(for seconds: TimeInterval) async throws {
-        let nanoseconds = UInt64(max(0, seconds) * 1_000_000_000)
-        try await Task.sleep(nanoseconds: nanoseconds)
+        try await Task.sleep(for: .seconds(max(0, seconds)))
     }
 }
 
@@ -188,7 +187,6 @@ extension SyncEngineClient {
 public struct UnimplementedSyncEngine: SyncEngineClient {
     public init() {}
     public func refreshState() async throws -> SheetState { throw SheetAPIError.notImplemented }
-    public func refresh() async throws -> SheetState { throw SheetAPIError.notImplemented }
     public func enqueue(_ submission: AttendanceSubmission) async throws -> UUID {
         throw SheetAPIError.notImplemented
     }

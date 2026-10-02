@@ -37,26 +37,31 @@ public protocol TextRecognizer: Sendable {
     func recognizeText(in image: CGImage) async throws -> [RecognizedTextLine]
 }
 
-/// On-device production OCR. The synchronous Vision request runs in a detached task,
-/// so a sheet presented from a MainActor view never blocks UI work.
+/// On-device production OCR. This `nonisolated` async function runs off the main
+/// actor, so a sheet presented from a MainActor view never blocks UI work. A
+/// cancelled caller cancels the Vision request.
 public struct VisionTextRecognizer: TextRecognizer {
 
     public init() {}
 
-    public func recognizeText(in image: CGImage) async throws -> [RecognizedTextLine] {
-        try await Task.detached(priority: .userInitiated) {
-            let request = VNRecognizeTextRequest()
-            request.recognitionLevel = .accurate
-            request.recognitionLanguages = ["en"]
-            request.usesLanguageCorrection = false
+    public nonisolated func recognizeText(in image: CGImage) async throws -> [RecognizedTextLine] {
+        // `VNRequest.cancel()` is thread-safe; the compiler cannot know that.
+        nonisolated(unsafe) let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.recognitionLanguages = ["en"]
+        request.usesLanguageCorrection = false
 
+        return try await withTaskCancellationHandler {
+            try Task.checkCancellation()
             let handler = VNImageRequestHandler(cgImage: image)
             try handler.perform([request])
             return (request.results ?? []).compactMap { observation in
                 guard let text = observation.topCandidates(1).first?.string else { return nil }
                 return RecognizedTextLine(text: text, boundingBox: observation.boundingBox)
             }
-        }.value
+        } onCancel: {
+            request.cancel()
+        }
     }
 }
 

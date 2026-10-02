@@ -72,6 +72,7 @@ extension SyncEngine {
             }
             try? modelContext.save()
         } catch {
+            logRowFailure(id: id, error: error)
             guard let row = try? pending(id: id) else { return }
             switch OutboxFailure(error, attemptedDispatch: attemptedDispatch) {
             case .notSent:

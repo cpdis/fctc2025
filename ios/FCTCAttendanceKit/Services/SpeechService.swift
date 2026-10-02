@@ -86,7 +86,7 @@ private final class AudioRequestBox: @unchecked Sendable {
 @MainActor
 public final class SpeechService: Transcriber {
     private static let logger = Logger(
-        subsystem: "com.fctc.attendance",
+        subsystem: "com.cpdis.fctc-attendance",
         category: "SpeechService"
     )
 
