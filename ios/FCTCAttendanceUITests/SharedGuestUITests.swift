@@ -66,10 +66,15 @@ final class SharedGuestUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Rene"].waitForExistence(timeout: 5))
         capture("shared-guests-history")
         app.buttons["guest-promote"].tap()
-        app.buttons["promotion-preview"].tap()
-        let save = app.buttons["Save run and review promotion"].firstMatch
-        if save.waitForExistence(timeout: 2) { save.tap() }
+        // Run 43 has only an approx km. The prefilled km is not a change, so the
+        // untouched checklist goes straight to the preview with no save step.
+        // The save-then-preview path is covered by testSavedRunRemainsSavedWhenPromotionPreviewFails.
+        let preview = app.buttons["promotion-preview"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertEqual(preview.label, "Preview promotion")
+        preview.tap()
         XCTAssertTrue(app.staticTexts["promotion-confirmed-count"].waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["Save run and review promotion"].exists)
         capture("shared-guests-promotion-preview")
         tap(app.buttons["promotion-confirm"])
         XCTAssertTrue(app.staticTexts["Added as a member with 11 recorded runs."].waitForExistence(timeout: 8))

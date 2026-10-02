@@ -633,7 +633,10 @@ the keyboard while that field is focused, and the first scroll of the list also 
 it. **Add Run**'s approx kms field works the same way. Every other text field on the app's
 screens has a Return key and dismisses on scroll. A blank distance leaves the sheet's value
 alone; a distance that is not a number, such as `8..2`, shows an error under the field and
-disables Confirm (or Add) until it is fixed. Error and success messages are primary text with
+disables Confirm (or Add) until it is fixed. The field is prefilled with the run's approx kms
+(or its saved actual kms), and that value on its own does not enable Confirm. Confirm needs a
+checked runner, a guest change, or a typed distance; a confirm that leaves the prefilled value
+untouched records it as the actual distance. Error and success messages are primary text with
 a coloured symbol, so colour is never the only signal, and VoiceOver hears each failure once.
 
 Screenshot and voice entry pre-check a member only on a sure match: an exact name, a

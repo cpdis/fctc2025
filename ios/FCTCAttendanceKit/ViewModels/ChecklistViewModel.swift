@@ -118,10 +118,13 @@ public final class ChecklistViewModel {
     public var distanceIsMalformed: Bool { DistanceText.isMalformed(actualKmText) }
 
     public var draftDiffersFromSheet: Bool {
-        Set(draft.attendees) != Set(run.attendees)
+        // The prefilled distance (the sheet's actual, else its approx) is not a
+        // change on its own. A typed distance that differs from it is.
+        let prefilled = run.actualKm ?? run.approxKm
+        return Set(draft.attendees) != Set(run.attendees)
             || Set(draft.namedGuestIds) != Set(run.namedGuestIds)
             || draft.plusOnes != run.plusOnes
-            || (draft.actualKm ?? run.actualKm) != run.actualKm
+            || (draft.actualKm ?? prefilled) != prefilled
     }
 
     public var requiresRecordedChoice: Bool { run.hasRecordedAttendance || requiresGuestOverwrite }
