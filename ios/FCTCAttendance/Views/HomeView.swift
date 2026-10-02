@@ -38,7 +38,7 @@ struct HomeView: View {
     @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
     @Query private var guestOperations: [PendingGuestOperation]
     @Query(
-        filter: #Predicate<PendingSubmission> { $0.stateRaw != "done" },
+        filter: PendingSubmission.outstandingPredicate,
         sort: \PendingSubmission.createdAt
     ) private var cachedSubmissions: [PendingSubmission]
     @Query private var sheetCaches: [SharedSheetCache]

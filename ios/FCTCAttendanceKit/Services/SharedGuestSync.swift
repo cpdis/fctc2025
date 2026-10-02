@@ -21,9 +21,13 @@ extension SyncEngine {
         try sharedSheetCache(endpoint: endpoint, spreadsheetId: book, seasonSheetId: season)?.liveAt = requestedAt
     }
     func sharedSheetCache(endpoint: String, spreadsheetId: String, seasonSheetId: Int) throws -> SharedSheetCache? {
-        try modelContext.fetch(FetchDescriptor<SharedSheetCache>()).first {
-            $0.endpointIdentity == endpoint && $0.spreadsheetId == spreadsheetId && $0.seasonSheetId == seasonSheetId
-        }
+        try cacheRow(forKey: SharedSheetCache.key(endpoint: endpoint, spreadsheetId: spreadsheetId, seasonSheetId: seasonSheetId))
+    }
+    /// Fetch the one row with this unique key (sees unsaved inserts), or nil.
+    private func cacheRow(forKey key: String) throws -> SharedSheetCache? {
+        var descriptor = FetchDescriptor<SharedSheetCache>(predicate: #Predicate { $0.key == key })
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
     func requireSharedState() throws -> SheetState {
         guard let state = try currentSharedState(), state.supportsSharedGuests,
@@ -45,8 +49,7 @@ extension SyncEngine {
     /// Insert or replace one endpoint/workbook/season row. The caller saves.
     func upsertSharedSheetCache(_ state: SheetState, endpoint: String, seenAt: Date) throws {
         let newCache = try SharedSheetCache(endpointIdentity: endpoint, state: state, refreshedAt: seenAt)
-        let caches = try modelContext.fetch(FetchDescriptor<SharedSheetCache>())
-        if let existing = caches.first(where: { $0.key == newCache.key }) {
+        if let existing = try cacheRow(forKey: newCache.key) {
             // An older script can omit birthdays after another season was opened.
             // Preserve only this endpoint/workbook/season's confirmed snapshot.
             if state.birthdays == nil {

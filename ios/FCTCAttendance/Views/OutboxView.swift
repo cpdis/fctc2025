@@ -11,7 +11,7 @@ struct OutboxView: View {
     let runtime: AppRuntime
 
     @Query(
-        filter: #Predicate<PendingSubmission> { $0.stateRaw != "done" },
+        filter: PendingSubmission.outstandingPredicate,
         sort: \PendingSubmission.createdAt
     ) private var cachedSubmissions: [PendingSubmission]
     @Query(sort: \PendingGuestOperation.createdAt) private var guestOperations: [PendingGuestOperation]
