@@ -322,14 +322,14 @@ private struct ConflictResolutionView: View {
                 }
 
                 Section("Guest count") {
-                    LabeledContent("Local +1's", value: localGuestValue)
-                    LabeledContent("Sheet +1's", value: diff.serverPlusOnes.formatted())
+                    LabeledContent("Local guests", value: localGuestValue)
+                    LabeledContent("Sheet guests", value: diff.serverPlusOnes.formatted())
                     LabeledContent("Result", value: diff.plusOnesChanged ? "Changed" : "Same")
                 }
 
                 Section("Actual distance") {
-                    LabeledContent("Local kms", value: localDistanceValue)
-                    LabeledContent("Sheet kms", value: serverDistanceValue)
+                    LabeledContent("Local km", value: localDistanceValue)
+                    LabeledContent("Sheet km", value: serverDistanceValue)
                     LabeledContent("Result", value: diff.actualKmChanged ? "Changed" : "Same")
                 }
 

@@ -146,10 +146,28 @@ private struct ShareConfirmationView: View {
     let onCancel: () -> Void
 
     var body: some View {
+        // Fits on one screen at default sizes and scrolls at accessibility sizes,
+        // where the buttons used to fall off the sheet.
+        ViewThatFits(in: .vertical) {
+            content
+            ScrollView { content }
+        }
+        // VoiceOver's two-finger scrub closes the sheet, unless an import runs.
+        .accessibilityAction(.escape) {
+            if !isImporting { onCancel() }
+        }
+        // The error replaces the buttons' context; say it out loud.
+        .onChange(of: errorMessage) { _, message in
+            if let message { AccessibilityNotification.Announcement(message).post() }
+        }
+    }
+
+    private var content: some View {
         VStack(spacing: 18) {
             Image(systemName: "photo.on.rectangle.angled")
-                .font(.system(size: 38, weight: .medium))
+                .font(.title2.weight(.semibold))
                 .foregroundStyle(.tint)
+                .accessibilityHidden(true)
             Text("Share with FCTC")
                 .font(.title2.bold())
             Text("Import \(count) screenshot\(count == 1 ? "" : "s") into attendance review?")

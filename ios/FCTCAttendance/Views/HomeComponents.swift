@@ -194,6 +194,8 @@ struct SummaryTile: View {
     /// Turns the glyph while real work runs, such as a sync drain.
     var isWorking = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -202,7 +204,7 @@ struct SummaryTile: View {
                     .foregroundStyle(tint)
                     // Unsynced -> Conflicts swaps the glyph in place.
                     .contentTransition(.symbolEffect(.replace))
-                    .symbolEffect(.rotate, options: .repeating, isActive: isWorking)
+                    .symbolEffect(.rotate, options: .repeating, isActive: isWorking && !reduceMotion)
                     .frame(width: 28, height: 28)
                     .background(.white, in: .circle)
                     .accessibilityHidden(true)

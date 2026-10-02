@@ -269,7 +269,7 @@ struct HomeView: View {
                     )
                 }
                 .buttonStyle(.pressable)
-                .accessibilityLabel("This Week, \(viewModel.thisWeekCount) runs")
+                .accessibilityLabel("This Week, \(DashboardFormat.runs(viewModel.thisWeekCount))")
                 .accessibilityIdentifier("home-this-week")
 
                 Button {
@@ -294,7 +294,7 @@ struct HomeView: View {
                 .accessibilityLabel(
                     viewModel.conflictCount > 0
                         ? "Conflicts, \(viewModel.conflictCount) need review"
-                        : "Unsynced, \(viewModel.unsyncedCount) submissions\(viewModel.isSyncing ? ", syncing" : "")"
+                        : "Unsynced, \(DashboardFormat.submissions(viewModel.unsyncedCount))\(viewModel.isSyncing ? ", syncing" : "")"
                 )
                 .accessibilityIdentifier("home-unsynced")
             }
@@ -312,7 +312,7 @@ struct HomeView: View {
     private var seasonProgress: String? {
         guard !activeRuns.isEmpty else { return nil }
         let recorded = activeRuns.filter(\.hasRecordedAttendance).count
-        return "\(recorded) of \(activeRuns.count) runs recorded"
+        return "\(recorded) of \(DashboardFormat.runs(activeRuns.count)) recorded"
     }
 
     /// Changes whenever a Runs input does: the season's runs, an outbox row or
