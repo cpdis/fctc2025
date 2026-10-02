@@ -20,11 +20,6 @@ public enum SubmissionStatus: String, Codable, Sendable, CaseIterable {
     case inFlight
     case conflict
     case done
-
-    /// Compatibility spellings from the U1 placeholder.
-    public static var sending: Self { .inFlight }
-    public static var written: Self { .done }
-    public static var conflicted: Self { .conflict }
 }
 
 @Model

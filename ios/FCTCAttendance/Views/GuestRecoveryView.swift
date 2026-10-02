@@ -75,7 +75,7 @@ private struct GuestRecoveryCandidateView: View {
                     Picker("Shared guest", selection: $guestId) {
                         Text("Choose a person").tag("")
                         ForEach(model.guests.filter(\.isActive)) { guest in
-                            Text("\(guest.displayName) · \(guest.confirmedRuns ?? 0) runs").tag(guest.guestId)
+                            Text("\(guest.displayName) · \(DashboardFormat.runs(guest.confirmedRuns ?? 0))").tag(guest.guestId)
                         }
                     }.accessibilityIdentifier("recovery-person")
                     Button("Create shared guest ‘\(candidate.displayName)’") {

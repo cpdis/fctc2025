@@ -241,14 +241,6 @@ public final class ChecklistViewModel {
         draft.plusOnesOverride = nil
     }
 
-    public func removeGuests(at offsets: IndexSet) {
-        for index in offsets.sorted(by: >) {
-            guard draft.guests.indices.contains(index) else { continue }
-            draft.guests.remove(at: index)
-        }
-        draft.plusOnesOverride = nil
-    }
-
     /// The quick-add field's Return key. The field clears at once, so typing
     /// can continue, and gets its text back if the add fails.
     public func commitQuickAdd() async throws {

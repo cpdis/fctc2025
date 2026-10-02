@@ -8,6 +8,7 @@
 //
 
 import FCTCAttendanceKit
+import MetricKit
 import SwiftData
 import SwiftUI
 import UserNotifications
@@ -19,10 +20,13 @@ struct FCTCAttendanceApp: App {
     private let modelContainer: ModelContainer
     private let notificationDelegate: AttendanceNotificationDelegate
     private let backgroundDrain: BackgroundOutboxDrainCoordinator
+    /// Held for the app's lifetime: MetricKit keeps only a weak reference.
+    private let metricsSubscriber = MetricsSubscriber()
     @State private var runtime: AppRuntime
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        MXMetricManager.shared.add(metricsSubscriber)
         let routes = PendingRouteStore.shared
         let notificationDelegate = AttendanceNotificationDelegate(routes: routes)
         self.notificationDelegate = notificationDelegate
