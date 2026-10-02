@@ -423,12 +423,18 @@ struct VoiceEntryTests {
         #expect(names == ["Col", "Adam"])
     }
 
+    /// Waits up to five seconds, polling, so a busy machine cannot starve the
+    /// parse of the few task yields a fixed loop allowed. Returns whether the
+    /// phase arrived, so a caller can require it.
+    @discardableResult
     private func waitForPhase(
         _ phase: VoiceEntryPhase,
         in viewModel: VoiceEntryViewModel
-    ) async {
-        for _ in 0..<20 where viewModel.phase != phase {
-            await Task.yield()
+    ) async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while viewModel.phase != phase, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
         }
+        return viewModel.phase == phase
     }
 }
