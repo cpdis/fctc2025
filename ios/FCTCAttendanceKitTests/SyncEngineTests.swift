@@ -28,9 +28,12 @@ actor ImmediateSyncClock: SyncClock {
 
 actor SuspendingTransport: HTTPTransport {
     private var continuation: CheckedContinuation<Data, any Error>?
+    /// Every request that reached the transport, answered or not.
+    private(set) var requestCount = 0
 
     func post(_ body: Data) async throws -> Data {
-        try await withCheckedThrowingContinuation { continuation in
+        requestCount += 1
+        return try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
         }
     }

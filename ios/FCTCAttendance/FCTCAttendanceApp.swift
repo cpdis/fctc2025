@@ -55,10 +55,7 @@ struct FCTCAttendanceApp: App {
                 ? UITestSupport.makeRuntime(modelContainer: container)
                 : AppRuntime(modelContainer: container)
             _runtime = State(initialValue: runtime)
-            backgroundDrain = BackgroundOutboxDrainFactory.make(
-                modelContainer: container,
-                persistence: runtime.configPersistence
-            )
+            backgroundDrain = BackgroundOutboxDrainFactory.make(runtime: runtime)
             _ = backgroundDrain.register()
         } catch {
             // Fail loudly until the app has a user-visible cache recovery path.
@@ -74,8 +71,14 @@ struct FCTCAttendanceApp: App {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
+                // A launch before the first unlock could not read the secret;
+                // the keychain is open now.
+                runtime.reloadConfigIfLocked()
                 NotificationCenter.default.post(name: .fctcAppDidActivate, object: nil)
-                Task { await runtime.engine.drain() }
+                // Without settings the engine has no sheet to drain to.
+                if runtime.config.isConfigured {
+                    Task { await runtime.engine.drain() }
+                }
             case .background:
                 Task { await backgroundDrain.scheduleIfNeeded() }
             case .inactive:

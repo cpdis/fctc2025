@@ -28,6 +28,12 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
     var isDraining = false
     var isDrainScheduled = false
     var drainRequested = false
+    /// Set by `quiesce()`: this engine never drains again.
+    var isRetired = false
+    /// `quiesce()` callers waiting for the running drain to end.
+    var quiesceWaiters: [CheckedContinuation<Void, Never>] = []
+    /// The engine this one replaced. The first drain waits for it to stop.
+    var predecessor: (any SyncEngineClient)?
     var latestState: SheetState?
     /// `SharedSheetCache` keys of the last-season rows this engine fetched, so
     /// `previousSeasonSnapshot` revalidates each at most once per app session.
@@ -40,7 +46,8 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         retryPolicy: RetryPolicy = .default,
         readRetryPolicy: RetryPolicy = .reads,
         automaticallyDrains: Bool = true,
-        runReminderScheduler: any RunReminderScheduling = NoopRunReminderScheduler()
+        runReminderScheduler: any RunReminderScheduling = NoopRunReminderScheduler(),
+        replacing predecessor: (any SyncEngineClient)? = nil
     ) {
         self.eventBroadcaster = SyncEventBroadcaster()
         let context = ModelContext(modelContainer)
@@ -53,6 +60,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         self.readRetryPolicy = readRetryPolicy
         self.automaticallyDrains = automaticallyDrains
         self.runReminderScheduler = runReminderScheduler
+        self.predecessor = predecessor
     }
 
     deinit {
@@ -218,7 +226,19 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         return try persistAndStart(pending)
     }
 
+    /// Drains the outbox. One drain runs at a time per engine; a call that
+    /// arrives mid-drain asks the running drain for one more pass and returns.
+    /// The extra pass runs inside the running call (CC-1), so a caller that
+    /// awaits `drain()`, such as the background task, covers it before it
+    /// completes:
+    ///
+    ///   drain() ── wait for predecessor ── pass ── requested again? ── pass ── done
+    ///                                        ▲ drain() / enqueue mid-pass sets the flag
     public func drain() async {
+        // No endpoint means no sheet to check rows against: a pass now would
+        // park every saved row for review (PLAT-NEW-1). A retired engine has
+        // handed the store to its successor.
+        guard api.endpointIdentity != nil, !isRetired else { return }
         guard !isDraining else {
             drainRequested = true
             return
@@ -228,12 +248,34 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         defer {
             isDraining = false
             eventBroadcaster.setActivity(false)
-            if drainRequested {
-                drainRequested = false
-                scheduleDrain(force: true)
-            }
+            let waiters = quiesceWaiters
+            quiesceWaiters = []
+            waiters.forEach { $0.resume() }
         }
+        // The engine this one replaced finishes first, so two engines never
+        // send the same row (CC-2).
+        if let predecessor {
+            self.predecessor = nil
+            await predecessor.quiesce()
+        }
+        repeat {
+            drainRequested = false
+            await drainPass()
+        } while drainRequested && !Task.isCancelled && !isRetired
+    }
 
+    /// Stops this engine draining: a later `drain()` returns at once, and a
+    /// running drain stops after its current row. Returns once it has stopped.
+    public func quiesce() async {
+        isRetired = true
+        guard isDraining else { return }
+        await withCheckedContinuation { quiesceWaiters.append($0) }
+    }
+
+    /// One pass over the outbox: guest operations first, then submissions
+    /// oldest first.
+    private func drainPass() async {
+        let ids: [UUID]
         do {
             try prepareLegacyRecovery()
             await drainGuestOperations()
@@ -248,14 +290,26 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                 )
             )
             // Legacy absolute writes retain their old retry protocol. Shared writes
-            // keep their dispatch state so restart checks the receipt first.
-            let ids = rows.compactMap { row -> UUID? in
+            // keep their dispatch state so restart checks the receipt first. This
+            // engine is the store's only drain owner, so an in-flight legacy row
+            // is never another engine's live request.
+            ids = rows.compactMap { row -> UUID? in
                 if row.status == .inFlight && row.runIdentity == nil { row.status = .queued }
                 return row.id
             }
             try modelContext.save()
+        } catch {
+            // A cache error cannot safely identify one row. The next foreground or
+            // explicit refresh gets another chance to open and drain the store.
+            eventBroadcaster.yield(.serviceFailed(message: UserFacingError.sync(error)))
+            return
+        }
 
-            for id in ids {
+        for id in ids {
+            // An expired background task or a Settings swap stops between rows;
+            // the rest stay queued for the next drain (CC-8).
+            guard !Task.isCancelled, !isRetired else { return }
+            do {
                 guard let row = try pending(id: id) else { continue }
                 guard row.endpointIdentity == api.endpointIdentity, row.endpointIdentity != nil else {
                     try parkForReview(row, message: "Review this saved submission before sending it to the current sheet.")
@@ -265,11 +319,11 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                 else if try currentSharedState()?.supportsSharedGuests == true {
                     try parkForReview(row, message: "Choose the original season and run before recovering this submission.")
                 } else { await drain(id: id) }
+            } catch {
+                // One row that cannot be read or parked must not strand the
+                // rows after it (CA-15).
+                eventBroadcaster.yield(.serviceFailed(message: UserFacingError.sync(error)))
             }
-        } catch {
-            // A cache error cannot safely identify one row. The next foreground or
-            // explicit refresh gets another chance to open and drain the store.
-            eventBroadcaster.yield(.serviceFailed(message: UserFacingError.sync(error)))
         }
     }
 
