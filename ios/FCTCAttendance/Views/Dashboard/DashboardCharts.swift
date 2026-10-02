@@ -144,7 +144,7 @@ struct EveryRunCard: View {
 
     private func summary(busiest: DashboardRun?) -> String {
         guard let busiest else { return "Every run" }
-        return "Every run: the last \(runs.count) runs. The busiest was \(DashboardFormat.day(busiest.run.date)) with \(busiest.run.headcount) runners"
+        return "Every run: the last \(DashboardFormat.runs(runs.count)). The busiest was \(DashboardFormat.day(busiest.run.date)) with \(busiest.run.headcount) runners"
     }
 }
 
@@ -219,13 +219,40 @@ private struct LeaderRow: View {
     let accent: Color
 
     @ScaledMetric(relativeTo: .body) private var nameWidth: CGFloat = 92
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            // Rank and name over the value: a 92 pt name column plus a bar
+            // squeezes the text at accessibility sizes, and the bar is redundant.
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 10) {
+                    rankText
+                    Text(name)
+                }
+                Text(valueText)
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+            }
+            .foregroundStyle(.primary)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
+        } else {
+            row
+        }
+    }
+
+    private var rankText: some View {
+        Text(rank, format: .number)
+            .font(.system(.title3, design: .rounded, weight: .bold))
+            .foregroundStyle(.secondary)
+            .frame(minWidth: 22, alignment: .leading)
+    }
+
+    private var row: some View {
         HStack(spacing: 10) {
-            Text(rank, format: .number)
-                .font(.system(.title3, design: .rounded, weight: .bold))
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 22, alignment: .leading)
+            rankText
             Text(name)
                 .lineLimit(1)
                 .frame(width: nameWidth, alignment: .leading)

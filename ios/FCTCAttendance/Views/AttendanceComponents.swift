@@ -38,6 +38,15 @@ enum ProvenanceBadgeKind {
         case .voice: self = .voice
         }
     }
+
+    /// The one visible and spoken name for each source.
+    var title: String {
+        switch self {
+        case .model, .suggested: "Suggested"
+        case .voice: "Voice"
+        case .screenshot: "Screenshot"
+        }
+    }
 }
 
 struct ProvenanceBadge: View {
@@ -53,14 +62,7 @@ struct ProvenanceBadge: View {
             .accessibilityLabel(label)
     }
 
-    private var label: String {
-        switch kind {
-        case .model: "Proposed"
-        case .voice: "Voice"
-        case .screenshot: "Screenshot"
-        case .suggested: "Suggested"
-        }
-    }
+    private var label: String { kind.title }
 
     private var systemImage: String {
         switch kind {

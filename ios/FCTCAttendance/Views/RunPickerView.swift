@@ -35,14 +35,14 @@ struct RunPickerView: View {
         }
     }
 
-    /// Case-insensitive match on meet, run name, and the sheet-style date text.
+    /// Locale-aware, case- and diacritic-insensitive match on meet, run name, and the sheet-style date text.
     private var filteredSections: [RunSection] {
         guard !searchText.isEmpty else { return viewModel.sections }
         return viewModel.sections.compactMap { section in
             let runs = section.runs.filter { run in
-                run.meet.localizedCaseInsensitiveContains(searchText)
-                    || run.run.localizedCaseInsensitiveContains(searchText)
-                    || run.date.localizedCaseInsensitiveContains(searchText)
+                run.meet.localizedStandardContains(searchText)
+                    || run.run.localizedStandardContains(searchText)
+                    || run.date.localizedStandardContains(searchText)
             }
             guard !runs.isEmpty else { return nil }
             var filtered = section
@@ -94,18 +94,17 @@ struct RunPickerView: View {
             }
 
             if filteredSections.isEmpty {
-                ContentUnavailableView(
-                    searchText.isEmpty
-                        ? (scope == .past ? "No Past Runs" : "No Runs")
-                        : "No Matches",
-                    systemImage: searchText.isEmpty ? "calendar.badge.plus" : "magnifyingglass",
-                    description: Text(
-                        searchText.isEmpty
-                            ? "Add a scheduled run or refresh the sheet."
-                            : "No run matches \"\(searchText)\"."
+                if searchText.isEmpty {
+                    ContentUnavailableView(
+                        scope == .past ? "No Past Runs" : "No Runs",
+                        systemImage: "calendar.badge.plus",
+                        description: Text("Add a scheduled run or refresh the sheet.")
                     )
-                )
-                .listRowBackground(Color.clear)
+                    .listRowBackground(Color.clear)
+                } else {
+                    ContentUnavailableView.search(text: searchText)
+                        .listRowBackground(Color.clear)
+                }
             }
         }
         .listStyle(.insetGrouped)
@@ -246,15 +245,20 @@ private struct AddRunView: View {
                     TextField("Meet", text: $draft.meet)
                         .textInputAutocapitalization(.words)
                         .accessibilityLabel("Meeting place")
+                        .accessibilityInputLabels(["Meet", "Meeting place"])
                         .accessibilityIdentifier("new-run-meet")
                     TextField("Run", text: $draft.run)
                         .textInputAutocapitalization(.words)
                         .accessibilityLabel("Run name")
+                        .accessibilityInputLabels(["Run", "Run name"])
                         .accessibilityIdentifier("new-run-name")
-                    TextField("Approx kms", text: $draft.approxKmText)
+                    TextField("Approx km", text: $draft.approxKmText)
                         .keyboardType(.decimalPad)
                         .focused($kilometresFocused)
                         .accessibilityLabel("Approximate kilometres")
+                        .accessibilityInputLabels(["Approx km", "Approx kms", "Approximate kilometres"])
+                        // The error also rides in the hint, next to the field.
+                        .accessibilityHint(draft.distanceIsMalformed ? DistanceText.malformedMessage : "")
                         .accessibilityIdentifier("new-run-km")
                 } header: {
                     Text("Run details")
@@ -275,6 +279,16 @@ private struct AddRunView: View {
             }
             .scrollDismissesKeyboard(.immediately)
             .actionErrorAlert("Could not add run", message: $addError)
+            // The footer and the alert are visual; say each error out loud.
+            .onChange(of: draft.distanceIsMalformed) { _, malformed in
+                if malformed { AccessibilityNotification.Announcement(DistanceText.malformedMessage).post() }
+            }
+            .onChange(of: viewModel.errorMessage) { _, message in
+                if let message { AccessibilityNotification.Announcement(message).post() }
+            }
+            .onChange(of: addError) { _, message in
+                if let message { AccessibilityNotification.Announcement(message).post() }
+            }
             .navigationTitle("Add Run")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

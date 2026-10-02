@@ -50,7 +50,7 @@ struct GuestDetailView: View {
                     }.accessibilityIdentifier("guest-pending-promotion")
                 } else if hasPendingAttendance {
                     NavigationLink { OutboxView(runtime: runtime) } label: {
-                        Label("Run pending — open Outbox", systemImage: "clock")
+                        Label("Run pending: open Outbox", systemImage: "clock")
                     }.accessibilityIdentifier("guest-pending-attendance")
                     Text("Promotion waits for this person's pending attendance to be confirmed.").font(.footnote).foregroundStyle(.secondary)
                 } else if displayGuest.isActive {
@@ -175,7 +175,7 @@ struct GuestPromotionView: View {
                     LabeledContent("Confirmed runs", value: preview.confirmedRuns.formatted())
                         .accessibilityIdentifier("promotion-confirmed-count")
                     ForEach(preview.seasons, id: \.seasonSheetId) { season in
-                        LabeledContent(String(season.seasonYear), value: "\(season.runs) runs")
+                        LabeledContent(String(season.seasonYear), value: DashboardFormat.runs(season.runs))
                     }
                 }
                 Section("Run changes") {

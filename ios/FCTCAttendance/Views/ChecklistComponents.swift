@@ -1,6 +1,5 @@
 import FCTCAttendanceKit
 import SwiftUI
-import UIKit
 
 struct MemberCheckRow: View {
     let name: String
@@ -41,9 +40,12 @@ struct MemberCheckRow: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(name)
-        .accessibilityValue(isChecked ? "Checked" : "Not checked")
-        .accessibilityHint("Double-tap to \(isChecked ? "uncheck" : "check").")
-        .accessibilityAddTraits(.isButton)
+        .accessibilityValue(accessibilityValueText)
+        .accessibilityAddTraits(.isToggle)
+        // Stats stay one swipe away for VoiceOver without crowding the value.
+        .accessibilityCustomContent("Season attendances", Text("\(stats.attendanceCount)"))
+        .accessibilityCustomContent("Last attended", Text(lastAttendedLabel))
+        .accessibilityCustomContent("Streak", Text(stats.streakLabel))
         .accessibilityIdentifier("member-\(name)")
         .contextMenu {
             Button(action: {}) {
@@ -59,6 +61,14 @@ struct MemberCheckRow: View {
             }
             .disabled(true)
         }
+    }
+
+    /// "Checked, Voice": the provenance badge is hidden from VoiceOver with the
+    /// rest of the row's children, so the value carries it.
+    private var accessibilityValueText: String {
+        guard let provenance else { return "Not checked" }
+        guard provenance != .manual else { return "Checked" }
+        return "Checked, \(ProvenanceBadgeKind(provenance).title)"
     }
 
     private var badgeTransition: AnyTransition {
@@ -79,8 +89,9 @@ struct ModalityButtonLabel: View {
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: systemImage)
-                .font(.system(size: 22, weight: .semibold))
+                .font(.title2.weight(.semibold))
                 .foregroundStyle(.tint)
+                .accessibilityHidden(true)
             Text(title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.primary)
@@ -116,7 +127,7 @@ struct CircularCheck: View {
             Image(systemName: "checkmark")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.white)
-                .symbolEffect(.drawOff, options: .speed(1.8), isActive: !isChecked)
+                .symbolEffect(.drawOff, options: .speed(1.8), isActive: !isChecked && !reduceMotion)
                 .opacity(isChecked ? 1 : 0)
         }
         .frame(width: 24, height: 24)

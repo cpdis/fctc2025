@@ -8,7 +8,6 @@
 import FCTCAttendanceKit
 import SwiftData
 import SwiftUI
-import UIKit
 
 struct ChecklistView: View {
     let runtime: AppRuntime
@@ -46,6 +45,17 @@ struct ChecklistView: View {
     /// scroll-to-dismiss the keyboard stayed up and hid the bottom of the
     /// roster (Aaron, build 10).
     @FocusState private var kilometresFocused: Bool
+    /// Bumped by the row action only, so the selection haptic fires for taps
+    /// and not for the other paths that change `checks` (imports, dictation).
+    @State private var toggleCount = 0
+    /// Bumped when a Confirm succeeds, for the success haptic.
+    @State private var confirmCount = 0
+    /// The distance field narrows to a number at default sizes and gets its
+    /// own line at accessibility sizes.
+    @ScaledMetric(relativeTo: .body) private var kmMinWidth = 64
+    @ScaledMetric(relativeTo: .body) private var kmIdealWidth = 84
+    @ScaledMetric(relativeTo: .body) private var kmMaxWidth = 110
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(
         runtime: AppRuntime,
@@ -105,15 +115,22 @@ struct ChecklistView: View {
             }
 
             Section {
-                HStack {
-                    Label("Actual kms", systemImage: "figure.run")
-                    Spacer(minLength: 16)
+                kmLayout {
+                    Label("Actual km", systemImage: "figure.run")
+                    if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 16) }
                     TextField("0", text: $viewModel.actualKmText)
                         .keyboardType(.decimalPad)
                         .focused($kilometresFocused)
-                        .multilineTextAlignment(.trailing)
-                        .frame(minWidth: 64, idealWidth: 84, maxWidth: 110)
+                        .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
+                        .frame(
+                            minWidth: kmMinWidth,
+                            idealWidth: kmIdealWidth,
+                            maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : kmMaxWidth
+                        )
                         .accessibilityLabel("Actual kilometres")
+                        // The error also rides in the hint, so a VoiceOver user
+                        // who lands on the field hears what is wrong.
+                        .accessibilityHint(viewModel.distanceIsMalformed ? DistanceText.malformedMessage : "")
                         .accessibilityIdentifier("actual-km")
                 }
 
@@ -149,7 +166,7 @@ struct ChecklistView: View {
                         stats: memberStats[name]
                             ?? MemberStats(attendanceCount: 0, lastAttendedAt: nil, currentStreak: 0),
                         action: {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            toggleCount += 1
                             viewModel.toggleMember(name)
                         }
                     )
@@ -162,6 +179,10 @@ struct ChecklistView: View {
                             .accessibilityLabel("Uncheck \(name)")
                         }
                     }
+                }
+
+                if filteredRoster.isEmpty && !searchText.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
                 }
 
                 QuickAddPersonRow(viewModel: viewModel)
@@ -184,6 +205,18 @@ struct ChecklistView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .sensoryFeedback(.selection, trigger: toggleCount)
+        .sensoryFeedback(.success, trigger: confirmCount)
+        // Errors appear below the fold or in an alert; say them out loud.
+        .onChange(of: viewModel.distanceIsMalformed) { _, malformed in
+            if malformed { AccessibilityNotification.Announcement(DistanceText.malformedMessage).post() }
+        }
+        .onChange(of: viewModel.errorMessage) { _, message in
+            if let message { AccessibilityNotification.Announcement(message).post() }
+        }
+        .onChange(of: confirmError) { _, message in
+            if let message { AccessibilityNotification.Announcement(message).post() }
+        }
         // The first scroll drops the keyboard, so the roster is reachable the
         // moment the organiser moves on from the distance field.
         .scrollDismissesKeyboard(.immediately)
@@ -295,7 +328,7 @@ struct ChecklistView: View {
         .modifier(SharedScreenshotOffer(
             count: sharedScreenshotCount,
             isPresented: $showingSharedScreenshotOffer,
-            message: "Review these images through the existing poll import flow.",
+            message: "Review these images to import a poll.",
             onImport: loadSharedImagesAndPresent,
             delete: runtime.sharedScreenshotInbox.clear
         ))
@@ -328,10 +361,17 @@ struct ChecklistView: View {
         RunCacheScope.runs(cachedRuns.map(RunSnapshot.init), endpoint: runtime.config.endpoint?.absoluteString, state: exactState)
     }
 
+    /// One row on one line at default sizes; stacked at accessibility sizes.
+    private var kmLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout())
+    }
+
     private var filteredRoster: [String] {
         guard !searchText.isEmpty else { return viewModel.roster }
         return viewModel.roster.filter {
-            $0.localizedCaseInsensitiveContains(searchText)
+            $0.localizedStandardContains(searchText)
         }
     }
 
@@ -383,7 +423,7 @@ struct ChecklistView: View {
         Task {
             do {
                 _ = try await viewModel.confirm(mode: mode)
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                confirmCount += 1
                 let snapshots = scopedRuns
                 if let next = CatchUpPlanner.nextOlderUnrecorded(
                     after: viewModel.run,
