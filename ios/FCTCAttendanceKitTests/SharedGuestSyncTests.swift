@@ -296,7 +296,10 @@ struct SharedGuestMutationRecoveryTests {
         let transport = StubTransport([.response(stateResponse)])
         let engine = guestEngine(container, transport)
         _ = try await engine.refreshState()
-        await #expect(throws: SheetAPIError.notImplemented) { try await engine.createGuest(name: "Rene", confirmDistinct: false) }
+        // The capability gate at the top of SharedGuestSync answers before any
+        // history or promotion check, with the message the Outbox shows.
+        let gate = SheetAPIError.server(code: "update_required", message: "Refresh after shared guests are enabled for this sheet.")
+        await #expect(throws: gate) { try await engine.createGuest(name: "Rene", confirmDistinct: false) }
         #expect(await transport.requestCount == 1)
         #expect(try ModelContext(container).fetch(FetchDescriptor<ProvisionalGuest>()).isEmpty)
     }
