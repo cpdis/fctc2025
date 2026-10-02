@@ -187,9 +187,10 @@ final class FCTCAttendanceUITests: XCTestCase {
         app.buttons["triage-apply"].tap()
 
         XCTAssertTrue(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.buttons["member-Aaron"].value as? String, "Checked")
-        XCTAssertEqual(app.buttons["member-Dan B"].value as? String, "Checked")
-        XCTAssertEqual(app.buttons["member-Priya B"].value as? String, "Checked")
+        // The row value carries the provenance badge for VoiceOver.
+        XCTAssertEqual(app.buttons["member-Aaron"].value as? String, "Checked, Screenshot")
+        XCTAssertEqual(app.buttons["member-Dan B"].value as? String, "Checked, Screenshot")
+        XCTAssertEqual(app.buttons["member-Priya B"].value as? String, "Checked, Screenshot")
         XCTAssertEqual(app.staticTexts["attendance-count"].label, "3 checked")
         // Applying proposals only changes the draft. The sheet write still needs the
         // existing explicit Confirm action.
