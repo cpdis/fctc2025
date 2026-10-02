@@ -365,6 +365,87 @@ struct ViewModelTests {
         #expect(await client.addedMembers == ["Priya", "Priya"])
     }
 
+    /// UI-1: the triage awaits each "Add as new person" in turn, through the
+    /// closure both triage sheets now pass. The old dictation closure returned
+    /// before the add ran and shared the quick-add field, so one name was lost.
+    @Test("Two new people from one triage both reach the roster")
+    func triageAddsTwoNewPeople() async throws {
+        let client = ViewModelSyncClient()
+        let viewModel = ChecklistViewModel(run: run(row: 42, dayOffset: 0), roster: ["Aaron"], engine: client)
+        let addPerson: (String) async throws -> Void = viewModel.addProposedPerson
+        for name in ["Priya", "Sam"] { try await addPerson(name) }
+
+        #expect(viewModel.roster == ["Aaron", "Priya", "Sam"])
+        #expect(await client.addedMembers == ["Priya", "Sam"])
+        // Unchecked, so the apply step checks them with the proposal's provenance.
+        #expect(!viewModel.draft.isChecked("Priya") && !viewModel.draft.isChecked("Sam"))
+        #expect(viewModel.quickAddName.isEmpty)
+    }
+
+    /// CC-13: a failed add undoes only itself. A guest added while the
+    /// request was in flight is the organiser's edit and stays.
+    @Test("A failed quick add keeps edits made during the request")
+    func failedQuickAddKeepsConcurrentEdits() async throws {
+        let client = ViewModelSyncClient(addMemberFailures: 1, suspendAddMember: true)
+        let viewModel = ChecklistViewModel(run: run(row: 42, dayOffset: 0), roster: ["Aaron"], engine: client)
+        let add = Task { try await viewModel.commitQuickAdd(name: "Sam") }
+        await client.waitUntilAddMemberRequested()
+
+        viewModel.addGuest(name: "Rene")
+        viewModel.toggleMember("Aaron")
+        await client.resumeAddMember()
+        await #expect(throws: ViewModelTestError.offline) { try await add.value }
+
+        #expect(viewModel.roster == ["Aaron"])
+        #expect(!viewModel.draft.isChecked("Sam"))
+        #expect(viewModel.draft.isChecked("Aaron"))
+        #expect(viewModel.draft.guestNames == ["Rene"])
+    }
+
+    /// CC-4: the busy flag is checked before the first await, so a second tap
+    /// that lands before the first request finishes does nothing.
+    @Test("A double tap resolves a conflict once")
+    func doubleTapResolvesOnce() async throws {
+        let client = ViewModelSyncClient()
+        let viewModel = OutboxViewModel(engine: client)
+        let id = UUID()
+        let first = Task { try await viewModel.resolve(id: id, action: .discard) }
+        let second = Task { try await viewModel.resolve(id: id, action: .discard) }
+
+        _ = try await first.value
+        await #expect(throws: CancellationError.self) { try await second.value }
+        #expect(await client.resolutions == [ResolutionCall(id: id, action: .discard)])
+    }
+
+    @Test("A double tap adds a run once")
+    func doubleTapAddsRunOnce() async throws {
+        let request = AddRunRequest(date: "Sat, 15-Aug", meet: "Coast", run: "Hills", approxKm: 9.2)
+        let client = ViewModelSyncClient()
+        let viewModel = RunPickerViewModel(engine: client)
+        let first = Task { try await viewModel.addRun(request) }
+        let second = Task { try await viewModel.addRun(request) }
+
+        try await first.value
+        await #expect(throws: CancellationError.self) { try await second.value }
+        #expect(await client.addedRuns == [request])
+    }
+
+    /// CA-16: a refused Confirm or Save says why instead of failing silently.
+    @Test("Refused confirm and save set a message")
+    func refusalsSetMessages() async throws {
+        let checklist = ChecklistViewModel(run: run(row: 42, dayOffset: 0), roster: ["Aaron"], engine: ViewModelSyncClient())
+        await #expect(throws: ChecklistError.unchangedDraft) { try await checklist.confirm(mode: .merge) }
+        #expect(checklist.errorMessage == ChecklistError.unchangedDraft.errorDescription)
+
+        let settings = SettingsViewModel(
+            persistence: MemoryConfigPersistence(config: AppConfig(endpoint: nil, secret: "", deviceName: nil)),
+            engine: ViewModelSyncClient()
+        )
+        settings.endpoint = "http://not-secure.example"
+        #expect(throws: SettingsError.invalidEndpoint) { try settings.save() }
+        #expect(settings.errorMessage == SettingsError.invalidEndpoint.errorDescription)
+    }
+
     @Test("Shared guest labels refresh without replacing stable identities")
     func sharedGuestLabels() {
         let guest = Guest(name: "Rene")
@@ -611,6 +692,9 @@ private actor ViewModelSyncClient: SyncEngineClient {
     private(set) var resolutions: [ResolutionCall] = []
     private(set) var refreshCount = 0
     private var addMemberFailures: Int
+    /// Holds each `addMember` open until `resumeAddMember()`.
+    private let suspendAddMember: Bool
+    private var addMemberContinuation: CheckedContinuation<Void, Never>?
     private var addRunFailures: Int
     private var resolutionFailures: Int
     private let suspendRefresh: Bool
@@ -622,6 +706,7 @@ private actor ViewModelSyncClient: SyncEngineClient {
 
     init(
         addMemberFailures: Int = 0,
+        suspendAddMember: Bool = false,
         addRunFailures: Int = 0,
         resolutionFailures: Int = 0,
         suspendRefresh: Bool = false,
@@ -629,6 +714,7 @@ private actor ViewModelSyncClient: SyncEngineClient {
         cancellableRefresh: Bool = false
     ) {
         self.addMemberFailures = addMemberFailures
+        self.suspendAddMember = suspendAddMember
         self.addRunFailures = addRunFailures
         self.resolutionFailures = resolutionFailures
         self.suspendRefresh = suspendRefresh
@@ -672,6 +758,7 @@ private actor ViewModelSyncClient: SyncEngineClient {
 
     func addMember(name: String) async throws -> AddMemberResult {
         addedMembers.append(name)
+        if suspendAddMember { await withCheckedContinuation { addMemberContinuation = $0 } }
         if addMemberFailures > 0 {
             addMemberFailures -= 1
             throw ViewModelTestError.offline
@@ -680,6 +767,15 @@ private actor ViewModelSyncClient: SyncEngineClient {
             roster: [RosterEntry(name: name, colIndex: 1)],
             sheetRevision: "rev-2"
         )
+    }
+
+    func waitUntilAddMemberRequested() async {
+        while addMemberContinuation == nil { await Task.yield() }
+    }
+
+    func resumeAddMember() {
+        addMemberContinuation?.resume()
+        addMemberContinuation = nil
     }
 
     func addRun(_ request: AddRunRequest) async throws -> AddRunResult {

@@ -24,6 +24,9 @@ public struct GuestRecoverySnapshot: Hashable, Sendable, Identifiable {
     }
 }
 
+// Stubs for clients without shared seasons. None of them takes a default
+// argument: a call on `any SyncEngineClient` that leaves one out binds to the
+// stub, not the conformer's witness (CA-9 hid Home's recovery reminder so).
 extension SyncEngineClient {
     public func refreshState(seasonSheetId: Int?) async throws -> SheetState {
         guard seasonSheetId == nil else { throw SheetAPIError.notImplemented }
@@ -38,14 +41,14 @@ extension SyncEngineClient {
     }
     public func sharedGuests() async throws -> [SharedGuest] { [] }
     public func guestHistory(id: String) async throws -> GuestHistory { throw SheetAPIError.notImplemented }
-    public func createGuest(name: String, confirmDistinct: Bool = false) async throws -> Guest { throw SheetAPIError.notImplemented }
+    public func createGuest(name: String, confirmDistinct: Bool) async throws -> Guest { throw SheetAPIError.notImplemented }
     public func resolveGuestIdentity(provisionalId: String, existingGuestId: String?, confirmDistinct: Bool) async throws { throw SheetAPIError.notImplemented }
     public func renameGuest(_ guest: SharedGuest, name: String) async throws -> UUID { throw SheetAPIError.notImplemented }
     public func replaceGuestRename(id: UUID, guest: SharedGuest, name: String) async throws -> UUID { throw SheetAPIError.notImplemented }
     public func discardGuestRename(id: UUID) async throws { throw SheetAPIError.notImplemented }
     public func previewPromotion(guestId: String, memberName: String, targetMode: PromotionTargetMode) async throws -> PromotionPreview { throw SheetAPIError.notImplemented }
     public func commitPromotion(_ preview: PromotionPreview) async throws -> UUID { throw SheetAPIError.notImplemented }
-    public func recoveryCandidates(includeDismissed: Bool = false) async throws -> [GuestRecoverySnapshot] { [] }
+    public func recoveryCandidates(includeDismissed: Bool) async throws -> [GuestRecoverySnapshot] { [] }
     public func updateRecoveryCandidate(id: String, guestId: String?, run: GuestImportEntry?, status: GuestRecoveryStatus) async throws { throw SheetAPIError.notImplemented }
     public func previewGuestImport(guestId: String, entries: [GuestImportEntry]) async throws -> GuestImportPreview { throw SheetAPIError.notImplemented }
     public func importGuestHistory(_ preview: GuestImportPreview, candidateIds: [String]) async throws -> UUID { throw SheetAPIError.notImplemented }

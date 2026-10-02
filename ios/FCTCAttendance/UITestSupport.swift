@@ -175,6 +175,8 @@ enum UITestSupport {
         switch url.path() {
         case "/route/today-checklist":
             routes.set(.todayChecklist)
+        case "/route/today-dictation":
+            routes.set(.todayDictation)
         case "/route/missing-run":
             // A reminder for a run the sheet does not have: it can never resolve.
             routes.set(.checklist(rowIndex: 9_999, date: "Never", run: "Missing"))

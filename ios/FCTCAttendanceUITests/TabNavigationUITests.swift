@@ -118,6 +118,35 @@ final class TabNavigationUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["dashboard-title"].waitForExistence(timeout: 5))
     }
 
+    /// UI-NEW-1: the dictation route opens the voice sheet once. Popping back
+    /// from Guests re-runs the checklist's `.task`, which reopened it.
+    func testDictationRouteOpensVoiceSheetOnlyOnce() {
+        launch(["-ui-today-run"])
+        openHook("route/today-dictation")
+        let voiceSheet = app.navigationBars["Dictate Attendance"]
+        XCTAssertTrue(voiceSheet.waitForExistence(timeout: 8))
+        answerSpeechPrompt()
+        voiceSheet.buttons["Cancel"].tap()
+        XCTAssertTrue(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 5))
+
+        app.buttons["guest-editor"].tap()
+        XCTAssertTrue(app.navigationBars["Guests"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 5))
+        settle()
+        XCTAssertFalse(voiceSheet.exists)
+        capture("dictation-route-after-pop")
+    }
+
+    /// The first dictation on a fresh simulator asks for speech access. Either
+    /// answer leaves the sheet's Cancel button in place.
+    private func answerSpeechPrompt() {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let deny = springboard.alerts.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Don'")).firstMatch
+        // Speech and the microphone may each ask once.
+        for _ in 0..<2 where deny.waitForExistence(timeout: 3) { deny.tap() }
+    }
+
     /// A route that can never resolve must not block the next one.
     func testUnresolvableRouteDoesNotBlockLaterRoutes() {
         launch(["-ui-today-run"])

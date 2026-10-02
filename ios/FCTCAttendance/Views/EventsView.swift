@@ -69,15 +69,17 @@ struct EventsView: View {
         .onChange(of: boardFingerprint, initial: true) { _, _ in rebuild() }
         .onChange(of: now) { _, _ in rebuild() }
         // Device midnight may differ from Perth midnight while travelling, so
-        // poll while active. This never fetches sheet data.
-        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
-            if scenePhase == .active { advanceClock() }
+        // check once a minute while active. The loop stops when the app leaves
+        // the foreground or the tab goes away. It never fetches sheet data.
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            while true {
+                advanceClock()
+                do { try await Task.sleep(for: .seconds(60)) } catch { return }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
             advanceClock()
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { advanceClock() }
         }
     }
 

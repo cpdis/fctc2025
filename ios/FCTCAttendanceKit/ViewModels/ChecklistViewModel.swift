@@ -249,15 +249,29 @@ public final class ChecklistViewModel {
         draft.plusOnesOverride = nil
     }
 
+    /// The quick-add field's Return key. The field clears at once, so typing
+    /// can continue, and gets its text back if the add fails.
     public func commitQuickAdd() async throws {
-        let clean = quickAddName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = quickAddName
+        quickAddName = ""
+        do {
+            try await commitQuickAdd(name: name)
+        } catch {
+            if quickAddName.isEmpty { quickAddName = name }
+            throw error
+        }
+    }
+
+    /// Adds `name` to the roster and checks them. Each call carries its own
+    /// name, so callers that await one add after another never share state.
+    public func commitQuickAdd(name: String) async throws {
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty else { return }
         if supportsSharedGuests && sharedGuests.contains(where: { GuestNames.canonical($0.displayName) == GuestNames.canonical(clean) }) {
             let message = "Open this guest's history to review promotion and retain all previous runs."
             errorMessage = message
             throw SheetAPIError.badPayload(message: message)
         }
-        quickAddName = ""
         errorMessage = nil
 
         if let existing = roster.first(where: { GuestNames.canonical($0) == GuestNames.canonical(clean) }) {
@@ -269,8 +283,6 @@ public final class ChecklistViewModel {
         // through @Query while the network reconciliation is still suspended.
         roster.append(clean)
         roster.sort(by: Member.sheetOrder)
-        let oldGuests = draft.guests
-        let oldPlusOnesOverride = draft.plusOnesOverride
         draft.check(clean)
         isAddingPerson = true
         defer { isAddingPerson = false }
@@ -282,14 +294,21 @@ public final class ChecklistViewModel {
             // a stale write.
             draft.baseRevision = result.sheetRevision
         } catch {
+            // Undo only this add. Guests, counts and other checks may have
+            // changed during the request; they are the organiser's edits.
             roster.removeAll { GuestNames.canonical($0) == GuestNames.canonical(clean) }
             draft.uncheck(clean)
-            draft.guests = oldGuests
-            draft.plusOnesOverride = oldPlusOnesOverride
-            quickAddName = clean
             errorMessage = UserFacingError.sync(error)
             throw error
         }
+    }
+
+    /// "Add as new person" from a poll or dictation triage. The add checks the
+    /// person by hand; unchecking lets `applyProposals` check them again with
+    /// the proposal's provenance.
+    public func addProposedPerson(_ name: String) async throws {
+        try await commitQuickAdd(name: name)
+        uncheckMember(name)
     }
 
     public func diffSummary(
@@ -306,9 +325,17 @@ public final class ChecklistViewModel {
 
     @discardableResult
     public func confirm(mode: SubmissionMode) async throws -> UUID {
-        guard !distanceIsMalformed else { throw ChecklistError.malformedDistance }
-        guard canConfirm else { throw ChecklistError.unchangedDraft }
-        guard mode != .merge || !requiresGuestOverwrite else { throw ChecklistError.guestOverwriteRequired }
+        // A second tap while the first submit is in flight is not an error.
+        guard !isSubmitting else { throw CancellationError() }
+        // Each refusal also sets `errorMessage`, so the screen can say why.
+        let refusal: ChecklistError? = if distanceIsMalformed { .malformedDistance }
+            else if !canConfirm { .unchangedDraft }
+            else if mode == .merge && requiresGuestOverwrite { .guestOverwriteRequired }
+            else { nil }
+        if let refusal {
+            errorMessage = refusal.errorDescription
+            throw refusal
+        }
         isSubmitting = true
         errorMessage = nil
         defer { isSubmitting = false }

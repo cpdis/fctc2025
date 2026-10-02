@@ -45,10 +45,9 @@ public final class SettingsViewModel {
 
     @discardableResult
     public func save() throws -> AppConfig {
-        guard let endpoint = validatedEndpoint else {
-            throw SettingsError.invalidEndpoint
-        }
-        guard let secret = validatedSecret else { throw SettingsError.emptySecret }
+        // Each refusal also sets `errorMessage`, so the form can say why.
+        guard let endpoint = validatedEndpoint else { throw refuse(.invalidEndpoint) }
+        guard let secret = validatedSecret else { throw refuse(.emptySecret) }
         let config = AppConfig(
             endpoint: endpoint,
             secret: secret,
@@ -60,8 +59,7 @@ public final class SettingsViewModel {
             successMessage = "Settings saved."
             return config
         } catch {
-            errorMessage = "The shared secret could not be saved to Keychain. Try again."
-            throw SettingsError.secureStorageUnavailable
+            throw refuse(.secureStorageUnavailable)
         }
     }
 
@@ -104,6 +102,12 @@ public final class SettingsViewModel {
         }
         importConfiguration(config)
         return try save()
+    }
+
+    private func refuse(_ error: SettingsError) -> SettingsError {
+        errorMessage = error.errorDescription
+        successMessage = nil
+        return error
     }
 
     private var validatedEndpoint: URL? {

@@ -79,6 +79,33 @@ private final class FakeTranscriber: Transcriber {
     }
 }
 
+/// Wraps the real voice parser. It records whether the parse ran in a cancelled
+/// task, and `holds` keeps each parse open until the test calls `release()`.
+private actor RecordingExtractor: NameExtractor {
+    private(set) var cancellationSeen: [Bool] = []
+    private let holds: Bool
+    private var gate: CheckedContinuation<Void, Never>?
+
+    init(holds: Bool = false) { self.holds = holds }
+
+    nonisolated var isAvailable: Bool { get async { true } }
+
+    func extract(from text: String) async throws -> ExtractedEntities {
+        try await VoiceEntryExtractor().extract(from: text)
+    }
+
+    func extract(from text: String, context: ExtractionContext) async throws -> ExtractionResult {
+        cancellationSeen.append(Task.isCancelled)
+        if holds { await withCheckedContinuation { gate = $0 } }
+        return try await VoiceEntryExtractor().extract(from: text, context: context)
+    }
+
+    func release() {
+        gate?.resume()
+        gate = nil
+    }
+}
+
 @Suite("U7 voice entry pipeline")
 @MainActor
 struct VoiceEntryTests {
@@ -299,6 +326,50 @@ struct VoiceEntryTests {
         )
 
         #expect(viewModel.phase == .recording)
+        #expect(viewModel.transcript == "Adam came")
+    }
+
+    /// CC-NEW-1: the fallback parse used to cancel the task it ran in, so the
+    /// extractor (the on-device model) saw a cancelled task.
+    @Test("The fallback parse does not run in a cancelled task")
+    func fallbackParseIsNotCancelled() async throws {
+        let transcriber = FakeTranscriber()
+        let extractor = RecordingExtractor()
+        let viewModel = VoiceEntryViewModel(roster: ["Aaron"], transcriber: transcriber, extractor: extractor)
+        await viewModel.prepare()
+        await viewModel.startRecording()
+        transcriber.send(TranscriptionUpdate(transcript: "Aaron came", isFinal: false), toSession: 0)
+
+        // No final update arrives, so the two-second fallback starts the parse.
+        await viewModel.stopAndParse()
+        for _ in 0..<40 where viewModel.phase != .triage { try await Task.sleep(for: .milliseconds(100)) }
+
+        #expect(await extractor.cancellationSeen == [false])
+        #expect(viewModel.proposalSet?.autoCheckNames == ["Aaron"])
+    }
+
+    /// CC-5: a parse that finishes after the sheet stopped and recorded again
+    /// must not replace the new recording with stale triage.
+    @Test("A stale parse cannot open triage over a new recording")
+    func staleParseIsDropped() async {
+        let transcriber = FakeTranscriber(transcripts: ["Aaron came", "Adam came"])
+        let extractor = RecordingExtractor(holds: true)
+        let viewModel = VoiceEntryViewModel(roster: ["Aaron", "Adam"], transcriber: transcriber, extractor: extractor)
+        await viewModel.prepare()
+        await viewModel.startRecording()
+        transcriber.send(TranscriptionUpdate(transcript: "Aaron came", isFinal: true), toSession: 0)
+        for _ in 0..<200 {
+            if await !extractor.cancellationSeen.isEmpty { break }
+            await Task.yield()
+        }
+
+        viewModel.stop()
+        await viewModel.startRecording()
+        await extractor.release()
+        for _ in 0..<20 { await Task.yield() }
+
+        #expect(viewModel.phase == .recording)
+        #expect(viewModel.proposalSet == nil)
         #expect(viewModel.transcript == "Adam came")
     }
 

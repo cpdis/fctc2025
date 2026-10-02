@@ -141,6 +141,9 @@ public final class RunPickerViewModel {
     }
 
     public func addRun(_ request: AddRunRequest) async throws {
+        // Checked before the first await: a double tap on Add starts two tasks,
+        // and only the first may add the run. The view ignores the cancellation.
+        guard !isAddingRun else { throw CancellationError() }
         isAddingRun = true
         errorMessage = nil
         defer { isAddingRun = false }

@@ -193,9 +193,7 @@ public final class SpeechService: Transcriber {
             guard format.sampleRate > 0, format.channelCount > 0 else {
                 throw SpeechServiceError.audioInputUnavailable
             }
-            input.installTap(onBus: 0, bufferSize: 1_024, format: format) { buffer, _ in
-                box.request.append(buffer)
-            }
+            input.installTap(onBus: 0, bufferSize: 1_024, format: format, block: Self.tapBlock(appendingTo: box))
             hasInputTap = true
             audioEngine.prepare()
             try audioEngine.start()
@@ -250,6 +248,13 @@ public final class SpeechService: Transcriber {
         } catch {
             throw SpeechServiceError.audioSessionDeactivation(error.localizedDescription)
         }
+    }
+
+    /// The microphone tap runs on a real-time audio thread. A closure written
+    /// inside this `@MainActor` class could be inferred main-actor isolated and
+    /// trap there, so the block is formed in a nonisolated context instead.
+    private nonisolated static func tapBlock(appendingTo box: AudioRequestBox) -> AVAudioNodeTapBlock {
+        { buffer, _ in box.request.append(buffer) }
     }
 
     private static func authorization(

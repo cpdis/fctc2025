@@ -231,6 +231,8 @@ private struct AddRunView: View {
     @Environment(\.dismiss) private var dismiss
     /// The form's fields and rules live in the kit so they are unit-tested.
     @State private var draft = AddRunDraft()
+    /// An Add that failed, shown as an alert rather than a row below the fold.
+    @State private var addError: String?
     /// Same decimal-pad trap as the checklist: no Return key, so the keyboard
     /// needs a Done button and scroll-to-dismiss.
     @FocusState private var kilometresFocused: Bool
@@ -272,6 +274,7 @@ private struct AddRunView: View {
                 }
             }
             .scrollDismissesKeyboard(.immediately)
+            .actionErrorAlert("Could not add run", message: $addError)
             .navigationTitle("Add Run")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -291,7 +294,11 @@ private struct AddRunView: View {
                             do {
                                 try await viewModel.addRun(draft.request)
                                 dismiss()
-                            } catch {}
+                            } catch is CancellationError {
+                                // A second tap while the first add ran.
+                            } catch {
+                                addError = viewModel.errorMessage ?? UserFacingError.sync(error)
+                            }
                         }
                     }
                     .disabled(!draft.canAdd || viewModel.isAddingRun)

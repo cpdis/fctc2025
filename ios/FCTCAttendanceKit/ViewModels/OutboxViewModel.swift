@@ -64,6 +64,9 @@ public final class OutboxViewModel {
         id: UUID,
         action: ConflictResolutionAction
     ) async throws -> UUID? {
+        // Checked before the first await: a double tap starts two tasks, and
+        // only the first may resolve. The view ignores the cancellation.
+        guard !isResolving else { throw CancellationError() }
         isResolving = true
         errorMessage = nil
         defer { isResolving = false }
