@@ -225,6 +225,61 @@ struct ViewModelTests {
         #expect(!viewModel.draftDiffersFromSheet)
     }
 
+    @Test("A prefilled approx distance alone does not enable Confirm")
+    func prefilledApproxIsNotADiff() {
+        let baseline = run(row: 42, dayOffset: 0, approxKm: 7.1, actualKm: nil)
+        let viewModel = ChecklistViewModel(run: baseline, roster: ["Col"], engine: ViewModelSyncClient())
+
+        #expect(viewModel.actualKmText == DistanceText.format(7.1))
+        #expect(!viewModel.draftDiffersFromSheet)
+        #expect(!viewModel.canConfirm)
+
+        viewModel.toggleMember("Col")
+        #expect(viewModel.draftDiffersFromSheet)
+        #expect(viewModel.canConfirm)
+        // The untouched prefilled value still rides along as the actual distance.
+        #expect(viewModel.draft.actualKm == 7.1)
+    }
+
+    @Test("A typed distance differs from the prefilled approx only when it changes it")
+    func typedDistanceAgainstPrefilledApprox() {
+        let baseline = run(row: 42, dayOffset: 0, approxKm: 7.1, actualKm: nil)
+        let viewModel = ChecklistViewModel(run: baseline, roster: ["Col"], engine: ViewModelSyncClient())
+
+        viewModel.actualKmText = "7.5"
+        #expect(viewModel.draftDiffersFromSheet)
+        viewModel.actualKmText = "7.1"
+        #expect(!viewModel.draftDiffersFromSheet)
+        viewModel.actualKmText = ""
+        #expect(!viewModel.draftDiffersFromSheet)
+    }
+
+    @Test("A recorded actual distance is the prefilled value, not the approx")
+    func typedDistanceAgainstRecordedActual() {
+        let baseline = run(row: 42, dayOffset: 0, approxKm: 7.1, actualKm: 8.0)
+        let viewModel = ChecklistViewModel(run: baseline, roster: ["Col"], engine: ViewModelSyncClient())
+
+        #expect(!viewModel.draftDiffersFromSheet)
+        viewModel.actualKmText = "8.2"
+        #expect(viewModel.draftDiffersFromSheet)
+        // The approx km differs from the recorded actual, so it is a real change.
+        viewModel.actualKmText = "7.1"
+        #expect(viewModel.draftDiffersFromSheet)
+        viewModel.actualKmText = ""
+        #expect(!viewModel.draftDiffersFromSheet)
+    }
+
+    @Test("A typed distance on a run with no distance at all is a change")
+    func typedDistanceWithoutAnyDistance() {
+        let baseline = run(row: 42, dayOffset: 0, approxKm: nil, actualKm: nil)
+        let viewModel = ChecklistViewModel(run: baseline, roster: ["Col"], engine: ViewModelSyncClient())
+
+        #expect(!viewModel.draftDiffersFromSheet)
+        viewModel.actualKmText = "5"
+        #expect(viewModel.draftDiffersFromSheet)
+        #expect(viewModel.canConfirm)
+    }
+
     @Test("Checklist diff summaries distinguish merge and overwrite")
     func checklistDiffSummary() {
         let baseline = run(
@@ -382,7 +437,7 @@ struct ViewModelTests {
     @Test("Refused confirm and save set a message")
     func refusalsSetMessages() async throws {
         // The sheet already holds the distance, so the seeded draft is unchanged.
-        // (With only an approx km the draft would differ and Confirm would pass.)
+        // A run with only an approx km is unchanged too: the prefilled km is not a diff.
         let checklist = ChecklistViewModel(run: run(row: 42, dayOffset: 0, actualKm: 7.1), roster: ["Aaron"], engine: ViewModelSyncClient())
         await #expect(throws: ChecklistError.unchangedDraft) { try await checklist.confirm(mode: .merge) }
         #expect(checklist.errorMessage == ChecklistError.unchangedDraft.errorDescription)
