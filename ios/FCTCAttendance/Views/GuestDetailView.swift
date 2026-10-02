@@ -221,6 +221,8 @@ struct GuestPromotionView: View {
             }
             if model.isWorking { ProgressView("Checking saved runs…") }
         }
+        // The Preview and Confirm buttons are rows the keyboard can cover.
+        .scrollDismissesKeyboard(.immediately)
         .navigationTitle("Add as member").navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("Save this run first", isPresented: $showingSaveReview, titleVisibility: .visible) {
             Button("Save run and review promotion") { Task { await model.prepare(checklist: checklist) } }

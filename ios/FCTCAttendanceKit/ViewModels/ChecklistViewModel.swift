@@ -13,7 +13,7 @@ public final class ChecklistViewModel {
     public private(set) var roster: [String]
     public var draft: AttendanceDraft
     public var actualKmText: String {
-        didSet { draft.actualKm = Self.parseDistance(actualKmText) }
+        didSet { draft.actualKm = DistanceText.parse(actualKmText) }
     }
     public var quickAddName = ""
     public private(set) var isSubmitting = false
@@ -62,7 +62,7 @@ public final class ChecklistViewModel {
         }
         if draft.actualKm == nil { draft.actualKm = run.actualKm ?? run.approxKm }
         self.draft = draft
-        self.actualKmText = Self.formatDistance(draft.actualKm)
+        self.actualKmText = DistanceText.format(draft.actualKm)
         self.initialKmText = self.actualKmText
         self.initialPlusOnesOverride = draft.plusOnesOverride
         self.initialGuestCount = draft.guests.count
@@ -84,7 +84,7 @@ public final class ChecklistViewModel {
         }
 
         if let distance = set.distanceKm, actualKmText == initialKmText {
-            actualKmText = Self.formatDistance(distance)
+            actualKmText = DistanceText.format(distance)
         }
 
         let hadUntouchedGuests = draft.guests.count == initialGuestCount
@@ -110,8 +110,12 @@ public final class ChecklistViewModel {
     }
 
     public var canConfirm: Bool {
-        !isSubmitting && unresolvedGuestNames.isEmpty && draftDiffersFromSheet
+        !isSubmitting && unresolvedGuestNames.isEmpty && draftDiffersFromSheet && !distanceIsMalformed
     }
+
+    /// The distance text is not blank and not a number. `draft.actualKm` is nil
+    /// in that state, which the sheet would read as "keep the old distance".
+    public var distanceIsMalformed: Bool { DistanceText.isMalformed(actualKmText) }
 
     public var draftDiffersFromSheet: Bool {
         Set(draft.attendees) != Set(run.attendees)
@@ -213,7 +217,7 @@ public final class ChecklistViewModel {
             guests: (record.namedGuestIds ?? []).compactMap { id in sharedGuests.first { $0.guestId == id }?.draftGuest },
             actualKm: record.actualKm, baseRevision: state.sheetRevision, runIdentity: identity,
             endpointIdentity: run.endpointIdentity, unnamedGuests: record.unnamedGuests ?? 0)
-        actualKmText = Self.formatDistance(record.actualKm)
+        actualKmText = DistanceText.format(record.actualKm)
     }
 
     public func toggleMember(_ name: String) {
@@ -302,6 +306,7 @@ public final class ChecklistViewModel {
 
     @discardableResult
     public func confirm(mode: SubmissionMode) async throws -> UUID {
+        guard !distanceIsMalformed else { throw ChecklistError.malformedDistance }
         guard canConfirm else { throw ChecklistError.unchangedDraft }
         guard mode != .merge || !requiresGuestOverwrite else { throw ChecklistError.guestOverwriteRequired }
         isSubmitting = true
@@ -336,24 +341,17 @@ public final class ChecklistViewModel {
             }
         }
     }
-
-    private static func parseDistance(_ value: String) -> Double? {
-        Double(value.trimmingCharacters(in: .whitespacesAndNewlines).replacing(",", with: "."))
-    }
-
-    private static func formatDistance(_ value: Double?) -> String {
-        guard let value else { return "" }
-        return value.formatted(.number.precision(.fractionLength(0...2)))
-    }
 }
 
 public enum ChecklistError: LocalizedError, Sendable, Equatable {
     case unchangedDraft
     case guestOverwriteRequired
+    case malformedDistance
 
     public var errorDescription: String? {
         switch self {
         case .unchangedDraft: "Change the attendance before you confirm it."
+        case .malformedDistance: DistanceText.malformedMessage
         case .guestOverwriteRequired: "Review an overwrite to name, replace or remove a saved guest. Merge keeps the old guest allocation."
         }
     }

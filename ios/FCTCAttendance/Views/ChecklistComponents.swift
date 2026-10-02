@@ -127,7 +127,6 @@ struct CircularCheck: View {
 
 struct QuickAddPersonRow: View {
     @Bindable var viewModel: ChecklistViewModel
-    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -139,7 +138,6 @@ struct QuickAddPersonRow: View {
             TextField("Add person…", text: $viewModel.quickAddName)
                 .textInputAutocapitalization(.words)
                 .submitLabel(.done)
-                .focused($isFocused)
                 .onSubmit {
                     Task { try? await viewModel.commitQuickAdd() }
                 }

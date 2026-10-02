@@ -237,6 +237,31 @@ struct ViewModelTests {
         #expect(viewModel.canConfirm)
     }
 
+    @Test("A malformed distance blocks Confirm and names itself")
+    func malformedActualKmBlocksConfirmAndNamesItself() async {
+        let baseline = run(row: 42, dayOffset: 0, actualKm: 7.1)
+        let viewModel = ChecklistViewModel(
+            run: baseline,
+            roster: ["Col", "Dan"],
+            engine: ViewModelSyncClient()
+        )
+        viewModel.toggleMember("Dan")
+        #expect(viewModel.canConfirm)
+
+        viewModel.actualKmText = "8..2"
+
+        #expect(viewModel.distanceIsMalformed)
+        #expect(viewModel.draft.actualKm == nil)
+        #expect(viewModel.canConfirm == false)
+        await #expect(throws: ChecklistError.malformedDistance) {
+            try await viewModel.confirm(mode: .merge)
+        }
+
+        viewModel.actualKmText = "8.2"
+        #expect(viewModel.distanceIsMalformed == false)
+        #expect(viewModel.canConfirm)
+    }
+
     @Test("Clearing actual kilometres keeps the sheet value unchanged")
     func clearingActualKmIsNoOpinion() {
         let baseline = run(row: 42, dayOffset: 0, actualKm: 7.1)

@@ -1,5 +1,45 @@
 # iOS handoff
 
+## Keyboard dismissal (2 October 2026)
+
+- Aaron (build 10): the checklist's "Actual kms" decimal pad had no way off the screen, so
+  it hid the bottom of the roster. Three Opus subagents audited every text input. Only the
+  two decimal-pad fields (checklist and Add Run) were blocking; the rest have a Return key.
+- Fix, following the Guest* screens' pattern: `.scrollDismissesKeyboard(.immediately)` plus a
+  keyboard-toolbar Done button gated on `@FocusState` (`actual-km-keyboard-done`,
+  `new-run-km-keyboard-done`). Settings and Add-as-member also got scroll-to-dismiss.
+- Add Run bound kilometres through `TextField(value:format:)`, which commits only when
+  editing ends. With no exit it sent `nil`. It now binds text and parses through the shared
+  `DistanceText` (the checklist's parser, moved to the kit).
+- `docs/solutions/ui-bugs/decimal-pad-fields-need-done-and-scroll-dismiss.md` has the rule.
+- A malformed distance ("8..2") used to parse to nil, which the checklist treated as "no
+  opinion" and silently kept the sheet value. `DistanceText.isMalformed` now blocks Confirm and
+  Add, shows "Enter the kilometres as one number, such as 8.2." under the field
+  (`actual-km-error`, `new-run-km-error`), and `confirm()` throws `ChecklistError.malformedDistance`.
+  Blank text still means "no opinion".
+- `DistanceText.format` is pinned to `en_US_POSIX` with no grouping, so the seeded field text
+  always round-trips through `parse`; `parse` rejects `nan` and `inf`. The Add Run form state
+  is `AddRunDraft` in the kit (`canAdd`, `request`), with unit tests.
+
+## Skill audit (2 October 2026)
+
+- Seven Opus subagents audited the iOS code read-only, each following a group of third-party
+  skills from `twostraws/Swift-Agent-Skills` (SwiftUI, SwiftData, concurrency, testing,
+  accessibility, platform, whole codebase). Report:
+  `docs/reference/2026-10-02-ios-skill-audit.md`. Full code audit: `review/code-audit/CODE_AUDIT.md`
+  (gitignored).
+- Cross-cutting theme (four audits): more than one `SyncEngine` can drain the same store
+  (runtime, background task, old engine after a Settings swap), and `SyncEngine.swift:253` can
+  re-queue another engine's in-flight row. Fix once with one drain owner per process.
+- Two likely High logic bugs: `HomeView` calls `recoveryCandidates()` with no argument, which
+  resolves to the protocol-extension stub and returns `[]`, so the guest-history reminder never
+  appears; and a parked shared submission can only be discarded (Merge and Overwrite throw
+  `missingConflictState`).
+- Nothing from the audit was fixed except the items that touched this branch's own changes
+  (distance locale, Add Run form, test hygiene, a regression test for Aaron's report).
+- The skill clones were reviewed but not installed: copying into `~/.claude/skills` is
+  self-modification and the permission classifier refused it. Colin installs them.
+
 ## Dashboard review branch (28 September 2026)
 
 - Branch `dashboard-review`, pull request cpdis/fctc2025#15. Build 9 is on TestFlight for

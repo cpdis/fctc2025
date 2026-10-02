@@ -616,6 +616,13 @@ The **Attendance** heading shows the number of checked members across the full
 draft, even during a search. When guests are present, a second line shows the total
 people, including named and unnamed guests. Both counts update as the draft changes.
 
+**Actual kms** uses the decimal pad, which has no Return key. A **Done** button sits above
+the keyboard while that field is focused, and the first scroll of the list also dismisses
+it. **Add Run**'s approx kms field works the same way. Every other text field on the app's
+screens has a Return key and dismisses on scroll. A blank distance leaves the sheet's value
+alone; a distance that is not a number, such as `8..2`, shows an error under the field and
+disables Confirm (or Add) until it is fixed.
+
 Screenshot and voice entry pre-check a member only on a sure match: an exact name, a
 nickname, or one wrong letter in a name of seven or more letters. A close but different
 name, such as "Tony" for `Toby`, is only a suggestion. Voice entry ignores a word at the

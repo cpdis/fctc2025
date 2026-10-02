@@ -146,6 +146,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings-app-version")
             }
         }
+        .scrollDismissesKeyboard(.immediately)
         .navigationTitle(configurationRequired ? "Set Up FCTC" : "Settings")
         .navigationBarTitleDisplayMode(configurationRequired ? .large : .inline)
         .toolbar {

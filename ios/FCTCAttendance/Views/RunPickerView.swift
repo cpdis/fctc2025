@@ -229,29 +229,39 @@ private struct AddRunView: View {
     let viewModel: RunPickerViewModel
 
     @Environment(\.dismiss) private var dismiss
-    @State private var date = Date.now
-    @State private var meet = ""
-    @State private var run = ""
-    @State private var approxKm: Double?
+    /// The form's fields and rules live in the kit so they are unit-tested.
+    @State private var draft = AddRunDraft()
+    /// Same decimal-pad trap as the checklist: no Return key, so the keyboard
+    /// needs a Done button and scroll-to-dismiss.
+    @FocusState private var kilometresFocused: Bool
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Run details") {
-                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                Section {
+                    DatePicker("Date", selection: $draft.date, displayedComponents: .date)
                         .accessibilityIdentifier("new-run-date")
-                    TextField("Meet", text: $meet)
+                    TextField("Meet", text: $draft.meet)
                         .textInputAutocapitalization(.words)
                         .accessibilityLabel("Meeting place")
                         .accessibilityIdentifier("new-run-meet")
-                    TextField("Run", text: $run)
+                    TextField("Run", text: $draft.run)
                         .textInputAutocapitalization(.words)
                         .accessibilityLabel("Run name")
                         .accessibilityIdentifier("new-run-name")
-                    TextField("Approx kms", value: $approxKm, format: .number)
+                    TextField("Approx kms", text: $draft.approxKmText)
                         .keyboardType(.decimalPad)
+                        .focused($kilometresFocused)
                         .accessibilityLabel("Approximate kilometres")
                         .accessibilityIdentifier("new-run-km")
+                } header: {
+                    Text("Run details")
+                } footer: {
+                    if draft.distanceIsMalformed {
+                        Text(DistanceText.malformedMessage)
+                            .foregroundStyle(.red)
+                            .accessibilityIdentifier("new-run-km-error")
+                    }
                 }
 
                 if let message = viewModel.errorMessage {
@@ -261,42 +271,33 @@ private struct AddRunView: View {
                     }
                 }
             }
+            .scrollDismissesKeyboard(.immediately)
             .navigationTitle("Add Run")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+                ToolbarItemGroup(placement: .keyboard) {
+                    if kilometresFocused {
+                        Spacer()
+                        Button("Done") { kilometresFocused = false }
+                            .accessibilityIdentifier("new-run-km-keyboard-done")
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
                         Task {
                             do {
-                                try await viewModel.addRun(request)
+                                try await viewModel.addRun(draft.request)
                                 dismiss()
                             } catch {}
                         }
                     }
-                    .disabled(!canAdd || viewModel.isAddingRun)
+                    .disabled(!draft.canAdd || viewModel.isAddingRun)
                     .accessibilityIdentifier("new-run-submit")
                 }
             }
         }
-    }
-
-    private var canAdd: Bool {
-        !meet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !run.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private var request: AddRunRequest {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "EEE, d-MMM"
-        return AddRunRequest(
-            date: formatter.string(from: date),
-            meet: meet.trimmingCharacters(in: .whitespacesAndNewlines),
-            run: run.trimmingCharacters(in: .whitespacesAndNewlines),
-            approxKm: approxKm
-        )
     }
 }

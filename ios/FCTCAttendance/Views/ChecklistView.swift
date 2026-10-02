@@ -37,6 +37,10 @@ struct ChecklistView: View {
     /// Each roster member's runs and streak, recomputed when a streak input
     /// changes (`streakFingerprint`), never per render.
     @State private var memberStats: [String: MemberStats] = [:]
+    /// The decimal pad has no Return key. Without a Done button and
+    /// scroll-to-dismiss the keyboard stayed up and hid the bottom of the
+    /// roster (Aaron, build 10).
+    @FocusState private var kilometresFocused: Bool
 
     init(
         runtime: AppRuntime,
@@ -101,6 +105,7 @@ struct ChecklistView: View {
                     Spacer(minLength: 16)
                     TextField("0", text: $viewModel.actualKmText)
                         .keyboardType(.decimalPad)
+                        .focused($kilometresFocused)
                         .multilineTextAlignment(.trailing)
                         .frame(minWidth: 64, idealWidth: 84, maxWidth: 110)
                         .accessibilityLabel("Actual kilometres")
@@ -122,6 +127,12 @@ struct ChecklistView: View {
                 }
                 .accessibilityLabel("Guests, \(viewModel.draft.plusOnes)")
                 .accessibilityIdentifier("guest-editor")
+            } footer: {
+                if viewModel.distanceIsMalformed {
+                    Text(DistanceText.malformedMessage)
+                        .foregroundStyle(.red)
+                        .accessibilityIdentifier("actual-km-error")
+                }
             }
 
             Section {
@@ -168,6 +179,9 @@ struct ChecklistView: View {
             }
         }
         .listStyle(.insetGrouped)
+        // The first scroll drops the keyboard, so the roster is reachable the
+        // moment the organiser moves on from the distance field.
+        .scrollDismissesKeyboard(.immediately)
         .navigationTitle("Review & Confirm")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Find a person")
@@ -193,6 +207,15 @@ struct ChecklistView: View {
             // navigation-bar drawer that stays hidden until a pull-down. Pin it
             // to the bottom bar, where it sat before the tabs (U11).
             DefaultToolbarItem(kind: .search, placement: .bottomBar)
+            // Shown only for the distance field: the quick-add row and the
+            // search field have their own Return key.
+            ToolbarItemGroup(placement: .keyboard) {
+                if kilometresFocused {
+                    Spacer()
+                    Button("Done") { kilometresFocused = false }
+                        .accessibilityIdentifier("actual-km-keyboard-done")
+                }
+            }
         }
         // The bottom search and the tab bar cannot share the bottom edge, so the
         // checklist hides the tab bar like the run picker does.
