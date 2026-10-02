@@ -188,9 +188,9 @@ private struct ShareConfirmationView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             if let errorMessage {
-                Text(errorMessage)
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(.primary, .red)
                     .multilineTextAlignment(.center)
             }
             if isImporting {

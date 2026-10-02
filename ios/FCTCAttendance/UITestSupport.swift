@@ -6,6 +6,7 @@
 //  `-ui-testing`. Production launches never construct these values.
 //
 
+#if DEBUG
 import CoreGraphics
 import FCTCAttendanceKit
 import Foundation
@@ -387,3 +388,26 @@ private actor UITestTextRecognizer: TextRecognizer {
         }
     }
 }
+#else
+import FCTCAttendanceKit
+import Foundation
+import SwiftData
+import CoreGraphics
+
+/// Release stand-in: the fixtures above compile only in Debug, so the app calls
+/// these inert members and no test hook, fixture or launch flag ships.
+enum UITestSupport {
+    static let isEnabled = false
+    static let shouldSkipScreenshotCoach = false
+    static var storeName: String { "" }
+
+    static func prepareLaunch() {}
+    static func screenshotParser() -> PollScreenshotParser { PollScreenshotParser() }
+    static func screenshotImages() -> [CGImage] { [] }
+    @MainActor
+    static func makeRuntime(modelContainer: ModelContainer) -> AppRuntime {
+        AppRuntime(modelContainer: modelContainer)
+    }
+    static func handleHook(_ url: URL, runtime: AppRuntime, routes: PendingRouteStore) -> Bool { false }
+}
+#endif

@@ -122,7 +122,11 @@ struct GuestEditorView: View {
                 Text(viewModel.guestDiff(for: .overwrite).summary).font(.footnote).foregroundStyle(.secondary)
             }
             if let error = error ?? viewModel.errorMessage {
-                Section { Text(error).foregroundStyle(.red).font(.footnote) }
+                Section {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.primary, .red)
+                        .font(.footnote)
+                }
             }
         }
         .scrollDismissesKeyboard(.immediately)

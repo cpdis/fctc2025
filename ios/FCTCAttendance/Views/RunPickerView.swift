@@ -279,16 +279,16 @@ private struct AddRunView: View {
                     Text("Run details")
                 } footer: {
                     if draft.distanceIsMalformed {
-                        Text(DistanceText.malformedMessage)
-                            .foregroundStyle(.red)
+                        Label(DistanceText.malformedMessage, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.primary, .red)
                             .accessibilityIdentifier("new-run-km-error")
                     }
                 }
 
                 if let message = viewModel.errorMessage {
                     Section {
-                        Text(message)
-                            .foregroundStyle(.red)
+                        Label(message, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.primary, .red)
                     }
                 }
             }

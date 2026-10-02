@@ -1,3 +1,4 @@
+#if DEBUG
 import FCTCAttendanceKit
 import Foundation
 
@@ -231,3 +232,4 @@ actor UITestSharedGuestAPI: SheetAPIClient {
     func addMember(name: String) async throws -> AddMemberResult { throw SheetAPIError.notImplemented }
     func addRun(_ request: AddRunRequest) async throws -> AddRunResult { throw SheetAPIError.notImplemented }
 }
+#endif

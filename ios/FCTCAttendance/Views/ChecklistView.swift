@@ -151,8 +151,9 @@ struct ChecklistView: View {
                 .accessibilityIdentifier("guest-editor")
             } footer: {
                 if viewModel.distanceIsMalformed {
-                    Text(DistanceText.malformedMessage)
-                        .foregroundStyle(.red)
+                    // Text stays primary for contrast; the icon carries the colour.
+                    Label(DistanceText.malformedMessage, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.primary, .red)
                         .accessibilityIdentifier("actual-km-error")
                 }
             }
@@ -198,9 +199,9 @@ struct ChecklistView: View {
             }
             if let message = viewModel.errorMessage {
                 Section {
-                    Label(message, systemImage: "exclamationmark.triangle")
+                    Label(message, systemImage: "exclamationmark.triangle.fill")
                         .font(.footnote)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.primary, .red)
                 }
             }
         }
@@ -212,9 +213,6 @@ struct ChecklistView: View {
             if malformed { AccessibilityNotification.Announcement(DistanceText.malformedMessage).post() }
         }
         .onChange(of: viewModel.errorMessage) { _, message in
-            if let message { AccessibilityNotification.Announcement(message).post() }
-        }
-        .onChange(of: confirmError) { _, message in
             if let message { AccessibilityNotification.Announcement(message).post() }
         }
         // The first scroll drops the keyboard, so the roster is reachable the
@@ -269,10 +267,10 @@ struct ChecklistView: View {
             titleVisibility: .visible
         ) {
             if !viewModel.requiresGuestOverwrite {
-                Button("Merge — \(mergeSummary)") { submit(mode: .merge) }
+                Button("Merge: \(mergeSummary)") { submit(mode: .merge) }
                     .accessibilityIdentifier("confirm-merge")
             }
-            Button(viewModel.requiresGuestOverwrite ? "Overwrite — save guest correction" : "Overwrite — \(overwriteSummary)") { submit(mode: .overwrite) }
+            Button(viewModel.requiresGuestOverwrite ? "Overwrite: save guest correction" : "Overwrite: \(overwriteSummary)") { submit(mode: .overwrite) }
                 .accessibilityIdentifier("confirm-overwrite")
             Button("Cancel", role: .cancel) {}
         } message: {

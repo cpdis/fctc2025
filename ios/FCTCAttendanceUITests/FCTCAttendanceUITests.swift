@@ -49,10 +49,10 @@ final class FCTCAttendanceUITests: XCTestCase {
         app.buttons["confirm-attendance"].tap()
 
         let merge = app.buttons.matching(
-            NSPredicate(format: "label BEGINSWITH 'Merge —'")
+            NSPredicate(format: "label BEGINSWITH 'Merge:'")
         ).firstMatch
         let overwrite = app.buttons.matching(
-            NSPredicate(format: "label BEGINSWITH 'Overwrite —'")
+            NSPredicate(format: "label BEGINSWITH 'Overwrite:'")
         ).firstMatch
         XCTAssertTrue(merge.waitForExistence(timeout: 3))
         XCTAssertTrue(overwrite.exists)
@@ -76,7 +76,7 @@ final class FCTCAttendanceUITests: XCTestCase {
         app.buttons["member-Aaron"].tap()
         app.buttons["confirm-attendance"].tap()
         app.buttons.matching(
-            NSPredicate(format: "label BEGINSWITH 'Merge —'")
+            NSPredicate(format: "label BEGINSWITH 'Merge:'")
         ).firstMatch.tap()
 
         let next = app.buttons["catchup-next"].firstMatch

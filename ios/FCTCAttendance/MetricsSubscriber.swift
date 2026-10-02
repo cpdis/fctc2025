@@ -1,4 +1,3 @@
-// Registration with MXMetricManager is wired in a follow-up (FCTCAttendanceApp.swift).
 //
 //  MetricsSubscriber.swift
 //  FCTCAttendance
