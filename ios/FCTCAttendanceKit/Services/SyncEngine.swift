@@ -318,6 +318,9 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         id: UUID,
         action: ConflictResolutionAction
     ) async throws -> UUID? {
+        // Read the clock before the guard. An await between the guard and the
+        // save lets a second call pass the same guard and queue a duplicate.
+        let now = await clock.now()
         guard let conflicted = try pending(id: id), conflicted.status == .conflict else {
             throw SyncEngineError.conflictNotFound
         }
@@ -331,11 +334,14 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
             return nil
         }
 
+        if conflicted.runIdentity != nil {
+            // A parked shared row has no snapshot. The cached live state stands
+            // in; `resolveSharedConflict` verifies the run identity against it.
+            let state = try conflicted.conflictState ?? requireSharedState()
+            return try resolveSharedConflict(conflicted, action: action, state: state, createdAt: now)
+        }
         guard let state = conflicted.conflictState else {
             throw SyncEngineError.missingConflictState
-        }
-        if conflicted.runIdentity != nil {
-            return try await resolveSharedConflict(conflicted, action: action, state: state)
         }
         let serverRun = state.runs.first {
             $0.date == conflicted.expectedDate && $0.run == conflicted.expectedRun
@@ -352,7 +358,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
             mode: action == .overwrite ? .overwrite : .merge,
             status: .queued,
             baseRevision: state.sheetRevision,
-            createdAt: await clock.now(),
+            createdAt: now,
             deviceName: conflicted.deviceName
         )
         // Preserve a nil wire value as "no opinion".

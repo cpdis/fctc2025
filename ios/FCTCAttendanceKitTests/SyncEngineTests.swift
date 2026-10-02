@@ -865,3 +865,72 @@ private func staleConflict(
         """
     )
 }
+
+/// Holds every `now()` until `count` callers wait there, then releases them
+/// together. Two calls that read the clock are then both suspended at once.
+actor GateClock: SyncClock {
+    private var count = 0
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func arm(_ count: Int) { self.count = count }
+
+    func now() async -> Date {
+        if count > 0 {
+            await withCheckedContinuation { continuation in
+                waiters.append(continuation)
+                guard waiters.count == count else { return }
+                count = 0
+                waiters.forEach { $0.resume() }
+                waiters = []
+            }
+        }
+        return Date(timeIntervalSince1970: 1_700_000_000)
+    }
+
+    func sleep(for seconds: TimeInterval) async throws {}
+}
+
+@Suite("Conflict resolution races")
+struct ConflictResolutionRaceTests {
+    /// CC-3: the guard and its mutation must not straddle a clock read, or two
+    /// taps on Merge both pass the guard and queue two replacements.
+    @Test("Two concurrent resolutions queue one replacement", arguments: [false, true])
+    func concurrentResolution(shared: Bool) async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let identity = RunIdentity(spreadsheetId: "book", seasonSheetId: 26, runId: "run-42")
+        let conflict = PendingSubmission(rowIndex: 42, expectedDate: "Fri, 2-Jan", expectedRun: "Soft Sand",
+                                         attendees: ["Col"], status: .conflict)
+        if shared {
+            conflict.spreadsheetId = identity.spreadsheetId
+            conflict.seasonSheetId = identity.seasonSheetId
+            conflict.runId = identity.runId
+        }
+        let run = RunRecord(rowIndex: 42, date: "Fri, 2-Jan", meet: "Il Lido", run: "Soft Sand", identity: shared ? identity : nil)
+        conflict.attachConflict(reason: "stale_revision", message: "The sheet changed.",
+                                state: SheetState(runs: [run], sheetRevision: "rev-fresh", spreadsheetId: shared ? "book" : nil))
+        context.insert(conflict)
+        try context.save()
+        let clock = GateClock()
+        let engine = makeEngine(container: container, transport: StubTransport([]), clock: clock)
+        await clock.arm(2)
+
+        let id = conflict.id
+        let results = await withTaskGroup(of: Result<UUID?, any Error>.self) { group in
+            for _ in 0..<2 {
+                group.addTask {
+                    do { return .success(try await engine.resolveConflict(id: id, action: .merge)) }
+                    catch { return .failure(error) }
+                }
+            }
+            return await group.reduce(into: []) { $0.append($1) }
+        }
+
+        let failures = results.compactMap { result -> SyncEngineError? in
+            if case .failure(let error) = result { return error as? SyncEngineError }
+            return nil
+        }
+        #expect(failures == [.conflictNotFound])
+        #expect(try fetchAllPending(container).count == 2)
+    }
+}

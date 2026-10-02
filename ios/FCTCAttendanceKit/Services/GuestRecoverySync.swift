@@ -52,7 +52,8 @@ extension SyncEngine {
         _ = try saveGuestOperation(operation, state: state)
         for candidate in candidates { candidate.operationId = operation.id }
         try modelContext.save()
-        await drainGuestOperation(id: operation.id)
+        // The serial drain keeps older unknown outcomes ahead of this import.
+        await drain()
         return operation.id
     }
 }
