@@ -61,7 +61,6 @@ struct ModelExtractorTests {
         ModelUnavailableReason.deviceNotEligible,
         .appleIntelligenceNotEnabled,
         .modelNotReady,
-        .frameworkMissing,
     ])
     func availability(reason: ModelUnavailableReason) async {
         let blocked = await Self.extractor(.unavailable(reason)).isAvailable

@@ -12,17 +12,23 @@ import ImageIO
 
 final class ShareViewController: UIViewController {
     private var imageProviders: [NSItemProvider] = []
+    /// Images offered beyond `SharedScreenshotLimits.maximumImageCount`.
+    private var skippedCount = 0
     private var host: UIHostingController<ShareConfirmationView>?
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        imageProviders = receivedImageProviders()
+        let offered = receivedImageProviders()
+        imageProviders = Array(offered.prefix(SharedScreenshotLimits.maximumImageCount))
+        skippedCount = offered.count - imageProviders.count
         render()
     }
 
     private func render(errorMessage: String? = nil, isImporting: Bool = false) {
         let root = ShareConfirmationView(
             count: imageProviders.count,
+            notice: skippedCount > 0
+                ? "Only the first \(imageProviders.count) screenshots were kept." : nil,
             errorMessage: errorMessage,
             isImporting: isImporting,
             onImport: { [weak self] in self?.beginImport() },
@@ -50,8 +56,6 @@ final class ShareViewController: UIViewController {
         let items = extensionContext?.inputItems.compactMap { $0 as? NSExtensionItem } ?? []
         return items.flatMap { $0.attachments ?? [] }
             .filter { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }
-            .prefix(12)
-            .map { $0 }
     }
 
     private func beginImport() {
@@ -70,13 +74,11 @@ final class ShareViewController: UIViewController {
                 for provider in providers {
                     let data = try await provider.imageData()
                     let currentInboxBytes = storedBytes
-                    let stored = try await Task.detached(priority: .userInitiated) {
-                        try Self.prepareAndWrite(
-                            data: data,
-                            inboxURL: inboxURL,
-                            currentInboxBytes: currentInboxBytes
-                        )
-                    }.value
+                    let stored = try await Self.prepareAndWrite(
+                        data: data,
+                        inboxURL: inboxURL,
+                        currentInboxBytes: currentInboxBytes
+                    )
                     writtenURLs.append(stored.url)
                     storedBytes += stored.byteCount
                 }
@@ -89,11 +91,13 @@ final class ShareViewController: UIViewController {
         }
     }
 
+    /// `nonisolated async` runs off the main actor, so image work never blocks the sheet.
     private nonisolated static func prepareAndWrite(
         data: Data,
         inboxURL: URL,
         currentInboxBytes: Int
-    ) throws -> (url: URL, byteCount: Int) {
+    ) async throws -> (url: URL, byteCount: Int) {
+        try Task.checkCancellation()
         guard !data.isEmpty,
               data.count <= SharedScreenshotLimits.maximumInputBytes,
               let source = CGImageSourceCreateWithData(data as CFData, nil),
@@ -140,6 +144,7 @@ final class ShareViewController: UIViewController {
 
 private struct ShareConfirmationView: View {
     let count: Int
+    let notice: String?
     let errorMessage: String?
     let isImporting: Bool
     let onImport: () -> Void
@@ -173,6 +178,11 @@ private struct ShareConfirmationView: View {
             Text("Import \(count) screenshot\(count == 1 ? "" : "s") into attendance review?")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+            if let notice {
+                Text(notice)
+                    .font(.callout)
+                    .multilineTextAlignment(.center)
+            }
             Text("Screenshots stay on this device and are removed after import or dismissal.")
                 .font(.caption)
                 .foregroundStyle(.secondary)

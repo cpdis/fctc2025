@@ -27,6 +27,8 @@ final class AppRuntime {
     private(set) var accent: AccentChoice
     private(set) var runRemindersEnabled: Bool
     private(set) var reminderMessage: String?
+    /// True while the permission prompt and scheduling run, so the toggle can disable.
+    private(set) var isUpdatingReminders = false
     let reminderService: any RunReminderManaging
     let sharedScreenshotInbox: SharedScreenshotInbox
 
@@ -183,8 +185,12 @@ final class AppRuntime {
 
     func setRunRemindersEnabled(_ enabled: Bool) async {
         reminderMessage = nil
+        // Show the requested value at once; the service answer below overrules it.
+        runRemindersEnabled = enabled
+        isUpdatingReminders = true
         let result = await reminderService.setEnabled(enabled)
         runRemindersEnabled = reminderService.isEnabled
+        isUpdatingReminders = false
         switch result {
         case .enabled:
             do {

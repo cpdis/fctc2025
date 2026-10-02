@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 // MARK: - Errors and configuration
 
@@ -73,8 +74,26 @@ public struct AppConfig: Hashable, Sendable {
     }
 }
 
-/// Compatibility name used by the U1 scaffold and early U4 work.
-public typealias SheetAPIConfiguration = AppConfig
+/// Every textual and reflected form hides the secret, so no log line,
+/// string interpolation or debugger dump can leak it.
+extension AppConfig: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
+    private static let redacted = "<redacted>"
+
+    public var description: String {
+        "AppConfig(endpoint: \(endpoint?.absoluteString ?? "nil"), secret: \(Self.redacted), "
+            + "deviceName: \(deviceName ?? "nil"))"
+    }
+
+    public var debugDescription: String { description }
+
+    public var customMirror: Mirror {
+        Mirror(self, children: [
+            "endpoint": endpoint as Any,
+            "secret": Self.redacted,
+            "deviceName": deviceName as Any,
+        ], displayStyle: .struct)
+    }
+}
 
 // MARK: - Transport
 
@@ -92,10 +111,21 @@ public enum HTTPTransportError: Error, Sendable, Equatable {
 public actor URLSessionTransport: HTTPTransport {
     private let endpoint: URL
     private let session: URLSession
+    private static let logger = Logger(subsystem: "com.cpdis.fctc-attendance", category: "network")
 
-    public init(endpoint: URL, session: URLSession = .shared) {
+    /// Ephemeral (no cookies or disk cache) with a 30 s request timeout, so a
+    /// stalled Apps Script call fails soon instead of after the 60 s default.
+    private static func makeSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 30
+        configuration.urlCache = nil
+        return URLSession(configuration: configuration)
+    }
+
+    /// Tests inject a `session`; the app uses the dedicated one.
+    public init(endpoint: URL, session: URLSession? = nil) {
         self.endpoint = endpoint
-        self.session = session
+        self.session = session ?? Self.makeSession()
     }
 
     public func post(_ body: Data) async throws -> Data {
@@ -110,6 +140,10 @@ public actor URLSessionTransport: HTTPTransport {
         do {
             (data, response) = try await session.data(for: request, delegate: delivery)
         } catch {
+            // The endpoint is hashed; the error is reduced to its code.
+            Self.logger.error(
+                "Request failed: \((error as? URLError)?.code.rawValue ?? 0, privacy: .public) at \(self.endpoint.absoluteString, privacy: .private(mask: .hash))"
+            )
             // An error code alone cannot distinguish initial connection failure
             // from a failure following a redirect after the server committed.
             if delivery.provesRequestWasNotSent {
@@ -121,6 +155,9 @@ public actor URLSessionTransport: HTTPTransport {
             throw HTTPTransportError.invalidResponse
         }
         guard (200..<300).contains(httpResponse.statusCode) else {
+            Self.logger.error(
+                "Request failed: HTTP \(httpResponse.statusCode, privacy: .public) at \(self.endpoint.absoluteString, privacy: .private(mask: .hash))"
+            )
             throw HTTPTransportError.statusCode(httpResponse.statusCode)
         }
         return data
@@ -158,13 +195,6 @@ public actor SheetAPI: SheetAPIClient {
         }
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
-    }
-
-    public init(
-        configuration: SheetAPIConfiguration,
-        transport: (any HTTPTransport)? = nil
-    ) {
-        self.init(config: configuration, transport: transport)
     }
 
     public func getState() async throws -> SheetState {
@@ -206,16 +236,6 @@ public actor SheetAPI: SheetAPIClient {
             AddRunWireRequest(secret: config.secret, request: request),
             as: AddRunResult.self
         )
-    }
-
-    /// Compatibility overload for the U1 seam.
-    public func addRun(
-        date: String,
-        meet: String,
-        run: String,
-        approxKm: Double?
-    ) async throws -> AddRunResult {
-        try await addRun(AddRunRequest(date: date, meet: meet, run: run, approxKm: approxKm))
     }
 
     func send<Request: Encodable, Response: Decodable>(
@@ -376,21 +396,5 @@ private struct AddRunWireRequest: Encodable {
         try container.encode(meet, forKey: .meet)
         try container.encode(run, forKey: .run)
         try container.encode(approxKm, forKey: .approxKm)
-    }
-}
-
-/// Keeps early UI work compilable while it migrates from the U1 placeholder.
-public struct UnimplementedSheetAPI: SheetAPIClient {
-    public init() {}
-
-    public func getState() async throws -> SheetState { throw SheetAPIError.notImplemented }
-    public func submitAttendance(
-        _ submission: AttendanceSubmission
-    ) async throws -> SubmissionOutcome { throw SheetAPIError.notImplemented }
-    public func addMember(name: String) async throws -> AddMemberResult {
-        throw SheetAPIError.notImplemented
-    }
-    public func addRun(_ request: AddRunRequest) async throws -> AddRunResult {
-        throw SheetAPIError.notImplemented
     }
 }

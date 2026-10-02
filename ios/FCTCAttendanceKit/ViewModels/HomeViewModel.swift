@@ -20,7 +20,6 @@ public final class HomeViewModel {
     /// True while the engine drains, so the Unsynced tile can show real work.
     public private(set) var isSyncing = false
 
-    public var lastSyncMessage: String? { syncBanner?.message }
     /// True when the banner shows a failed refresh (not a failed send), so the
     /// app refreshes again when it becomes active.
     public var refreshFailed: Bool { syncBanner != nil && bannerSource == .refresh }
@@ -70,7 +69,7 @@ public final class HomeViewModel {
                 weekCount += 1
             }
             if calendar.isDate(scheduledAt, inSameDayAs: now),
-               earliestToday.map({ Self.ascending(run, $0) }) ?? true {
+               earliestToday.map({ RunSnapshot.chronological(run, $0) }) ?? true {
                 earliestToday = run
             }
         }
@@ -173,10 +172,5 @@ public final class HomeViewModel {
             }
         }
         return SyncBanner(kind: .error, message: message)
-    }
-
-    private static func ascending(_ lhs: RunSnapshot, _ rhs: RunSnapshot) -> Bool {
-        (lhs.scheduledAt ?? .distantFuture, lhs.rowIndex)
-            < (rhs.scheduledAt ?? .distantFuture, rhs.rowIndex)
     }
 }

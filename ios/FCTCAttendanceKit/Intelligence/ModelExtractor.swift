@@ -7,7 +7,7 @@
 //
 //  Everything framework-shaped lives behind `ModelGateway` so the decision logic
 //  (available? threw? hallucinated? empty?) is testable with a fake, on any machine,
-//  without Apple Intelligence and without the framework linked.
+//  without Apple Intelligence.
 //
 //  Three safety rails, because a language model that guesses names would quietly
 //  corrupt the sheet:
@@ -20,16 +20,13 @@
 
 import Foundation
 
-#if canImport(FoundationModels)
 import FoundationModels
-#endif
 
 /// Why the on-device model cannot run right now.
 public enum ModelUnavailableReason: String, Codable, Hashable, Sendable {
     case deviceNotEligible
     case appleIntelligenceNotEnabled
     case modelNotReady
-    case frameworkMissing
     case unknown
 }
 
@@ -44,7 +41,6 @@ public enum ModelAvailability: Hashable, Sendable {
 }
 
 public enum ModelGatewayError: Error, Hashable, Sendable {
-    case frameworkUnavailable
     case modelUnavailable(reason: ModelUnavailableReason)
     case emptyResponse
 }
@@ -59,8 +55,6 @@ public protocol ModelGateway: Sendable {
 }
 
 // MARK: - FoundationModels payload
-
-#if canImport(FoundationModels)
 
 /// The guided-generation schema. Deliberately the same shape as `ExtractedEntities`
 /// and as the `*.expected.json` fixtures.
@@ -80,19 +74,15 @@ struct GeneratedAttendance {
     var guestNames: [String]
 }
 
-#endif
-
 // MARK: - Real gateway
 
-/// Talks to `SystemLanguageModel` when the framework is present; reports
-/// `.frameworkMissing` when it is not (so the kit still builds and tests anywhere).
+/// Talks to `SystemLanguageModel` (iOS 26).
 public struct FoundationModelsGateway: ModelGateway {
 
     public init() {}
 
     public var availability: ModelAvailability {
         get async {
-            #if canImport(FoundationModels)
             switch SystemLanguageModel.default.availability {
             case .available:
                 return .available
@@ -110,9 +100,6 @@ public struct FoundationModelsGateway: ModelGateway {
             @unknown default:
                 return .unavailable(reason: .unknown)
             }
-            #else
-            return .unavailable(reason: .frameworkMissing)
-            #endif
         }
     }
 
@@ -120,7 +107,6 @@ public struct FoundationModelsGateway: ModelGateway {
         from text: String,
         context: ExtractionContext
     ) async throws -> ExtractedEntities {
-        #if canImport(FoundationModels)
         let session = LanguageModelSession {
             Self.instructions(for: context.mode)
         }
@@ -135,9 +121,6 @@ public struct FoundationModelsGateway: ModelGateway {
             distanceKm: generated.distanceKm,
             guestNames: generated.guestNames
         )
-        #else
-        throw ModelGatewayError.frameworkUnavailable
-        #endif
     }
 
     static func instructions(for mode: ExtractionMode) -> String {

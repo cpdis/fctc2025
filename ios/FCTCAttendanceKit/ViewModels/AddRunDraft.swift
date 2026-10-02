@@ -33,7 +33,7 @@ public struct AddRunDraft: Equatable, Sendable {
     /// which `ClubDate(sheetDate:season:)` reads back.
     public var request: AddRunRequest {
         AddRunRequest(
-            date: Self.sheetDate(date),
+            date: ClubDate.sheetString(from: date),
             meet: cleanMeet,
             run: cleanRun,
             approxKm: DistanceText.parse(approxKmText)
@@ -42,13 +42,4 @@ public struct AddRunDraft: Equatable, Sendable {
 
     private var cleanMeet: String { meet.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var cleanRun: String { run.trimmingCharacters(in: .whitespacesAndNewlines) }
-
-    /// `DateFormatter` is not Sendable, so it is built per call. One Add tap,
-    /// one formatter: cheap. The sheet's hyphen rules out `Date.FormatStyle`.
-    private static func sheetDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "EEE, d-MMM"
-        return formatter.string(from: date)
-    }
 }

@@ -236,11 +236,26 @@ private struct AddRunView: View {
     /// needs a Done button and scroll-to-dismiss.
     @FocusState private var kilometresFocused: Bool
 
+    /// 1 January to 31 December of the draft's year, so the picker cannot add a
+    /// run outside the season it is in.
+    private var seasonRange: ClosedRange<Date> {
+        let calendar = Calendar(identifier: .gregorian)
+        let year = calendar.component(.year, from: draft.date)
+        let start = calendar.date(from: DateComponents(year: year, month: 1, day: 1)) ?? draft.date
+        let end = calendar.date(from: DateComponents(year: year, month: 12, day: 31)) ?? draft.date
+        return start...end
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    DatePicker("Date", selection: $draft.date, displayedComponents: .date)
+                    DatePicker(
+                        "Date",
+                        selection: $draft.date,
+                        in: seasonRange,
+                        displayedComponents: .date
+                    )
                         .accessibilityIdentifier("new-run-date")
                     TextField("Meet", text: $draft.meet)
                         .textInputAutocapitalization(.words)

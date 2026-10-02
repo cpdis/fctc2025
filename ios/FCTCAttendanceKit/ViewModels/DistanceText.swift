@@ -21,10 +21,10 @@ public enum DistanceText {
 
     /// The kilometres typed so far, or nil for blank or unparseable text. The
     /// decimal pad shows a comma in some locales, so both separators parse.
-    /// "nan" and "inf" parse as `Double` but are not distances.
+    /// "nan", "inf" and negative values parse as `Double` but are not distances.
     public static func parse(_ text: String) -> Double? {
         let value = Double(text.trimmingCharacters(in: .whitespacesAndNewlines).replacing(",", with: "."))
-        guard let value, value.isFinite else { return nil }
+        guard let value, value.isFinite, value >= 0 else { return nil }
         return value
     }
 
@@ -37,7 +37,7 @@ public enum DistanceText {
     }
 
     /// The message shown under a malformed distance field.
-    public static let malformedMessage = "Enter the kilometres as one number, such as 8.2."
+    public static let malformedMessage = "Enter the km as one number, such as 8.2."
 
     /// The sheet's distance as field text: up to two decimals, blank for nil.
     public static func format(_ value: Double?) -> String {

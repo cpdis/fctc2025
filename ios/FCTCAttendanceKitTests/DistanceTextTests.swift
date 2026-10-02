@@ -23,7 +23,7 @@ struct DistanceTextTests {
         #expect(DistanceText.parse(text) == nil)
     }
 
-    @Test(arguments: ["8..2", "1.2.3", ".", "abc"])
+    @Test(arguments: ["8..2", "1.2.3", ".", "abc", "-5"])
     func typedTextThatIsNotANumberIsMalformed(text: String) {
         #expect(DistanceText.isMalformed(text))
     }

@@ -8,11 +8,23 @@
 
 
 import Foundation
+import os
 import SwiftData
 
 // MARK: - Engine
 
 public actor SyncEngine: ModelActor, SyncEngineClient {
+    /// Row failures. Error codes are public; the endpoint is hashed; the secret never logs.
+    static let logger = Logger(subsystem: "com.cpdis.fctc-attendance", category: "sync")
+
+    /// Logs one outbox row's failure without the secret or the raw endpoint.
+    func logRowFailure(id: UUID, error: any Error) {
+        let code = (error as? SheetAPIError)?.code ?? "untyped"
+        Self.logger.error(
+            "Row \(id.uuidString, privacy: .public) failed: \(code, privacy: .public) at \(self.api.endpointIdentity ?? "none", privacy: .private(mask: .hash))"
+        )
+    }
+
     public nonisolated let modelExecutor: any ModelExecutor
     public nonisolated let modelContainer: ModelContainer
     public nonisolated var events: AsyncStream<SyncEvent> { eventBroadcaster.stream() }
@@ -183,11 +195,6 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         try modelContext.save()
         revalidatedSnapshots.insert(key)
         return state
-    }
-
-    /// Compatibility spelling from the U1 seam.
-    public func refresh() async throws -> SheetState {
-        try await refreshState()
     }
 
     public func enqueue(_ submission: AttendanceSubmission) async throws -> UUID {
