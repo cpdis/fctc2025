@@ -1,0 +1,27 @@
+The number pad now has a Done you can press,
+Or scroll down the roster and the keys acquiesce.
+Type eight-dot-dot-two and the field says "no, no",
+And Confirm waits for a tick before it will go.
+
+Filament Coffee Track Club: a Done key, honest distances and a quieter sync
+
+Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone. Nothing to set up again.
+
+New since build 10:
+• Actual kms, and Add Run's approx kms, have a Done button above the number keyboard. The first scroll of the list also dismisses it. A distance typed with the keyboard still up survives Confirm.
+• A distance that is not a number, such as 8..2, shows an error under the field and disables Confirm (or Add) until it is fixed. A blank field leaves the sheet's value alone.
+• The prefilled km on a run nobody has recorded no longer enables Confirm on its own. Confirm needs a checked runner, a guest change or a typed distance.
+• The first dictation on a fresh install no longer crashes at the permission prompt.
+• The Runs tab's "Review local guest history" reminder appears when there is something to review.
+• Outbox: a held-back submission can be merged or overwritten, not only discarded. One sync runs at a time. The Unsynced tile counts guest changes too.
+• Settings has a Siri and Shortcuts row, and the run reminders switch waits while it updates.
+• Error and success messages are plain text with a coloured symbol, and VoiceOver reads each problem once.
+• A reminder or Siri shortcut older than ten minutes is ignored instead of opening a run you have forgotten about.
+
+Please check:
+• Aaron's one: open today's run, type the actual kms, then scroll down. The keyboard should go. Tap the field again and tap Done.
+• Type 8..2. The error should show and Confirm should be disabled. Fix it and Confirm comes back.
+• Open a run nobody has recorded. Confirm should stay disabled until you check someone.
+• Record a run the usual way and make sure it lands in the sheet as before.
+
+Share feedback through TestFlight.

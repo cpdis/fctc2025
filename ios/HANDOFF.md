@@ -62,9 +62,11 @@
   External have no access. The en-AU notes were set with
   `testflight-notes.py --build 11 --file ios/testflight-build-11.txt`; the tool now stops with
   Apple's own error text on an API refusal (`87cf8f4`).
-- To release to Aaron and Grant later: rewrite the notes for them (these say "Private build for
-  Colin"), then `python3 ios/Tools/testflight-notes.py --build 11 --file <notes> --group "FCTC Friends"`
-  and submit for Beta App Review if asked.
+- Released to FCTC Friends on 3 October 2026 with `ios/testflight-build-11-friends.txt` as the
+  What to Test notes (`--group "FCTC Friends"`), then a beta app review submission through the
+  API (`POST /v1/betaAppReviewSubmissions`), which Apple accepted at once: external state
+  `IN_BETA_TESTING`, automatic notification on. Aaron and Grant update in place; the sheet
+  connection, saved guests and outbox survive, and the Apps Script is unchanged by this branch.
 - Notes: `ios/testflight-build-11.txt`, written before the archive per the runbook.
 
 ## Two follow-ups before build 11 (2 October 2026)
