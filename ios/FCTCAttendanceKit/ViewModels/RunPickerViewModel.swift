@@ -85,7 +85,7 @@ public final class RunPickerViewModel {
 
         sections = RunSectionKind.allCases.compactMap { kind in
             guard var values = buckets[kind], !values.isEmpty else { return nil }
-            values.sort(by: kind == .past ? Self.descending : Self.ascending)
+            values.sort(by: kind == .past ? Self.newestFirst : RunSnapshot.chronological)
             return RunSection(kind: kind, runs: values)
         }
         selectedRun = Self.defaultRun(from: runs, now: now, calendar: calendar)
@@ -97,10 +97,6 @@ public final class RunPickerViewModel {
         runs: [RunSnapshot],
         calendar: Calendar
     ) -> [RunSection] {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.dateFormat = "MMMM"
-
         var order: [Date] = []
         var byMonth: [Date: [RunSnapshot]] = [:]
         var dateless: [RunSnapshot] = []
@@ -118,8 +114,10 @@ public final class RunPickerViewModel {
         var sections = order.sorted(by: >).map { month in
             RunSection(
                 kind: .past,
-                title: formatter.string(from: month),
-                runs: byMonth[month]!.sorted(by: Self.descending)
+                title: month.formatted(
+                    Date.FormatStyle(calendar: calendar, timeZone: calendar.timeZone).month(.wide)
+                ),
+                runs: byMonth[month]!.sorted(by: Self.newestFirst)
             )
         }
         if !dateless.isEmpty {
@@ -137,10 +135,13 @@ public final class RunPickerViewModel {
     ) -> RunSnapshot? {
         let due = runs.filter { ($0.scheduledAt ?? .distantFuture) <= now }
         let pending = due.filter { !$0.hasRecordedAttendance }
-        return (pending.isEmpty ? due : pending).max(by: Self.ascending)
+        return (pending.isEmpty ? due : pending).max(by: RunSnapshot.chronological)
     }
 
     public func addRun(_ request: AddRunRequest) async throws {
+        // Checked before the first await: a double tap on Add starts two tasks,
+        // and only the first may add the run. The view ignores the cancellation.
+        guard !isAddingRun else { throw CancellationError() }
         isAddingRun = true
         errorMessage = nil
         defer { isAddingRun = false }
@@ -154,27 +155,14 @@ public final class RunPickerViewModel {
 
     private func observeEvents() {
         eventMonitor.start(engine: engine) { [weak self] event in
-            switch event {
-            case .failed(_, let message), .serviceFailed(let message):
-                self?.errorMessage = message
-            case .authenticationRequired:
-                self?.errorMessage = UserFacingError.authentication
-            case .parked(_, let message):
-                self?.errorMessage = message
-            case .conflict:
-                self?.errorMessage = UserFacingError.conflict
-            case .queued, .written, .rosterRefreshed, .syncActivity:
-                break
-            }
+            // These screens show problems only; a success leaves the last
+            // error in place, as before.
+            guard let banner = SyncBanner(event: event), banner.isProblem else { return }
+            self?.errorMessage = banner.message
         }
     }
 
-    private nonisolated static func ascending(_ lhs: RunSnapshot, _ rhs: RunSnapshot) -> Bool {
-        (lhs.scheduledAt ?? .distantFuture, lhs.rowIndex)
-            < (rhs.scheduledAt ?? .distantFuture, rhs.rowIndex)
-    }
-
-    private nonisolated static func descending(_ lhs: RunSnapshot, _ rhs: RunSnapshot) -> Bool {
-        ascending(rhs, lhs)
+    private nonisolated static func newestFirst(_ lhs: RunSnapshot, _ rhs: RunSnapshot) -> Bool {
+        RunSnapshot.chronological(rhs, lhs)
     }
 }

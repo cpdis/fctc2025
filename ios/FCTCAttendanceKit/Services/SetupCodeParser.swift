@@ -78,7 +78,7 @@ public struct SetupCodeParser: SetupCodePayloadParsing {
 
     private static func decodeJSON(_ payload: String) throws -> SetupCodePayload {
         do {
-            return try JSONDecoder().decode(SetupCodePayload.self, from: Data(payload.utf8))
+            return try JSONCoding.decoder.decode(SetupCodePayload.self, from: Data(payload.utf8))
         } catch {
             throw SetupCodeError.invalidPayload
         }

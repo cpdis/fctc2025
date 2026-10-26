@@ -128,7 +128,6 @@ struct SeasonUnavailableView: View {
 
 struct HomeSyncBanner: View {
     let banner: SyncBanner
-    let runtime: AppRuntime
     let retry: @MainActor () async -> Void
 
     var body: some View {
@@ -145,23 +144,18 @@ struct HomeSyncBanner: View {
                 }
                 .accessibilityIdentifier("home-sync-retry")
             case .conflict:
-                NavigationLink {
-                    OutboxView(runtime: runtime)
-                } label: {
+                // Value links, so Home's typed path sees every push.
+                NavigationLink(value: HomeRoute.outbox) {
                     Label("Review Conflict", systemImage: "exclamationmark.triangle")
                 }
                 .accessibilityIdentifier("home-review-conflict")
             case .authentication:
-                NavigationLink {
-                    SettingsView(runtime: runtime)
-                } label: {
+                NavigationLink(value: HomeRoute.settings) {
                     Label("Open Settings", systemImage: "gearshape")
                 }
                 .accessibilityIdentifier("home-open-settings")
             case .error:
-                NavigationLink {
-                    OutboxView(runtime: runtime)
-                } label: {
+                NavigationLink(value: HomeRoute.outbox) {
                     Label("Open Outbox", systemImage: "tray.and.arrow.up")
                 }
             case .success:
@@ -200,6 +194,8 @@ struct SummaryTile: View {
     /// Turns the glyph while real work runs, such as a sync drain.
     var isWorking = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -208,7 +204,11 @@ struct SummaryTile: View {
                     .foregroundStyle(tint)
                     // Unsynced -> Conflicts swaps the glyph in place.
                     .contentTransition(.symbolEffect(.replace))
-                    .symbolEffect(.rotate, options: .repeating, isActive: isWorking)
+                    // As the Sync button: a steady turn for the whole send
+                    // (`.repeating` pauses 2 s between turns), and a new view
+                    // when it stops, as `isActive` alone can keep it turning.
+                    .symbolEffect(.rotate, options: .repeat(.continuous), isActive: isWorking && !reduceMotion)
+                    .id(isWorking)
                     .frame(width: 28, height: 28)
                     .background(.white, in: .circle)
                     .accessibilityHidden(true)

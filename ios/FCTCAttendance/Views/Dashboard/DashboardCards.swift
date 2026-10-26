@@ -116,6 +116,16 @@ enum DashboardFormat {
         count == 1 ? "1 run" : "\(count.formatted()) runs"
     }
 
+    /// "1 submission", "3 submissions".
+    static func submissions(_ count: Int) -> String {
+        count == 1 ? "1 submission" : "\(count.formatted()) submissions"
+    }
+
+    /// "1 confirmed run", "3 confirmed runs": a guest's counted runs.
+    static func confirmedRuns(_ count: Int) -> String {
+        count == 1 ? "1 confirmed run" : "\(count.formatted()) confirmed runs"
+    }
+
     /// "1 runner", "12 runners": everyone on one run, +1s included.
     static func runners(_ count: Int) -> String {
         count == 1 ? "1 runner" : "\(count.formatted()) runners"
@@ -231,7 +241,7 @@ struct HeadlineCard: View {
     private var comparison: String? {
         guard let vs = headline.vsPrevious else { return nil }
         let delta: String? = switch metric {
-        case .runs: vs.runsDelta == 0 ? nil : "\(DashboardFormat.signed(vs.runsDelta)) runs"
+        case .runs: vs.runsDelta == 0 ? nil : "\(DashboardFormat.signed(vs.runsDelta)) \(abs(vs.runsDelta) == 1 ? "run" : "runs")"
         case .km: vs.memberKmDelta.rounded() == 0
             ? nil : "\(DashboardFormat.signed(Int(vs.memberKmDelta.rounded()))) km"
         }
@@ -255,7 +265,7 @@ private struct RunnersSparkline: View {
         .chartXScale(domain: runs.map(\.id))
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
-        .accessibilityLabel("Runners per run, last \(runs.count) runs")
+        .accessibilityLabel("Runners per run, last \(DashboardFormat.runs(runs.count))")
     }
 }
 
@@ -374,6 +384,10 @@ struct WallCard: View {
                     Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
                 }
             }
+            // Voice Control hears the visible words, not the longer spoken label.
+            .accessibilityInputLabels(["Last 5 weeks", "Open the full Wall"])
+            .frame(minHeight: 44)
+            .contentShape(.rect)
             .accessibilityLabel("Open the full Wall")
             .accessibilityIdentifier("wall-open")
         } content: {
@@ -414,7 +428,7 @@ struct RunLogLink: View {
             HStack(spacing: 8) {
                 HomeRow(
                     title: "Run log",
-                    subtitle: count == 1 ? "1 run, searchable" : "All \(count) runs, searchable",
+                    subtitle: "\(count == 1 ? "1 run" : "All \(count.formatted()) runs"), searchable",
                     systemImage: "list.bullet",
                     tint: .gray
                 )

@@ -3,7 +3,7 @@ import SwiftData
 import Testing
 @testable import FCTCAttendanceKit
 
-@Suite("Guest response ordering", .serialized)
+@Suite("Guest response ordering")
 struct GuestCacheOrderingTests {
     @Test("A delayed read cannot undo a confirmed name", arguments: ["getState", "getGuestHistory"])
     func delayedRead(action: String) async throws {

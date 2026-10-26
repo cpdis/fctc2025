@@ -3,7 +3,7 @@ import SwiftData
 import Testing
 @testable import FCTCAttendanceKit
 
-@Suite("Guest allocation correction review", .serialized)
+@Suite("Guest allocation correction review")
 @MainActor
 struct GuestAllocationCorrectionTests {
     private let rene = "11111111-1111-4111-8111-111111111111"

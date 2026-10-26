@@ -3,7 +3,7 @@ import SwiftData
 import Testing
 @testable import FCTCAttendanceKit
 
-@Suite("Reviewed guest submission sync", .serialized)
+@Suite("Reviewed guest submission sync")
 struct GuestReviewSyncTests {
     @Test("Save-before-promotion distinguishes queued and committed receipts")
     func receiptSnapshot() async throws {

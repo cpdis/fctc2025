@@ -90,7 +90,7 @@ struct GuestIdentityReviewView: View {
                     Button { resolve(existingId: guest.guestId) } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(guest.displayName)
-                            Text("\(guest.confirmedRuns ?? 0) confirmed runs").font(.caption).foregroundStyle(.secondary)
+                            Text(DashboardFormat.confirmedRuns(guest.confirmedRuns ?? 0)).font(.caption).foregroundStyle(.secondary)
                         }
                     }.accessibilityIdentifier("resolve-identity-\(guest.displayName)")
                 }

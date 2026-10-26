@@ -35,14 +35,14 @@ struct RunPickerView: View {
         }
     }
 
-    /// Case-insensitive match on meet, run name, and the sheet-style date text.
+    /// Locale-aware, case- and diacritic-insensitive match on meet, run name, and the sheet-style date text.
     private var filteredSections: [RunSection] {
         guard !searchText.isEmpty else { return viewModel.sections }
         return viewModel.sections.compactMap { section in
             let runs = section.runs.filter { run in
-                run.meet.localizedCaseInsensitiveContains(searchText)
-                    || run.run.localizedCaseInsensitiveContains(searchText)
-                    || run.date.localizedCaseInsensitiveContains(searchText)
+                run.meet.localizedStandardContains(searchText)
+                    || run.run.localizedStandardContains(searchText)
+                    || run.date.localizedStandardContains(searchText)
             }
             guard !runs.isEmpty else { return nil }
             var filtered = section
@@ -94,18 +94,17 @@ struct RunPickerView: View {
             }
 
             if filteredSections.isEmpty {
-                ContentUnavailableView(
-                    searchText.isEmpty
-                        ? (scope == .past ? "No Past Runs" : "No Runs")
-                        : "No Matches",
-                    systemImage: searchText.isEmpty ? "calendar.badge.plus" : "magnifyingglass",
-                    description: Text(
-                        searchText.isEmpty
-                            ? "Add a scheduled run or refresh the sheet."
-                            : "No run matches \"\(searchText)\"."
+                if searchText.isEmpty {
+                    ContentUnavailableView(
+                        scope == .past ? "No Past Runs" : "No Runs",
+                        systemImage: "calendar.badge.plus",
+                        description: Text("Add a scheduled run or refresh the sheet.")
                     )
-                )
-                .listRowBackground(Color.clear)
+                    .listRowBackground(Color.clear)
+                } else {
+                    ContentUnavailableView.search(text: searchText)
+                        .listRowBackground(Color.clear)
+                }
             }
         }
         .listStyle(.insetGrouped)
@@ -229,37 +228,81 @@ private struct AddRunView: View {
     let viewModel: RunPickerViewModel
 
     @Environment(\.dismiss) private var dismiss
-    @State private var date = Date.now
-    @State private var meet = ""
-    @State private var run = ""
-    @State private var approxKm: Double?
+    /// The form's fields and rules live in the kit so they are unit-tested.
+    @State private var draft = AddRunDraft()
+    /// An Add that failed, shown as an alert rather than a row below the fold.
+    @State private var addError: String?
+    /// Same decimal-pad trap as the checklist: no Return key, so the keyboard
+    /// needs a Done button and scroll-to-dismiss.
+    @FocusState private var kilometresFocused: Bool
+
+    /// 1 January to 31 December of the draft's year, so the picker cannot add a
+    /// run outside the season it is in.
+    private var seasonRange: ClosedRange<Date> {
+        let calendar = Calendar(identifier: .gregorian)
+        let year = calendar.component(.year, from: draft.date)
+        let start = calendar.date(from: DateComponents(year: year, month: 1, day: 1)) ?? draft.date
+        let end = calendar.date(from: DateComponents(year: year, month: 12, day: 31)) ?? draft.date
+        return start...end
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Run details") {
-                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                Section {
+                    DatePicker(
+                        "Date",
+                        selection: $draft.date,
+                        in: seasonRange,
+                        displayedComponents: .date
+                    )
                         .accessibilityIdentifier("new-run-date")
-                    TextField("Meet", text: $meet)
+                    TextField("Meet", text: $draft.meet)
                         .textInputAutocapitalization(.words)
                         .accessibilityLabel("Meeting place")
+                        .accessibilityInputLabels(["Meet", "Meeting place"])
                         .accessibilityIdentifier("new-run-meet")
-                    TextField("Run", text: $run)
+                    TextField("Run", text: $draft.run)
                         .textInputAutocapitalization(.words)
                         .accessibilityLabel("Run name")
+                        .accessibilityInputLabels(["Run", "Run name"])
                         .accessibilityIdentifier("new-run-name")
-                    TextField("Approx kms", value: $approxKm, format: .number)
+                    TextField("Approx km", text: $draft.approxKmText)
                         .keyboardType(.decimalPad)
+                        .focused($kilometresFocused)
                         .accessibilityLabel("Approximate kilometres")
+                        .accessibilityInputLabels(["Approx km", "Approx kms", "Approximate kilometres"])
+                        // The error also rides in the hint, next to the field.
+                        .accessibilityHint(draft.distanceIsMalformed ? DistanceText.malformedMessage : "")
                         .accessibilityIdentifier("new-run-km")
+                } header: {
+                    Text("Run details")
+                } footer: {
+                    if draft.distanceIsMalformed {
+                        Label(DistanceText.malformedMessage, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.primary, .red)
+                            .accessibilityIdentifier("new-run-km-error")
+                    }
                 }
 
                 if let message = viewModel.errorMessage {
                     Section {
-                        Text(message)
-                            .foregroundStyle(.red)
+                        Label(message, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.primary, .red)
                     }
                 }
+            }
+            .scrollDismissesKeyboard(.immediately)
+            .actionErrorAlert("Could not add run", message: $addError)
+            // The footer and the alert are visual; say each error out loud.
+            .onChange(of: draft.distanceIsMalformed) { _, malformed in
+                if malformed { AccessibilityNotification.Announcement(DistanceText.malformedMessage).post() }
+            }
+            .onChange(of: viewModel.errorMessage) { _, message in
+                if let message { AccessibilityNotification.Announcement(message).post() }
+            }
+            .onChange(of: addError) { _, message in
+                if let message { AccessibilityNotification.Announcement(message).post() }
             }
             .navigationTitle("Add Run")
             .navigationBarTitleDisplayMode(.inline)
@@ -267,36 +310,30 @@ private struct AddRunView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+                ToolbarItemGroup(placement: .keyboard) {
+                    if kilometresFocused {
+                        Spacer()
+                        Button("Done") { kilometresFocused = false }
+                            .accessibilityIdentifier("new-run-km-keyboard-done")
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
                         Task {
                             do {
-                                try await viewModel.addRun(request)
+                                try await viewModel.addRun(draft.request)
                                 dismiss()
-                            } catch {}
+                            } catch is CancellationError {
+                                // A second tap while the first add ran.
+                            } catch {
+                                addError = viewModel.errorMessage ?? UserFacingError.sync(error)
+                            }
                         }
                     }
-                    .disabled(!canAdd || viewModel.isAddingRun)
+                    .disabled(!draft.canAdd || viewModel.isAddingRun)
                     .accessibilityIdentifier("new-run-submit")
                 }
             }
         }
-    }
-
-    private var canAdd: Bool {
-        !meet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !run.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private var request: AddRunRequest {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "EEE, d-MMM"
-        return AddRunRequest(
-            date: formatter.string(from: date),
-            meet: meet.trimmingCharacters(in: .whitespacesAndNewlines),
-            run: run.trimmingCharacters(in: .whitespacesAndNewlines),
-            approxKm: approxKm
-        )
     }
 }

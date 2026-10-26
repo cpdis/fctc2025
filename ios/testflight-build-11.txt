@@ -1,0 +1,28 @@
+The number pad now has a Done you can press,
+Or scroll down the roster and the keys acquiesce.
+Type eight-dot-dot-two and the field says "no, no",
+And Confirm waits for a tick before it will go.
+
+Filament Coffee Track Club: a Done key, honest distances and a quieter sync
+
+Private build for Colin. Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone.
+
+New since build 10:
+• Actual kms, and Add Run's approx kms, have a Done button above the number keyboard. The first scroll of the list also dismisses it. A distance typed with the keyboard still up survives Confirm.
+• A distance that is not a number, such as 8..2, shows an error under the field and disables Confirm (or Add) until it is fixed. A blank field leaves the sheet's value alone.
+• The prefilled km on a fresh run no longer enables Confirm on its own. Confirm needs a checked runner, a guest change or a typed distance.
+• The first dictation on a fresh install no longer crashes at the permission prompt.
+• The Runs tab's "Review local guest history" reminder appears when there is something to review.
+• Outbox: a parked shared submission can be merged or overwritten, not only discarded. One sync runs at a time. The Unsynced tile counts guest changes too, and says "1 submission".
+• Settings has a Siri and Shortcuts row, and the run reminders toggle waits while it updates.
+• Error and success messages are plain text with a coloured symbol, and VoiceOver hears each failure once. Checklist rows read "Checked, Voice" and the like.
+• A reminder or Siri route older than ten minutes is dropped. If the app's local data ever fails to open, it is set aside, never deleted, and a notice says where it went.
+
+Please check:
+• Open today's run, type the actual kms, then scroll down. The keyboard should go. Tap the field again and tap Done.
+• Type 8..2. The error should show and Confirm should be disabled. Fix it and Confirm comes back.
+• Open a run nobody has recorded. Confirm should stay disabled until you check someone.
+• With VoiceOver on, swipe through a few checklist rows and the Dashboard Wall.
+• Open Settings and try the Siri and Shortcuts row.
+
+Share feedback through TestFlight.

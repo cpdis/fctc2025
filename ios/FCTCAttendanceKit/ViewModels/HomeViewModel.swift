@@ -6,6 +6,28 @@
 import Foundation
 import Observation
 
+/// What the Runs header says about sync. A sync has two phases: a refresh
+/// reads the sheet, then the engine sends the outbox. Each confirmed write
+/// reads the sheet again, so sending can outlast the pull-to-refresh spinner.
+///
+///     tap ──► checking ──► sending(2) ──► sending(1) ──► idle(9:42 PM)
+///                │                                         ▲
+///                └──── nothing queued ─────────────────────┘
+public enum SyncStatus: Hashable, Sendable {
+    /// A refresh is reading the sheet.
+    case checking
+    /// The outbox is sending; the count of changes still unsent.
+    case sending(Int)
+    /// Nothing runs. The last time the phone and the sheet agreed
+    /// (`HomeViewModel.lastSyncedAt`), nil before the first.
+    case idle(updatedAt: Date?)
+
+    public var isWorking: Bool {
+        if case .idle = self { return false }
+        return true
+    }
+}
+
 @MainActor
 @Observable
 public final class HomeViewModel {
@@ -19,8 +41,40 @@ public final class HomeViewModel {
     public private(set) var initialLoadFailed = false
     /// True while the engine drains, so the Unsynced tile can show real work.
     public private(set) var isSyncing = false
+    /// True while the newest refresh is in flight, whoever started it: the
+    /// sync button, pull-to-refresh, launch or the app becoming active.
+    public private(set) var isRefreshing = false
+    /// When this engine last agreed with the sheet: any read of it (Runs'
+    /// refresh, the read after a shared write) or a confirmed write. A send
+    /// then ends on its own time, not on the last read from minutes before.
+    public private(set) var lastSyncedAt: Date?
 
-    public var lastSyncMessage: String? { syncBanner?.message }
+    /// A send outranks a read: a read (pull, Sync, a stale return to Runs) can
+    /// run alongside a send, and the change just made is the news. A drain
+    /// with nothing to send is not worth a word.
+    public var syncStatus: SyncStatus {
+        if isSyncing && unsyncedCount > 0 { return .sending(unsyncedCount) }
+        if isRefreshing { return .checking }
+        return .idle(updatedAt: lastSyncedAt)
+    }
+
+    /// True when the banner reports a problem from the last refresh or send.
+    /// Runs' sync pill then skips its "Updated" tick and lets the banner speak.
+    public var syncFailed: Bool { syncBanner?.isProblem ?? false }
+
+    /// How long a good sync stays fresh. Each read is a full Apps Script call,
+    /// so a return to Runs 5 s after a read no longer reads again (Colin's
+    /// review of build 12).
+    public static let freshFor: TimeInterval = 5 * 60
+
+    /// True when Runs should read the sheet on its own, on a return to Runs or
+    /// to the app: no good sync with this engine yet, or the last one is older
+    /// than `freshFor`. Pull-to-refresh and Sync read regardless.
+    public func needsRefresh(now: Date = .now) -> Bool {
+        guard let lastSyncedAt else { return true }
+        return now.timeIntervalSince(lastSyncedAt) >= Self.freshFor
+    }
+
     /// True when the banner shows a failed refresh (not a failed send), so the
     /// app refreshes again when it becomes active.
     public var refreshFailed: Bool { syncBanner != nil && bannerSource == .refresh }
@@ -51,6 +105,8 @@ public final class HomeViewModel {
         isInitialLoading = false
         initialLoadFailed = false
         isSyncing = false
+        isRefreshing = false
+        lastSyncedAt = nil
         observeEvents()
     }
 
@@ -70,7 +126,7 @@ public final class HomeViewModel {
                 weekCount += 1
             }
             if calendar.isDate(scheduledAt, inSameDayAs: now),
-               earliestToday.map({ Self.ascending(run, $0) }) ?? true {
+               earliestToday.map({ RunSnapshot.chronological(run, $0) }) ?? true {
                 earliestToday = run
             }
         }
@@ -85,20 +141,23 @@ public final class HomeViewModel {
         let requestGeneration = refreshGeneration
         let connectionGeneration = engineGeneration
         let engine = self.engine
-        // The newest request owns both the result and its loading indicator.
+        // The newest request owns both the result and its loading indicators.
         isInitialLoading = !hasCachedState
+        isRefreshing = true
         if !hasCachedState {
             initialLoadFailed = false
         }
         defer {
             if requestGeneration == refreshGeneration && connectionGeneration == engineGeneration {
                 isInitialLoading = false
+                isRefreshing = false
             }
         }
         do {
             let state = try await engine.refreshState()
             guard requestGeneration == refreshGeneration, connectionGeneration == engineGeneration else { return }
             activeState = state
+            lastSyncedAt = .now
             initialLoadFailed = false
             if syncBanner != nil { syncBanner = nil }
             bannerSource = nil
@@ -129,28 +188,18 @@ public final class HomeViewModel {
         let generation = engineGeneration
         eventMonitor.start(engine: engine) { [weak self] event in
             guard let self, generation == engineGeneration else { return }
-            switch event {
-            case .written:
-                syncBanner = SyncBanner(kind: .success, message: "Attendance synced.")
-                bannerSource = .sync
-            case .conflict:
-                syncBanner = SyncBanner(kind: .conflict, message: UserFacingError.conflict)
-                bannerSource = .sync
-            case .parked(_, let message):
-                syncBanner = SyncBanner(
-                    kind: message == UserFacingError.offline ? .offline : .parked,
-                    message: message
-                )
-                bannerSource = .sync
-            case .authenticationRequired:
-                syncBanner = SyncBanner(kind: .authentication, message: UserFacingError.authentication)
-                bannerSource = .sync
-            case .failed(_, let message), .serviceFailed(let message):
-                syncBanner = SyncBanner(kind: .error, message: message)
-                bannerSource = .sync
-            case .syncActivity(let isActive):
+            if case .syncActivity(let isActive) = event {
                 isSyncing = isActive
-            case .queued, .rosterRefreshed:
+            } else if let banner = SyncBanner(event: event) {
+                // Home is the one screen that also confirms a success.
+                syncBanner = banner
+                bannerSource = .sync
+            }
+            // A confirmed write, or any read of the sheet: the two agree now.
+            switch event {
+            case .written, .rosterRefreshed:
+                lastSyncedAt = .now
+            default:
                 break
             }
         }
@@ -173,10 +222,5 @@ public final class HomeViewModel {
             }
         }
         return SyncBanner(kind: .error, message: message)
-    }
-
-    private static func ascending(_ lhs: RunSnapshot, _ rhs: RunSnapshot) -> Bool {
-        (lhs.scheduledAt ?? .distantFuture, lhs.rowIndex)
-            < (rhs.scheduledAt ?? .distantFuture, rhs.rowIndex)
     }
 }

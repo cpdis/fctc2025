@@ -64,7 +64,7 @@ struct GuestPickerView: View {
                         Button { select(guest) } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(guest.displayName).foregroundStyle(.primary)
-                                Text("\(guest.confirmedRuns ?? 0) confirmed runs")
+                                Text(DashboardFormat.confirmedRuns(guest.confirmedRuns ?? 0))
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -128,7 +128,7 @@ struct GuestPickerView: View {
         case .nameUnnamed: action = "Choose a saved guest or enter a new name for one unnamed guest."
         case .replace(let guest): action = "Choose who attended in place of \(guest.name)."
         }
-        return "\(action) The total stays at \(viewModel.draft.plusOnes) guests."
+        return "\(action) The total stays at \(viewModel.draft.plusOnes) \(viewModel.draft.plusOnes == 1 ? "guest" : "guests")."
     }
 
     private func select(_ guest: SharedGuest) {

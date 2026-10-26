@@ -1,0 +1,22 @@
+Tap the arrow up top and the sheet gets a read,
+And a pill by the tabs tells you all that you need.
+First Checking, then Sending, then Updated with a tick,
+While the Unsynced arrows turn steady and slick.
+
+Filament Coffee Track Club: a Sync button, and a pill that says what it is doing
+
+Private build for Colin. Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone.
+
+New since build 11:
+• Runs has a Sync button next to Settings. It reads the sheet, then sends anything waiting in the outbox. Pull to refresh does the same.
+• A pill above the tab bar says what is happening: "Checking the sheet…", "Sending 1 change…", then "Updated" with the time and a tick for 2 seconds. A sync that fails hides the pill and shows the usual banner.
+• The Sync arrow and the Unsynced tile turn for as long as a sync runs and stop when it ends. With Reduce Motion on, they stay still.
+• The app logs how long each sheet read and send takes, so a slow sync can be measured.
+
+Please check:
+• Tap Sync on Runs. The arrow turns, the pill says "Checking the sheet…", then "Updated" with the time, then it goes.
+• Check someone in on a run and tap Confirm. Back on Runs, the pill says "Sending 1 change…" and the Unsynced tile turns until the change lands.
+• Turn on Airplane Mode and tap Sync. The pill goes without a tick, and the banner says the sheet could not be reached.
+• Pull to refresh. The pill follows the same steps.
+
+Share feedback through TestFlight.

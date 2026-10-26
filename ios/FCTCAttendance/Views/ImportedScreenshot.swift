@@ -23,17 +23,16 @@ struct ImportedScreenshot: Identifiable, @unchecked Sendable {
         thumbnail = (try? Self.resize(image, maximumDimension: 224)) ?? image
     }
 
-    static func prepare(data: Data) async throws -> ImportedScreenshot {
-        try await Task.detached(priority: .userInitiated) {
-            try prepareSynchronously(data: data)
-        }.value
+    // `nonisolated async` runs off the main actor, so decoding never blocks the UI.
+    nonisolated static func prepare(data: Data) async throws -> ImportedScreenshot {
+        try Task.checkCancellation()
+        return try prepareSynchronously(data: data)
     }
 
-    static func prepare(fileURL: URL) async throws -> ImportedScreenshot {
-        try await Task.detached(priority: .userInitiated) {
-            let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
-            return try prepareSynchronously(data: data)
-        }.value
+    nonisolated static func prepare(fileURL: URL) async throws -> ImportedScreenshot {
+        try Task.checkCancellation()
+        let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+        return try prepareSynchronously(data: data)
     }
 
     private static func prepareSynchronously(data: Data) throws -> ImportedScreenshot {

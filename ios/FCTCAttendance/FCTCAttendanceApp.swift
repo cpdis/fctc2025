@@ -8,6 +8,7 @@
 //
 
 import FCTCAttendanceKit
+import MetricKit
 import SwiftData
 import SwiftUI
 import UserNotifications
@@ -19,10 +20,13 @@ struct FCTCAttendanceApp: App {
     private let modelContainer: ModelContainer
     private let notificationDelegate: AttendanceNotificationDelegate
     private let backgroundDrain: BackgroundOutboxDrainCoordinator
+    /// Held for the app's lifetime: MetricKit keeps only a weak reference.
+    private let metricsSubscriber = MetricsSubscriber()
     @State private var runtime: AppRuntime
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        MXMetricManager.shared.add(metricsSubscriber)
         let routes = PendingRouteStore.shared
         let notificationDelegate = AttendanceNotificationDelegate(routes: routes)
         self.notificationDelegate = notificationDelegate
@@ -39,29 +43,22 @@ struct FCTCAttendanceApp: App {
                     "FCTCAttendance-UITest",
                     schema: AttendanceSchema.schema,
                     url: FileManager.default.temporaryDirectory
-                        .appending(path: "fctc-uitest-\(UITestSupport.storeName).store")
+                        .appending(path: "fctc-uitest-\(UITestSupport.storeName).store"),
+                    cloudKitDatabase: .none
                 )
-                : ModelConfiguration(
-                    "FCTCAttendance",
-                    schema: AttendanceSchema.schema,
-                    isStoredInMemoryOnly: false
-                )
-            let container = try ModelContainer(
-                for: AttendanceSchema.schema,
-                configurations: configuration
-            )
+                : AttendanceSchema.appStoreConfiguration()
+            // A store that cannot open is set aside and replaced (StoreRecovery).
+            let container = try StoreRecovery.openContainer(configuration)
             modelContainer = container
             let runtime = isUITesting
                 ? UITestSupport.makeRuntime(modelContainer: container)
                 : AppRuntime(modelContainer: container)
             _runtime = State(initialValue: runtime)
-            backgroundDrain = BackgroundOutboxDrainFactory.make(
-                modelContainer: container,
-                persistence: runtime.configPersistence
-            )
+            backgroundDrain = BackgroundOutboxDrainFactory.make(runtime: runtime)
             _ = backgroundDrain.register()
         } catch {
-            // Fail loudly until the app has a user-visible cache recovery path.
+            // Only reached when setting the store aside was unsafe or did not help.
+            // The old files are untouched or in the set-aside folder.
             fatalError("Unable to create ModelContainer: \(error)")
         }
     }
@@ -69,13 +66,20 @@ struct FCTCAttendanceApp: App {
     var body: some Scene {
         WindowGroup {
             AppRootView(runtime: runtime, pendingRoutes: .shared)
+                .storeRecoveryNotice()
         }
         .modelContainer(modelContainer)
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
+                // A launch before the first unlock could not read the secret;
+                // the keychain is open now.
+                runtime.reloadConfigIfLocked()
                 NotificationCenter.default.post(name: .fctcAppDidActivate, object: nil)
-                Task { await runtime.engine.drain() }
+                // Without settings the engine has no sheet to drain to.
+                if runtime.config.isConfigured {
+                    Task { await runtime.engine.drain() }
+                }
             case .background:
                 Task { await backgroundDrain.scheduleIfNeeded() }
             case .inactive:

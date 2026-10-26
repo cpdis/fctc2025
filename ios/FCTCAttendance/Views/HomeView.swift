@@ -38,7 +38,7 @@ struct HomeView: View {
     @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
     @Query private var guestOperations: [PendingGuestOperation]
     @Query(
-        filter: #Predicate<PendingSubmission> { $0.stateRaw != "done" },
+        filter: PendingSubmission.outstandingPredicate,
         sort: \PendingSubmission.createdAt
     ) private var cachedSubmissions: [PendingSubmission]
     @Query private var sheetCaches: [SharedSheetCache]
@@ -49,31 +49,37 @@ struct HomeView: View {
     @State private var recovery: [GuestRecoverySnapshot] = []
     /// Flips once per launch so the header cards stagger in on first sight only.
     @State private var hasEntered = false
+    /// Bumped to restart the refresh task: the Sync button, an activation
+    /// after a failed or stale refresh, or an engine swap. The task also runs
+    /// on every appear.
+    @State private var refreshRequest = 0
+    /// The `refreshRequest` whose read finished. A newer value is a request
+    /// still owed a read; a plain appear reads only stale data.
+    @State private var servedRequest = 0
 
     var body: some View {
         NavigationStack(path: $path) {
             List {
-                // The tab header: the large title and the gear share one line
-                // (Colin's review), which the system large-title bar cannot do.
+                // The tab header: the large title, Sync and the gear share one
+                // line (Colin's review), which the system large-title bar cannot do.
                 Section {
                     TabHeader(title: "FCTC", identifier: "home-title") {
-                        // A solid circle in the card color, not glass: any glass
-                        // (hand-applied or `.glass` style) renders a grey shadow
-                        // smear to its left inside this list row in light mode.
-                        Button {
-                            path.append(HomeRoute.settings)
-                        } label: {
-                            // 44 pt matches the system toolbar buttons (Back, +,
-                            // Retry) on every pushed screen.
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(.primary)
-                                .frame(width: 44, height: 44)
-                                .background(Color(.secondarySystemGroupedBackground), in: .circle)
+                        HStack(spacing: 12) {
+                            SyncButton(status: viewModel.syncStatus) {
+                                // Pull-to-refresh may already be reading the sheet.
+                                guard !viewModel.isRefreshing else { return }
+                                refreshRequest += 1
+                            }
+
+                            Button {
+                                path.append(HomeRoute.settings)
+                            } label: {
+                                HeaderCircleIcon(systemImage: "gearshape")
+                            }
+                            .buttonStyle(.pressable)
+                            .accessibilityLabel("Settings")
+                            .accessibilityIdentifier("home-settings")
                         }
-                        .buttonStyle(.pressable)
-                        .accessibilityLabel("Settings")
-                        .accessibilityIdentifier("home-settings")
                     }
                     .staggeredEntrance(0, hasEntered: hasEntered)
                     .tabHeaderRow()
@@ -168,14 +174,14 @@ struct HomeView: View {
                                 for candidate in recovery where candidate.status == .pending {
                                     try? await runtime.engine.updateRecoveryCandidate(id: candidate.id, guestId: candidate.selectedGuestId, run: candidate.selectedRun, status: .dismissed)
                                 }
-                                recovery = (try? await runtime.engine.recoveryCandidates()) ?? []
+                                await loadRecovery()
                             }
                         }
                     } footer: { Text("Names from this phone need review. You can recover them later in Settings.") }
                 }
 
                 if let banner = viewModel.syncBanner {
-                    HomeSyncBanner(banner: banner, runtime: runtime) {
+                    HomeSyncBanner(banner: banner) {
                         await viewModel.retry(hasCachedState: !activeRuns.isEmpty)
                         updateFromCache()
                     }
@@ -183,6 +189,14 @@ struct HomeView: View {
             }
             .listStyle(.insetGrouped)
             .contentMargins(.top, 4, for: .scrollContent)
+            // Above the tab bar, outside the List: glass inside a list row
+            // smears (see `HeaderCircleIcon`).
+            .overlay(alignment: .bottom) {
+                SyncStatusPill(status: viewModel.syncStatus, failed: viewModel.syncFailed)
+                    .padding(.bottom, 12)
+                    // Status only: a tap on the row beneath must still land.
+                    .allowsHitTesting(false)
+            }
             // The custom header row IS the title bar; the system bar would
             // stack a second empty line above it.
             .navigationTitle("FCTC")
@@ -212,41 +226,41 @@ struct HomeView: View {
                     SettingsView(runtime: runtime)
                 }
             }
-            .refreshable {
-                await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
-                updateFromCache()
-            }
+            .refreshable { await refresh() }
             .onAppear { hasEntered = true }
-            .task {
+            // One refresh at a time: a new request cancels the one in flight,
+            // and leaving Home cancels it too. A request always reads; a plain
+            // return to Runs reads only when the last sync is stale (5 min).
+            .task(id: refreshRequest) {
                 updateFromCache()
-                await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
-                updateFromCache()
+                guard refreshRequest != servedRequest || viewModel.needsRefresh() else { return }
+                await refresh()
+                // A cancelled read (Runs left mid-request) leaves the request
+                // owed, so the next appear reads.
+                if !Task.isCancelled { servedRequest = refreshRequest }
             }
             .onChange(of: viewModel.activeState) { _, state in
                 runtime.activeState = state
                 updateFromCache()
-                Task { recovery = (try? await runtime.engine.recoveryCandidates()) ?? [] }
             }
+            // Recovery evidence can change with each refresh, so it reloads
+            // with the season state.
+            .task(id: viewModel.activeState) { await loadRecovery() }
             .onChange(of: cacheFingerprint) { _, _ in
                 updateFromCache()
             }
-            // A refresh that failed (a dropped connection, the sheet waking up)
-            // tries again when the app comes back, so its banner clears itself.
+            // Coming back to the app reads again after a failed refresh (a
+            // dropped connection, the sheet waking up), so its banner clears
+            // itself, or when the last sync is stale. A read in flight stays.
             .onReceive(NotificationCenter.default.publisher(for: .fctcAppDidActivate)) { _ in
-                guard viewModel.refreshFailed else { return }
-                Task {
-                    await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
-                    updateFromCache()
-                }
+                guard !viewModel.isRefreshing else { return }
+                if viewModel.refreshFailed || viewModel.needsRefresh() { refreshRequest += 1 }
             }
             // RootTabView resets the path on a swap; the model follows the new
             // engine here, next to the refresh it drives.
             .onChange(of: runtime.generation) { _, _ in
                 viewModel.replaceEngine(runtime.engine)
-                Task {
-                    await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
-                    updateFromCache()
-                }
+                refreshRequest += 1
             }
         }
     }
@@ -269,7 +283,7 @@ struct HomeView: View {
                     )
                 }
                 .buttonStyle(.pressable)
-                .accessibilityLabel("This Week, \(viewModel.thisWeekCount) runs")
+                .accessibilityLabel("This Week, \(DashboardFormat.runs(viewModel.thisWeekCount))")
                 .accessibilityIdentifier("home-this-week")
 
                 Button {
@@ -294,7 +308,7 @@ struct HomeView: View {
                 .accessibilityLabel(
                     viewModel.conflictCount > 0
                         ? "Conflicts, \(viewModel.conflictCount) need review"
-                        : "Unsynced, \(viewModel.unsyncedCount) submissions\(viewModel.isSyncing ? ", syncing" : "")"
+                        : "Unsynced, \(DashboardFormat.submissions(viewModel.unsyncedCount))\(viewModel.isSyncing ? ", syncing" : "")"
                 )
                 .accessibilityIdentifier("home-unsynced")
             }
@@ -312,7 +326,7 @@ struct HomeView: View {
     private var seasonProgress: String? {
         guard !activeRuns.isEmpty else { return nil }
         let recorded = activeRuns.filter(\.hasRecordedAttendance).count
-        return "\(recorded) of \(activeRuns.count) runs recorded"
+        return "\(recorded) of \(DashboardFormat.runs(activeRuns.count)) recorded"
     }
 
     /// Changes whenever a Runs input does: the season's runs, an outbox row or
@@ -322,6 +336,21 @@ struct HomeView: View {
         let guestChanges = pendingGuestOperations.map { "\($0.id):\($0.phaseRaw)" }.joined(separator: "|")
         return [runtime.activeRunsFingerprint(runs: cachedRuns, caches: sheetCaches), submissions, guestChanges]
             .joined(separator: "#")
+    }
+
+    /// Pending names from legacy rows, for the review reminder. Dismissed
+    /// ones stay out: the reminder is only for names nobody has looked at.
+    private func loadRecovery() async {
+        let candidates = (try? await runtime.engine.recoveryCandidates(includeDismissed: false)) ?? []
+        guard !Task.isCancelled else { return }
+        recovery = candidates
+    }
+
+    /// Reads the sheet (the engine then sends the outbox) and redraws from the
+    /// cache. Pull-to-refresh and the `refreshRequest` task both land here.
+    private func refresh() async {
+        await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
+        updateFromCache()
     }
 
     /// The one place Runs resolves the season cache.

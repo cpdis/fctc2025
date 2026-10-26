@@ -12,12 +12,11 @@ extension SyncEngine {
         return pending.id
     }
 
+    /// Starts a drain soon after a local write, unless this engine drains
+    /// only on request. A write during a drain asks that drain for one more
+    /// pass instead of starting a second one.
     func startAutomaticDrainIfNeeded() {
-        scheduleDrain(force: false)
-    }
-
-    func scheduleDrain(force: Bool) {
-        guard force || automaticallyDrains else { return }
+        guard automaticallyDrains else { return }
         if isDraining {
             drainRequested = true
             return
@@ -108,6 +107,7 @@ extension SyncEngine {
                 }
                 return
             } catch let error as SheetAPIError {
+                logRowFailure(id: id, error: error)
                 let message = UserFacingError.sync(error)
                 try? markQueued(id: id, message: message)
                 if case .badSecret = error {
@@ -127,6 +127,7 @@ extension SyncEngine {
             } catch {
                 // A custom test client can throw an untyped transport error. Treat it
                 // like a network failure; the concrete SheetAPI already normalizes it.
+                logRowFailure(id: id, error: error)
                 try? markQueued(id: id, message: UserFacingError.offline)
                 if transportAttempt == retryPolicy.maxAttempts {
                     eventBroadcaster.yield(.parked(id: id, message: UserFacingError.offline))

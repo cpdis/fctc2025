@@ -40,7 +40,7 @@ public final class OutboxViewModel {
     }
 
     public func conflictDiff(for submission: PendingSubmissionSnapshot) -> ConflictDiff {
-        let serverRun = matchingServerRun(for: submission)
+        let serverRun = submission.conflictState?.run(matching: submission)
         let server = Set(serverRun?.attendees ?? [])
         let local = Set(submission.attendees)
         return ConflictDiff(
@@ -64,6 +64,9 @@ public final class OutboxViewModel {
         id: UUID,
         action: ConflictResolutionAction
     ) async throws -> UUID? {
+        // Checked before the first await: a double tap starts two tasks, and
+        // only the first may resolve. The view ignores the cancellation.
+        guard !isResolving else { throw CancellationError() }
         isResolving = true
         errorMessage = nil
         defer { isResolving = false }
@@ -80,37 +83,25 @@ public final class OutboxViewModel {
         await engine.drain()
     }
 
-    private func matchingServerRun(
-        for submission: PendingSubmissionSnapshot
-    ) -> RunRecord? {
-        guard let state = submission.conflictState else { return nil }
-        return state.runs.first {
-            $0.date == submission.expectedDate && $0.run == submission.expectedRun
-        } ?? state.runs.first { $0.rowIndex == submission.rowIndex }
-    }
-
     private func observeEvents() {
         eventMonitor.start(engine: engine) { [weak self] event in
-            switch event {
-            case .failed(_, let message), .serviceFailed(let message):
-                self?.errorMessage = message
-                self?.syncBanner = SyncBanner(kind: .error, message: message)
-            case .parked(_, let message):
-                self?.syncBanner = SyncBanner(
-                    kind: message == UserFacingError.offline ? .offline : .parked,
-                    message: message
-                )
-            case .conflict:
-                self?.syncBanner = SyncBanner(kind: .conflict, message: UserFacingError.conflict)
-            case .authenticationRequired:
-                self?.syncBanner = SyncBanner(kind: .authentication, message: UserFacingError.authentication)
-            case .written:
-                self?.errorMessage = nil
-                self?.syncBanner = nil
-            case .syncActivity(let isActive):
-                self?.isSyncing = isActive
-            case .queued, .rosterRefreshed:
-                break
+            guard let self else { return }
+            if case .syncActivity(let isActive) = event {
+                isSyncing = isActive
+            } else if let banner = SyncBanner(event: event) {
+                switch banner.kind {
+                case .success:
+                    // A write clears the Outbox instead of announcing itself:
+                    // the row leaving the list is the confirmation here.
+                    syncBanner = nil
+                    errorMessage = nil
+                case .error:
+                    // Only a hard failure also sets the inline error.
+                    syncBanner = banner
+                    errorMessage = banner.message
+                case .offline, .parked, .conflict, .authentication:
+                    syncBanner = banner
+                }
             }
         }
     }

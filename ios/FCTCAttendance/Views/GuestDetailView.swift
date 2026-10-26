@@ -6,9 +6,17 @@ struct GuestDetailView: View {
     let runtime: AppRuntime
     let guest: SharedGuest
     let checklist: ChecklistViewModel?
+    // All four queries are unfiltered on purpose. A filtered `@Query` on this
+    // screen (P8 tried two forms) made SwiftUI re-render and refetch without
+    // end once the promotion screen was pushed on top; Home and Outbox carry
+    // the same filter without trouble, so the cause is this screen's shape,
+    // not the predicate. The readers filter in memory, as before P8.
     @Query private var guestOperations: [PendingGuestOperation]
     @Query private var submissions: [PendingSubmission]
     @Query private var cachedGuests: [CachedGuest]
+    /// Unfiltered on purpose: the endpoint comes from `runtime.config`, which
+    /// can change while this screen is open, and a `@Query` filter is fixed
+    /// at init.
     @Query private var sharedCaches: [SharedSheetCache]
     @State private var history: GuestHistory?
     @State private var error: String?
@@ -50,7 +58,7 @@ struct GuestDetailView: View {
                     }.accessibilityIdentifier("guest-pending-promotion")
                 } else if hasPendingAttendance {
                     NavigationLink { OutboxView(runtime: runtime) } label: {
-                        Label("Run pending — open Outbox", systemImage: "clock")
+                        Label("Run pending: open Outbox", systemImage: "clock")
                     }.accessibilityIdentifier("guest-pending-attendance")
                     Text("Promotion waits for this person's pending attendance to be confirmed.").font(.footnote).foregroundStyle(.secondary)
                 } else if displayGuest.isActive {
@@ -175,7 +183,7 @@ struct GuestPromotionView: View {
                     LabeledContent("Confirmed runs", value: preview.confirmedRuns.formatted())
                         .accessibilityIdentifier("promotion-confirmed-count")
                     ForEach(preview.seasons, id: \.seasonSheetId) { season in
-                        LabeledContent(String(season.seasonYear), value: "\(season.runs) runs")
+                        LabeledContent(String(season.seasonYear), value: DashboardFormat.runs(season.runs))
                     }
                 }
                 Section("Run changes") {
@@ -221,6 +229,8 @@ struct GuestPromotionView: View {
             }
             if model.isWorking { ProgressView("Checking saved runs…") }
         }
+        // The Preview and Confirm buttons are rows the keyboard can cover.
+        .scrollDismissesKeyboard(.immediately)
         .navigationTitle("Add as member").navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("Save this run first", isPresented: $showingSaveReview, titleVisibility: .visible) {
             Button("Save run and review promotion") { Task { await model.prepare(checklist: checklist) } }

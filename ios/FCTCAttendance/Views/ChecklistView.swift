@@ -8,7 +8,6 @@
 import FCTCAttendanceKit
 import SwiftData
 import SwiftUI
-import UIKit
 
 struct ChecklistView: View {
     let runtime: AppRuntime
@@ -34,9 +33,29 @@ struct ChecklistView: View {
     @State private var showingSharedScreenshotOffer = false
     @State private var sharedScreenshotCount = 0
     @State private var sharedImportURLs: [URL] = []
+    /// The route's entry (dictation, shared screenshots) runs once. `.task`
+    /// runs again after every pop back here, which reopened the voice sheet.
+    @State private var didRunEntryPresentation = false
+    /// A Confirm that failed, shown as an alert rather than a row below the fold.
+    @State private var confirmError: String?
     /// Each roster member's runs and streak, recomputed when a streak input
     /// changes (`streakFingerprint`), never per render.
     @State private var memberStats: [String: MemberStats] = [:]
+    /// The decimal pad has no Return key. Without a Done button and
+    /// scroll-to-dismiss the keyboard stayed up and hid the bottom of the
+    /// roster (Aaron, build 10).
+    @FocusState private var kilometresFocused: Bool
+    /// Bumped by the row action only, so the selection haptic fires for taps
+    /// and not for the other paths that change `checks` (imports, dictation).
+    @State private var toggleCount = 0
+    /// Bumped when a Confirm succeeds, for the success haptic.
+    @State private var confirmCount = 0
+    /// The distance field narrows to a number at default sizes and gets its
+    /// own line at accessibility sizes.
+    @ScaledMetric(relativeTo: .body) private var kmMinWidth = 64
+    @ScaledMetric(relativeTo: .body) private var kmIdealWidth = 84
+    @ScaledMetric(relativeTo: .body) private var kmMaxWidth = 110
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(
         runtime: AppRuntime,
@@ -96,14 +115,22 @@ struct ChecklistView: View {
             }
 
             Section {
-                HStack {
-                    Label("Actual kms", systemImage: "figure.run")
-                    Spacer(minLength: 16)
+                kmLayout {
+                    Label("Actual km", systemImage: "figure.run")
+                    if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 16) }
                     TextField("0", text: $viewModel.actualKmText)
                         .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(minWidth: 64, idealWidth: 84, maxWidth: 110)
+                        .focused($kilometresFocused)
+                        .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
+                        .frame(
+                            minWidth: kmMinWidth,
+                            idealWidth: kmIdealWidth,
+                            maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : kmMaxWidth
+                        )
                         .accessibilityLabel("Actual kilometres")
+                        // The error also rides in the hint, so a VoiceOver user
+                        // who lands on the field hears what is wrong.
+                        .accessibilityHint(viewModel.distanceIsMalformed ? DistanceText.malformedMessage : "")
                         .accessibilityIdentifier("actual-km")
                 }
 
@@ -122,6 +149,13 @@ struct ChecklistView: View {
                 }
                 .accessibilityLabel("Guests, \(viewModel.draft.plusOnes)")
                 .accessibilityIdentifier("guest-editor")
+            } footer: {
+                if viewModel.distanceIsMalformed {
+                    // Text stays primary for contrast; the icon carries the colour.
+                    Label(DistanceText.malformedMessage, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.primary, .red)
+                        .accessibilityIdentifier("actual-km-error")
+                }
             }
 
             Section {
@@ -133,7 +167,7 @@ struct ChecklistView: View {
                         stats: memberStats[name]
                             ?? MemberStats(attendanceCount: 0, lastAttendedAt: nil, currentStreak: 0),
                         action: {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            toggleCount += 1
                             viewModel.toggleMember(name)
                         }
                     )
@@ -146,6 +180,10 @@ struct ChecklistView: View {
                             .accessibilityLabel("Uncheck \(name)")
                         }
                     }
+                }
+
+                if filteredRoster.isEmpty && !searchText.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
                 }
 
                 QuickAddPersonRow(viewModel: viewModel)
@@ -161,13 +199,25 @@ struct ChecklistView: View {
             }
             if let message = viewModel.errorMessage {
                 Section {
-                    Label(message, systemImage: "exclamationmark.triangle")
+                    Label(message, systemImage: "exclamationmark.triangle.fill")
                         .font(.footnote)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.primary, .red)
                 }
             }
         }
         .listStyle(.insetGrouped)
+        .sensoryFeedback(.selection, trigger: toggleCount)
+        .sensoryFeedback(.success, trigger: confirmCount)
+        // Errors appear below the fold or in an alert; say them out loud.
+        .onChange(of: viewModel.distanceIsMalformed) { _, malformed in
+            if malformed { AccessibilityNotification.Announcement(DistanceText.malformedMessage).post() }
+        }
+        .onChange(of: viewModel.errorMessage) { _, message in
+            if let message { AccessibilityNotification.Announcement(message).post() }
+        }
+        // The first scroll drops the keyboard, so the roster is reachable the
+        // moment the organiser moves on from the distance field.
+        .scrollDismissesKeyboard(.immediately)
         .navigationTitle("Review & Confirm")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Find a person")
@@ -193,6 +243,15 @@ struct ChecklistView: View {
             // navigation-bar drawer that stays hidden until a pull-down. Pin it
             // to the bottom bar, where it sat before the tabs (U11).
             DefaultToolbarItem(kind: .search, placement: .bottomBar)
+            // Shown only for the distance field: the quick-add row and the
+            // search field have their own Return key.
+            ToolbarItemGroup(placement: .keyboard) {
+                if kilometresFocused {
+                    Spacer()
+                    Button("Done") { kilometresFocused = false }
+                        .accessibilityIdentifier("actual-km-keyboard-done")
+                }
+            }
         }
         // The bottom search and the tab bar cannot share the bottom edge, so the
         // checklist hides the tab bar like the run picker does.
@@ -208,10 +267,10 @@ struct ChecklistView: View {
             titleVisibility: .visible
         ) {
             if !viewModel.requiresGuestOverwrite {
-                Button("Merge — \(mergeSummary)") { submit(mode: .merge) }
+                Button("Merge: \(mergeSummary)") { submit(mode: .merge) }
                     .accessibilityIdentifier("confirm-merge")
             }
-            Button(viewModel.requiresGuestOverwrite ? "Overwrite — save guest correction" : "Overwrite — \(overwriteSummary)") { submit(mode: .overwrite) }
+            Button(viewModel.requiresGuestOverwrite ? "Overwrite: save guest correction" : "Overwrite: \(overwriteSummary)") { submit(mode: .overwrite) }
                 .accessibilityIdentifier("confirm-overwrite")
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -223,7 +282,9 @@ struct ChecklistView: View {
         }
         .sheet(
             isPresented: $showingScreenshotImport,
-            onDismiss: clearSharedImportState
+            // Closing the sheet keeps the inbox: only Delete Screenshots or a
+            // finished import empties it.
+            onDismiss: { sharedImportURLs = [] }
         ) {
             ScreenshotImportView(
                 roster: viewModel.roster,
@@ -237,7 +298,7 @@ struct ChecklistView: View {
                     viewModel.applyProposals(checks: checks, from: set)
                     showingScreenshotImport = false
                 },
-                onAddPerson: addScreenshotPerson,
+                onAddPerson: viewModel.addProposedPerson,
                 onCancel: {
                     showingScreenshotImport = false
                 }
@@ -246,6 +307,8 @@ struct ChecklistView: View {
         }
         .task {
             updateCachedValues()
+            guard !didRunEntryPresentation else { return }
+            didRunEntryPresentation = true
             switch presentation {
             case .dictation:
                 showingVoiceEntry = true
@@ -260,17 +323,14 @@ struct ChecklistView: View {
         .onReceive(NotificationCenter.default.publisher(for: .fctcAppDidActivate)) { _ in
             checkSharedScreenshotInbox()
         }
-        .alert(
-            "Import \(sharedScreenshotCount) shared screenshot\(sharedScreenshotCount == 1 ? "" : "s")?",
-            isPresented: $showingSharedScreenshotOffer
-        ) {
-            Button("Import") { loadSharedImagesAndPresent() }
-            Button("Dismiss", role: .cancel) {
-                try? runtime.sharedScreenshotInbox.clear()
-            }
-        } message: {
-            Text("Review these images through the existing poll import flow.")
-        }
+        .modifier(SharedScreenshotOffer(
+            count: sharedScreenshotCount,
+            isPresented: $showingSharedScreenshotOffer,
+            message: "Review these images to import a poll.",
+            onImport: loadSharedImagesAndPresent,
+            delete: runtime.sharedScreenshotInbox.clear
+        ))
+        .actionErrorAlert("Could not confirm", message: $confirmError)
         .alert("Attendance recorded", isPresented: $showingCatchUp) {
             Button("Next unrecorded run") { finishConfirmation(with: nextCatchUpRun) }
                 .accessibilityIdentifier("catchup-next")
@@ -299,10 +359,17 @@ struct ChecklistView: View {
         RunCacheScope.runs(cachedRuns.map(RunSnapshot.init), endpoint: runtime.config.endpoint?.absoluteString, state: exactState)
     }
 
+    /// One row on one line at default sizes; stacked at accessibility sizes.
+    private var kmLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout())
+    }
+
     private var filteredRoster: [String] {
         guard !searchText.isEmpty else { return viewModel.roster }
         return viewModel.roster.filter {
-            $0.localizedCaseInsensitiveContains(searchText)
+            $0.localizedStandardContains(searchText)
         }
     }
 
@@ -354,7 +421,7 @@ struct ChecklistView: View {
         Task {
             do {
                 _ = try await viewModel.confirm(mode: mode)
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                confirmCount += 1
                 let snapshots = scopedRuns
                 if let next = CatchUpPlanner.nextOlderUnrecorded(
                     after: viewModel.run,
@@ -365,7 +432,11 @@ struct ChecklistView: View {
                 } else {
                     finishConfirmation(with: nil)
                 }
-            } catch {}
+            } catch is CancellationError {
+                // A second tap while the first submit ran; nothing failed.
+            } catch {
+                confirmError = viewModel.errorMessage ?? UserFacingError.sync(error)
+            }
         }
     }
 
@@ -390,7 +461,9 @@ struct ChecklistView: View {
     }
 
     private func checkSharedScreenshotInbox() {
+        // Never offer over the voice sheet or another presentation.
         guard !showingScreenshotImport,
+              !showingVoiceEntry,
               !showingSharedScreenshotOffer,
               let count = try? runtime.sharedScreenshotInbox.list().count,
               count > 0
@@ -406,20 +479,9 @@ struct ChecklistView: View {
         showingScreenshotImport = true
     }
 
+    /// The import has copied the shared files. If this delete fails they
+    /// stay in the inbox and the next offer brings them back.
     private func clearSharedScreenshotInbox() {
         try? runtime.sharedScreenshotInbox.clear()
-    }
-
-    private func clearSharedImportState() {
-        clearSharedScreenshotInbox()
-        sharedImportURLs = []
-    }
-
-    private func addScreenshotPerson(_ name: String) async throws {
-        viewModel.quickAddName = name
-        try await viewModel.commitQuickAdd()
-        // Quick-add is normally a manual checklist action. This name came from an
-        // explicit proposal choice, so the frozen apply seam supplies provenance.
-        viewModel.uncheckMember(name)
     }
 }

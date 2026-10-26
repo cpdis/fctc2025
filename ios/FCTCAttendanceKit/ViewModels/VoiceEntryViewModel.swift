@@ -143,9 +143,7 @@ public final class VoiceEntryViewModel {
         }
         if update.isFinal {
             phase = .processing
-            Task { @MainActor [weak self] in
-                await self?.parseTranscript(for: recordingID)
-            }
+            parseTranscript(for: recordingID)
         }
     }
 
@@ -155,26 +153,50 @@ public final class VoiceEntryViewModel {
         finalizationTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(2))
             guard !Task.isCancelled else { return }
-            await self?.parseTranscript(for: recordingID)
+            self?.parseTranscript(for: recordingID)
         }
     }
 
-    private func parseTranscript(for recordingID: UUID) async {
+    /// Starts the one parse for this recording and stores it in
+    /// `finalizationTask`, so `stop`, `returnToRecording` and a new recording
+    /// all cancel it. Called by the final update or by the fallback timer:
+    ///
+    ///   final update ──┐
+    ///   fallback (2 s) ┴─> parseTranscript ─> cancel fallback ─> new parse task
+    ///
+    /// The fallback is cancelled before the parse task exists, so the parse
+    /// never runs in a task that is already cancelled.
+    private func parseTranscript(for recordingID: UUID) {
         guard self.recordingID == recordingID, phase == .processing else { return }
         finalizationTask?.cancel()
-        finalizationTask = nil
         self.recordingID = nil
         transcriber.stop()
+        let transcript = transcript, roster = roster
+        finalizationTask = Task { @MainActor [weak self] in
+            await self?.parse(transcript, roster: roster)
+        }
+    }
 
+    private func parse(_ transcript: String, roster: [String]) async {
+        let result: Result<ExtractionResult, any Error>
         do {
-            let result = try await extractor.extract(from: transcript, context: .voice(roster: roster))
+            result = .success(try await extractor.extract(from: transcript, context: .voice(roster: roster)))
+        } catch {
+            result = .failure(error)
+        }
+        // The sheet may have stopped or started a new recording during the
+        // await. Only a parse that is still current may change the phase.
+        guard !Task.isCancelled, phase == .processing, recordingID == nil else { return }
+        finalizationTask = nil
+        switch result {
+        case .success(let extraction):
             proposalSet = DraftProposalSet(
-                entities: result.entities,
+                entities: extraction.entities,
                 matcher: NameMatcher(roster: roster),
                 provenance: .voice
             )
             phase = .triage
-        } catch {
+        case .failure(let error):
             phase = .failed(UserFacingError.voice(error))
         }
     }

@@ -3,11 +3,12 @@ import SwiftData
 import Testing
 @testable import FCTCAttendanceKit
 
-@Suite("Undelivered shared operations", .serialized)
+@Suite("Undelivered shared operations")
 struct UndeliveredOperationTests {
     @Test("A refused first connection retains the request and saves once after restart", arguments: [false, true])
     func offlineRestart(withGuest: Bool) async throws {
         let url = storeURL()
+        defer { for suffix in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: url.path + suffix) } }
         let container = try guestContainer(url)
         let transport = try RecoveryTransport(failure: .beforeDelivery)
         let engine = guestEngine(container, transport)
@@ -69,6 +70,7 @@ struct UndeliveredOperationTests {
     @Test("Missing receipts never replay an unknown delivery after restart", arguments: [false, true])
     func unknownRestart(withGuest: Bool) async throws {
         let url = storeURL()
+        defer { for suffix in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: url.path + suffix) } }
         let container = try guestContainer(url)
         let transport = try RecoveryTransport(failure: .unknown)
         let engine = guestEngine(container, transport)

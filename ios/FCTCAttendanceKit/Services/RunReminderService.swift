@@ -255,11 +255,7 @@ public struct UserNotificationCenterClient: RunNotificationCenterClient, @unchec
     }
 
     public func pendingRequestIdentifiers() async -> [String] {
-        await withCheckedContinuation { continuation in
-            center.getPendingNotificationRequests { requests in
-                continuation.resume(returning: requests.map(\.identifier))
-            }
-        }
+        await center.pendingNotificationRequests().map(\.identifier)
     }
 
     public func removePendingRequests(withIdentifiers identifiers: [String]) async {

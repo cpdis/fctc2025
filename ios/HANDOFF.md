@@ -1,5 +1,198 @@
 # iOS handoff
 
+## TestFlight build 13 (26 October 2026)
+
+- Version 0.1.0 build 13 from `release/testflight-build-13` (`bb4afa9`, pushed): build 12 plus
+  `e10bdd2`. Colin's build 12 review: Runs read the sheet on every appear, so a look at today's
+  run read it again 5 s later. Now `HomeViewModel.needsRefresh` (no good sync yet, or the last
+  one 5 minutes old) gates a plain return to Runs and an app activation; a `refreshRequest`
+  (Sync, engine swap, activation) always reads, and a cancelled one stays owed
+  (`servedRequest`). Pull-to-refresh, launch and sends are unchanged.
+- Build `6aa2bd8d-e9d2-46d2-85f4-4d509e94cb0d` is VALID. Groups FCTC Internal and FCTC
+  Friends; beta app review APPROVED at once; internal and external `IN_BETA_TESTING`, automatic
+  notification on. FCTC External has no testers and was not attached. One set of en-AU notes
+  for everyone (`ios/testflight-build-13.txt`, read back), covering all since build 11.
+- Verification: iOS kit 500, iOS UI 74 run (1 skipped screen tour), 0 failed. Apps Script and
+  web unchanged since build 12 (279, 506).
+- `main` still lacks build 11 to 13. A PR from `release/testflight-build-13` would catch it up.
+
+## Private TestFlight build 12 (26 October 2026)
+
+- Version 0.1.0 build 12 from `release/testflight-build-12` (`8a1aefa`): build 11
+  (`37221d5`, whose branch is not on `main`) merged with the Runs sync work (`9d8aded`, branch
+  `claude/fctc-ios-manual-sync-c7cf1a`). The release starts from build 11 so its fixes and its
+  versioned store survive the update.
+- New: a Sync button beside Settings, a status pill above the tab bar (`SyncStatusViews.swift`,
+  driven by `HomeViewModel.syncStatus`), the Unsynced tile's steady spin, and read and send
+  timing in the `sync` logger. The Sync button bumps `refreshRequest`, as activation does.
+- Build `b29cbc7c-8626-44e7-9115-ef6d8430f360` is VALID and `IN_BETA_TESTING` for FCTC Internal
+  only. External state `READY_FOR_BETA_SUBMISSION`: FCTC Friends and External have no access.
+  The en-AU notes match `ios/testflight-build-12.txt` (read back).
+- Archive `ios/.ddata/FCTC-12.xcarchive`; app and share extension report 0.1.0 (12), signed
+  Apple Distribution.
+- Verification on the merged head: Apps Script 279, web Vitest 506, iOS kit 499, iOS UI 73 run
+  (1 skipped screen tour), 0 failed.
+- To release to Aaron and Grant: rewrite the notes for them (these say "Private build for
+  Colin"), then `testflight-notes.py --build 12 --file <notes> --group "FCTC Friends"` and a
+  beta app review submission if asked.
+
+## Keyboard dismissal (2 October 2026)
+
+- Aaron (build 10): the checklist's "Actual kms" decimal pad had no way off the screen, so
+  it hid the bottom of the roster. Three Opus subagents audited every text input. Only the
+  two decimal-pad fields (checklist and Add Run) were blocking; the rest have a Return key.
+- Fix, following the Guest* screens' pattern: `.scrollDismissesKeyboard(.immediately)` plus a
+  keyboard-toolbar Done button gated on `@FocusState` (`actual-km-keyboard-done`,
+  `new-run-km-keyboard-done`). Settings and Add-as-member also got scroll-to-dismiss.
+- Add Run bound kilometres through `TextField(value:format:)`, which commits only when
+  editing ends. With no exit it sent `nil`. It now binds text and parses through the shared
+  `DistanceText` (the checklist's parser, moved to the kit).
+- `docs/solutions/ui-bugs/decimal-pad-fields-need-done-and-scroll-dismiss.md` has the rule.
+- A malformed distance ("8..2") used to parse to nil, which the checklist treated as "no
+  opinion" and silently kept the sheet value. `DistanceText.isMalformed` now blocks Confirm and
+  Add, shows "Enter the kilometres as one number, such as 8.2." under the field
+  (`actual-km-error`, `new-run-km-error`), and `confirm()` throws `ChecklistError.malformedDistance`.
+  Blank text still means "no opinion".
+- `DistanceText.format` is pinned to `en_US_POSIX` with no grouping, so the seeded field text
+  always round-trips through `parse`; `parse` rejects `nan` and `inf`. The Add Run form state
+  is `AddRunDraft` in the kit (`canAdd`, `request`), with unit tests.
+
+## Audit fixes, waves 1 and 2 (2 October 2026)
+
+- Plan: `docs/plans/2026-10-02-002-fix-ios-skill-audit-findings-plan.md`. Rollback tag
+  `checkpoint-2026-10-02-before-audit-fixes`. Each package is one merge commit:
+  P2 `e841a88` (SwiftUI and view models), P1 `7321a44` (shared sync), P3 `7ad1857` (test
+  hygiene), P5a `05b82e5` (accessibility mechanics and copy), P4 `3ea2079` (drain and
+  background), plus small follow-up commits for test expectations the packages changed.
+- Found during integration, fixed in `00cb904`: the first dictation on a fresh install
+  crashed in `SpeechService.requestAuthorization`. The permission callback was formed inside
+  the `@MainActor` class, so it was inferred main-actor isolated and trapped on the
+  permission service's background queue. Same class as the audio-tap finding, one function
+  away. Reset the simulator's speech and microphone privacy to reproduce.
+- Decisions: checklist rows keep the button trait and not the toggle trait, because XCUITest
+  files a toggle-trait element as a switch and six test files look rows up as buttons; the
+  row value carries "Checked" / "Not checked" and the provenance ("Checked, Voice").
+- Product observation, not changed: on a fresh unrecorded run the draft seeds its distance
+  from the approx km, so Confirm is enabled before anyone is checked and confirming writes
+  the approx value as actual.
+- Verification after each merge on iPhone 17 Pro (iOS 26.5): full kit target (477 tests,
+  66 suites after P4), the package's UI suites, and a five-iteration kit run after P3.
+  One simulator at a time: CoreSimulatorService crashed nineteen times under three
+  parallel boots and needed a Mac restart.
+- Still to come (wave 3): P5b colour and contrast with a review page for Colin, P6 platform
+  details and dead code, P7 predicates and test-file splits; then P8 and P9.
+
+## Private TestFlight build 11 (2 October 2026)
+
+- Version 0.1.0 build 11 from `claude/ios-keyboard-dismissal-bugs-07a47b` (`663e765`): Aaron's
+  keyboard fix, the distance parsing, the audit fixes in waves 1 to 4 (P1 to P9 except P5b), the
+  prefilled-km gate and the shared coders. Gates before the archive: Apps Script 279, web Vitest
+  506, iOS kit 493, every UI suite green on the merged head.
+- The archive is at `ios/.ddata/FCTC-11.xcarchive` in that worktree (the runbook's "release
+  checkout" rule could not be followed because the branch is checked out there; the archive
+  does not embed paths). It reports 0.1.0 (11).
+- The first upload was refused: `403 FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED`. Colin
+  accepted the pending agreement as Account Holder; the retry four minutes later uploaded.
+  Build `c0378f2e-957f-4b94-a5e6-0829609f88ca` is VALID and `IN_BETA_TESTING` for FCTC Internal
+  only (Colin's two accounts). External state `READY_FOR_BETA_SUBMISSION`: FCTC Friends and
+  External have no access. The en-AU notes were set with
+  `testflight-notes.py --build 11 --file ios/testflight-build-11.txt`; the tool now stops with
+  Apple's own error text on an API refusal (`87cf8f4`).
+- Released to FCTC Friends on 3 October 2026 with `ios/testflight-build-11-friends.txt` as the
+  What to Test notes (`--group "FCTC Friends"`), then a beta app review submission through the
+  API (`POST /v1/betaAppReviewSubmissions`), which Apple accepted at once: external state
+  `IN_BETA_TESTING`, automatic notification on. Aaron and Grant update in place; the sheet
+  connection, saved guests and outbox survive, and the Apps Script is unchanged by this branch.
+- Notes: `ios/testflight-build-11.txt`, written before the archive per the runbook.
+
+## Two follow-ups before build 11 (2 October 2026)
+
+- **Prefilled km no longer enables Confirm** (merge `d38da02`, Opus). The checklist still
+  seeds its distance from the sheet's actual km, else its approx km, but
+  `ChecklistViewModel.draftDiffersFromSheet` now compares the draft with that prefilled value,
+  so a fresh run with nobody checked has Confirm disabled. A confirm that leaves the prefilled
+  value untouched still records it as the actual distance (Colin's call: keep the seed). Four
+  kit tests in `ViewModelTests` cover approx-only, recorded-actual and no-distance runs.
+  `SharedGuestUITests.testGuestHistoryAndPromotionPreview` now asserts the direct preview path
+  on an untouched run; the save-then-preview path stays covered by the Toby test. README
+  "Recording attendance" says so.
+- **One JSON encoder and decoder** (merge `24d84e5`, Sonnet, audit CA-21).
+  `FCTCAttendanceKit/Services/JSONCoding.swift` holds the pair; the model properties, sync
+  services, setup-code parser and app routing use it. `SheetAPI` keeps its own instances.
+  Kit 489 tests pass; SharedGuest and SetupLink suites 13 of 13.
+- Verification of the seed merge on iPhone 17 Pro (iOS 26.5): kit 493 tests in 69 suites;
+  ChecklistKeyboard, SharedGuest, AttendanceSummary and FCTCAttendance suites 39 of 39 in
+  12 minutes. The branch head is ready for Colin's review and the build 11 upload.
+## Audit fixes, waves 3 and 4 (2 October 2026)
+
+- Merges, one per package: P7 `8ee9b74` (one outstanding-submission predicate, cache rows
+  fetched by their unique key, the three test files over 500 lines split by test group),
+  P6 `968b39e` (loggers that never log the secret, a MetricKit subscriber, an ephemeral session
+  with a 30 s timeout, intents with more phrases, routes that expire after ten minutes,
+  negative distances rejected, a season-bounded date picker, dead FoundationModels branches
+  removed), P3b `b88b0eb` (MetricKit registered, a Siri and Shortcuts row, the reminders toggle
+  disabled while it updates, 44 pt accent swatches, error and success messages as primary text
+  with a coloured symbol, "Merge:" and "Overwrite:" labels, UI-test fixtures compiled only in
+  Debug with a Release stub), P8 `5fc1b6d` (one `SyncBanner` for the four view models,
+  predicate fetches in the sync files, `SheetState.run(matching:)` identity first,
+  `SharedReadAction`, `deleteSecret` on the secret-store protocol), P9 `d954d8f` (a store
+  that cannot open is set aside with its sidecars and never deleted, a one-time notice says
+  so, `AttendanceSchemaV1` behind a one-schema migration plan, the container names its App
+  Group and turns CloudKit off; Colin approved the notice copy in
+  `Views/StoreRecoveryNotice.swift`).
+- Follow-up commits on the branch: `7847721` deadline-based `waitForPhase`; `dd670ed` a
+  run-matching expectation (date and name beat the saved row index); `67ae448` unfiltered
+  guest-detail queries and the "all-time runs" wording; `b76d2bb` the stored predicate.
+- Found during integration: the guest history screen froze at full CPU and two UI tests timed
+  out evaluating the tree once the promotion screen was pushed. Bisecting by package merge on
+  the single test (P4, P6, P3b pass; P8 fails) put it in P8's filtered `@Query` on
+  `GuestDetailView`. The screen is back to four unfiltered queries (`9c1ed6a`). Home and Outbox
+  carry the same predicate without trouble, so the trigger is this screen's shape, not the
+  predicate; `b76d2bb` (a stored predicate instead of a computed one) is hygiene and did not
+  change the outcome, whatever its message says. Solution note:
+  `docs/solutions/ui-bugs/filtered-query-froze-the-guest-detail-screen.md`.
+- Decisions: `GuestDetailView` keeps all four queries unfiltered and filters in memory. A
+  submission whose run identity is gone no longer falls back to date and name (P8, by design:
+  the engine refuses that row anyway). Checklist rows keep the button trait only (see waves 1
+  and 2). The scratch worktree `.claude/worktrees/bisect` (detached) can be removed.
+- P5b colour and contrast is dropped. Colin reviewed the before and after page (64 captures:
+  Runs and Dashboard, four accents, light and dark, default and AXXXL) and keeps the original
+  colours, so the audit's A11Y-1 and A11Y-NEW-1 (white text on system green, orange and teal at
+  about 2:1) are accepted as they are. `fix/p5b-colour` (`3913817`) stays unmerged for
+  reference; it holds `AccentSurface.swift`, `ios/Tools/contrast-review.sh` and
+  `ios/Tools/contrast-check.py` if the question comes back. The worktrees `p5b-colour`,
+  `p5b-before` and `bisect` can be removed.
+- Verification on iPhone 17 Pro (iOS 26.5): kit 487 tests in 69 suites on the P8 head with the
+  guest detail fix, and 489 after P9; the package UI suites after each merge (28 guest, home and
+  outbox tests on the fixed head; TabNavigation, SetupLink and ChecklistKeyboard after P9, all
+  green). Final pass on `6c84589`: a Release build with `CODE_SIGNING_ALLOWED=NO` succeeds, and
+  every UI suite passes together (71 tests, the opt-in screen tour skipped, 21 minutes).
+- Integration lessons: gate a queued job on the previous process's exit (`kill -0 <pid>`),
+  never on a text marker that another step can echo. One overlapped run voided 34 of 35 UI
+  tests and had to be redone. `simctl openurl` on the custom scheme raises an "Open in FCTC?"
+  alert that no script can answer, so the review page captures Runs and Dashboard only. Only
+  the Runs screen fills the season cache, so a `-ui-tab dashboard` launch refreshes once in
+  `RootTabView`.
+
+## Skill audit (2 October 2026)
+
+- Seven Opus subagents audited the iOS code read-only, each following a group of third-party
+  skills from `twostraws/Swift-Agent-Skills` (SwiftUI, SwiftData, concurrency, testing,
+  accessibility, platform, whole codebase). Report:
+  `docs/reference/2026-10-02-ios-skill-audit.md`. Full code audit: `review/code-audit/CODE_AUDIT.md`
+  (gitignored).
+- Cross-cutting theme (four audits): more than one `SyncEngine` can drain the same store
+  (runtime, background task, old engine after a Settings swap), and `SyncEngine.swift:253` can
+  re-queue another engine's in-flight row. Fix once with one drain owner per process.
+- Two likely High logic bugs: `HomeView` calls `recoveryCandidates()` with no argument, which
+  resolves to the protocol-extension stub and returns `[]`, so the guest-history reminder never
+  appears; and a parked shared submission can only be discarded (Merge and Overwrite throw
+  `missingConflictState`).
+- Nothing from the audit was fixed except the items that touched this branch's own changes
+  (distance locale, Add Run form, test hygiene, a regression test for Aaron's report).
+- The skill clones were reviewed but not installed: copying into `~/.claude/skills` is
+  self-modification and the permission classifier refused it. Colin installs them.
+
 ## Dashboard review branch (28 September 2026)
 
 - Branch `dashboard-review`, pull request cpdis/fctc2025#15. Build 9 is on TestFlight for

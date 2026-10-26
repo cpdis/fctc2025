@@ -52,7 +52,7 @@ struct GuestEditorView: View {
                             if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                             if let shared = viewModel.sharedGuests.first(where: { $0.guestId == guest.id.uuidString.lowercased() }) {
                                 NavigationLink { GuestDetailView(runtime: runtime, guest: shared, checklist: viewModel) } label: {
-                                    Text("\(shared.confirmedRuns ?? 0) runs").foregroundStyle(.secondary)
+                                    Text(DashboardFormat.runs(shared.confirmedRuns ?? 0)).foregroundStyle(.secondary)
                                 }.accessibilityIdentifier("guest-history-\(shared.displayName)")
                             } else {
                                 Text("Pending").font(.caption).foregroundStyle(.orange)
@@ -122,7 +122,11 @@ struct GuestEditorView: View {
                 Text(viewModel.guestDiff(for: .overwrite).summary).font(.footnote).foregroundStyle(.secondary)
             }
             if let error = error ?? viewModel.errorMessage {
-                Section { Text(error).foregroundStyle(.red).font(.footnote) }
+                Section {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.primary, .red)
+                        .font(.footnote)
+                }
             }
         }
         .scrollDismissesKeyboard(.immediately)
@@ -177,7 +181,7 @@ struct GuestEditorView: View {
     }
     private func guestSummary(_ guest: SharedGuest) -> String {
         let last = guest.lastAttendance.map { " · Last \($0.date), \($0.seasonYear)" } ?? ""
-        return "\(guest.confirmedRuns ?? 0) confirmed runs\(last)"
+        return "\(DashboardFormat.confirmedRuns(guest.confirmedRuns ?? 0))\(last)"
     }
     private func select(_ guest: SharedGuest) {
         nameIsFocused = false

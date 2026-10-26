@@ -79,7 +79,7 @@ struct ProposalTriageView: View {
                     } header: {
                         Text("Matched")
                     } footer: {
-                        Text("These strong matches start checked. Untick anyone who did not attend.")
+                        Text("These strong matches start checked. Uncheck anyone who did not attend.")
                     }
                 }
 
@@ -121,15 +121,6 @@ struct ProposalTriageView: View {
                     }
                 }
 
-                if let applyErrorMessage {
-                    Section {
-                        Label(applyErrorMessage, systemImage: "exclamationmark.triangle")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                            .accessibilityIdentifier("triage-apply-error")
-                    }
-                }
-
                 Section {} footer: {
                     provenanceLegend
                 }
@@ -157,6 +148,7 @@ struct ProposalTriageView: View {
             }
         }
         .interactiveDismissDisabled(isApplying)
+        .actionErrorAlert("Could not apply", message: $applyErrorMessage)
         .onDisappear {
             applyTask?.cancel()
             applyTask = nil
@@ -181,16 +173,15 @@ struct ProposalTriageView: View {
     private var provenanceLegend: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 10) {
-                legendItem("sparkles", "Model")
+                legendItem("sparkles", "Suggested")
                 legendItem("waveform", "Voice")
                 legendItem("photo", "Screenshot")
-                legendItem("questionmark.circle", "Suggested")
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
         }
         .scrollIndicators(.hidden)
-        .accessibilityLabel("Provenance: model, voice, screenshot, and suggested")
+        .accessibilityLabel("Provenance: suggested, voice, and screenshot")
     }
 
     private func legendItem(_ image: String, _ label: String) -> some View {

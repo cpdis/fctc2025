@@ -8,11 +8,25 @@
 
 
 import Foundation
+import os
 import SwiftData
 
 // MARK: - Engine
 
 public actor SyncEngine: ModelActor, SyncEngineClient {
+    /// Row failures and sync timing. Error codes are public; the endpoint is
+    /// hashed; the secret never logs. Timing shows where a slow sync spent its
+    /// time: Console.app with the phone attached, category "sync".
+    static let logger = Logger(subsystem: "com.cpdis.fctc-attendance", category: "sync")
+
+    /// Logs one outbox row's failure without the secret or the raw endpoint.
+    func logRowFailure(id: UUID, error: any Error) {
+        let code = (error as? SheetAPIError)?.code ?? "untyped"
+        Self.logger.error(
+            "Row \(id.uuidString, privacy: .public) failed: \(code, privacy: .public) at \(self.api.endpointIdentity ?? "none", privacy: .private(mask: .hash))"
+        )
+    }
+
     public nonisolated let modelExecutor: any ModelExecutor
     public nonisolated let modelContainer: ModelContainer
     public nonisolated var events: AsyncStream<SyncEvent> { eventBroadcaster.stream() }
@@ -28,6 +42,12 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
     var isDraining = false
     var isDrainScheduled = false
     var drainRequested = false
+    /// Set by `quiesce()`: this engine never drains again.
+    var isRetired = false
+    /// `quiesce()` callers waiting for the running drain to end.
+    var quiesceWaiters: [CheckedContinuation<Void, Never>] = []
+    /// The engine this one replaced. The first drain waits for it to stop.
+    var predecessor: (any SyncEngineClient)?
     var latestState: SheetState?
     /// `SharedSheetCache` keys of the last-season rows this engine fetched, so
     /// `previousSeasonSnapshot` revalidates each at most once per app session.
@@ -40,7 +60,8 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         retryPolicy: RetryPolicy = .default,
         readRetryPolicy: RetryPolicy = .reads,
         automaticallyDrains: Bool = true,
-        runReminderScheduler: any RunReminderScheduling = NoopRunReminderScheduler()
+        runReminderScheduler: any RunReminderScheduling = NoopRunReminderScheduler(),
+        replacing predecessor: (any SyncEngineClient)? = nil
     ) {
         self.eventBroadcaster = SyncEventBroadcaster()
         let context = ModelContext(modelContainer)
@@ -53,6 +74,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         self.readRetryPolicy = readRetryPolicy
         self.automaticallyDrains = automaticallyDrains
         self.runReminderScheduler = runReminderScheduler
+        self.predecessor = predecessor
     }
 
     deinit {
@@ -91,14 +113,26 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         var attempt = 1
         while true {
             let requestedAt = await clock.now()
+            let started = ContinuousClock.now
             do {
-                return (try await api.getState(seasonSheetId: seasonSheetId), requestedAt)
-            } catch let error as SheetAPIError where error.isRetryable
-                        && attempt < readRetryPolicy.maxAttempts && !Task.isCancelled {
+                let state = try await api.getState(seasonSheetId: seasonSheetId)
+                Self.logger.notice("Read the sheet in \(Self.milliseconds(since: started)) ms (attempt \(attempt))")
+                return (state, requestedAt)
+            } catch {
+                // The code only: an error's text can carry the endpoint.
+                let code = (error as? SheetAPIError)?.code ?? "untyped"
+                Self.logger.error("Read attempt \(attempt) failed after \(Self.milliseconds(since: started)) ms: \(code, privacy: .public)")
+                guard let error = error as? SheetAPIError, error.isRetryable,
+                      attempt < readRetryPolicy.maxAttempts, !Task.isCancelled else { throw error }
                 attempt += 1
                 try await clock.sleep(for: readRetryPolicy.delay(forAttempt: attempt))
             }
         }
+    }
+
+    /// Whole milliseconds since `start`, for the timing logs.
+    static func milliseconds(since start: ContinuousClock.Instant) -> Int {
+        Int(start.duration(to: .now) / .milliseconds(1))
     }
 
     /// The newest listed season older than `year` (the live season when nil),
@@ -177,11 +211,6 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         return state
     }
 
-    /// Compatibility spelling from the U1 seam.
-    public func refresh() async throws -> SheetState {
-        try await refreshState()
-    }
-
     public func enqueue(_ submission: AttendanceSubmission) async throws -> UUID {
         let pending = PendingSubmission(
             rowIndex: submission.rowIndex,
@@ -218,7 +247,19 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         return try persistAndStart(pending)
     }
 
+    /// Drains the outbox. One drain runs at a time per engine; a call that
+    /// arrives mid-drain asks the running drain for one more pass and returns.
+    /// The extra pass runs inside the running call (CC-1), so a caller that
+    /// awaits `drain()`, such as the background task, covers it before it
+    /// completes:
+    ///
+    ///   drain() ── wait for predecessor ── pass ── requested again? ── pass ── done
+    ///                                        ▲ drain() / enqueue mid-pass sets the flag
     public func drain() async {
+        // No endpoint means no sheet to check rows against: a pass now would
+        // park every saved row for review (PLAT-NEW-1). A retired engine has
+        // handed the store to its successor.
+        guard api.endpointIdentity != nil, !isRetired else { return }
         guard !isDraining else {
             drainRequested = true
             return
@@ -228,12 +269,35 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         defer {
             isDraining = false
             eventBroadcaster.setActivity(false)
-            if drainRequested {
-                drainRequested = false
-                scheduleDrain(force: true)
-            }
+            let waiters = quiesceWaiters
+            quiesceWaiters = []
+            waiters.forEach { $0.resume() }
         }
+        // The engine this one replaced finishes first, so two engines never
+        // send the same row (CC-2).
+        if let predecessor {
+            self.predecessor = nil
+            await predecessor.quiesce()
+        }
+        repeat {
+            drainRequested = false
+            await drainPass()
+        } while drainRequested && !Task.isCancelled && !isRetired
+    }
 
+    /// Stops this engine draining: a later `drain()` returns at once, and a
+    /// running drain stops after its current row. Returns once it has stopped.
+    public func quiesce() async {
+        isRetired = true
+        guard isDraining else { return }
+        await withCheckedContinuation { quiesceWaiters.append($0) }
+    }
+
+    /// One pass over the outbox: guest operations first, then submissions
+    /// oldest first.
+    private func drainPass() async {
+        let started = ContinuousClock.now
+        let ids: [UUID]
         do {
             try prepareLegacyRecovery()
             await drainGuestOperations()
@@ -248,14 +312,26 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                 )
             )
             // Legacy absolute writes retain their old retry protocol. Shared writes
-            // keep their dispatch state so restart checks the receipt first.
-            let ids = rows.compactMap { row -> UUID? in
+            // keep their dispatch state so restart checks the receipt first. This
+            // engine is the store's only drain owner, so an in-flight legacy row
+            // is never another engine's live request.
+            ids = rows.compactMap { row -> UUID? in
                 if row.status == .inFlight && row.runIdentity == nil { row.status = .queued }
                 return row.id
             }
             try modelContext.save()
+        } catch {
+            // A cache error cannot safely identify one row. The next foreground or
+            // explicit refresh gets another chance to open and drain the store.
+            eventBroadcaster.yield(.serviceFailed(message: UserFacingError.sync(error)))
+            return
+        }
 
-            for id in ids {
+        for id in ids {
+            // An expired background task or a Settings swap stops between rows;
+            // the rest stay queued for the next drain (CC-8).
+            guard !Task.isCancelled, !isRetired else { return }
+            do {
                 guard let row = try pending(id: id) else { continue }
                 guard row.endpointIdentity == api.endpointIdentity, row.endpointIdentity != nil else {
                     try parkForReview(row, message: "Review this saved submission before sending it to the current sheet.")
@@ -265,11 +341,15 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                 else if try currentSharedState()?.supportsSharedGuests == true {
                     try parkForReview(row, message: "Choose the original season and run before recovering this submission.")
                 } else { await drain(id: id) }
+            } catch {
+                // One row that cannot be read or parked must not strand the
+                // rows after it (CA-15).
+                eventBroadcaster.yield(.serviceFailed(message: UserFacingError.sync(error)))
             }
-        } catch {
-            // A cache error cannot safely identify one row. The next foreground or
-            // explicit refresh gets another chance to open and drain the store.
-            eventBroadcaster.yield(.serviceFailed(message: UserFacingError.sync(error)))
+        }
+        // Each sent row costs a write plus a full read of the sheet.
+        if !ids.isEmpty {
+            Self.logger.notice("Sent \(ids.count) outbox rows in \(Self.milliseconds(since: started)) ms")
         }
     }
 
@@ -318,6 +398,9 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         id: UUID,
         action: ConflictResolutionAction
     ) async throws -> UUID? {
+        // Read the clock before the guard. An await between the guard and the
+        // save lets a second call pass the same guard and queue a duplicate.
+        let now = await clock.now()
         guard let conflicted = try pending(id: id), conflicted.status == .conflict else {
             throw SyncEngineError.conflictNotFound
         }
@@ -331,15 +414,16 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
             return nil
         }
 
+        if conflicted.runIdentity != nil {
+            // A parked shared row has no snapshot. The cached live state stands
+            // in; `resolveSharedConflict` verifies the run identity against it.
+            let state = try conflicted.conflictState ?? requireSharedState()
+            return try resolveSharedConflict(conflicted, action: action, state: state, createdAt: now)
+        }
         guard let state = conflicted.conflictState else {
             throw SyncEngineError.missingConflictState
         }
-        if conflicted.runIdentity != nil {
-            return try await resolveSharedConflict(conflicted, action: action, state: state)
-        }
-        let serverRun = state.runs.first {
-            $0.date == conflicted.expectedDate && $0.run == conflicted.expectedRun
-        } ?? state.runs.first { $0.rowIndex == conflicted.rowIndex }
+        let serverRun = state.run(matching: conflicted)
 
         let replacement = PendingSubmission(
             rowIndex: serverRun?.rowIndex ?? conflicted.rowIndex,
@@ -352,7 +436,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
             mode: action == .overwrite ? .overwrite : .merge,
             status: .queued,
             baseRevision: state.sheetRevision,
-            createdAt: await clock.now(),
+            createdAt: now,
             deviceName: conflicted.deviceName
         )
         // Preserve a nil wire value as "no opinion".

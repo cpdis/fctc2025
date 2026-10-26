@@ -85,3 +85,6 @@ planning/reference/*.png
 
 # Claude Code local preview config (machine-specific ports and commands).
 .claude/launch.json
+
+# Extra DerivedData folders from parallel agent builds (Release, generic).
+DerivedData-*/

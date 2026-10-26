@@ -4,7 +4,18 @@ import SwiftData
 extension SyncEngine {
     func drainGuestOperations() async {
         do {
-            let rows = try modelContext.fetch(FetchDescriptor<PendingGuestOperation>(sortBy: [SortDescriptor(\.createdAt)]))
+            // Exclude the terminal phases rather than match the two live ones:
+            // an unknown raw phase reads as `.checking` and must still drain.
+            let completed = GuestOperationPhase.completed.rawValue, conflict = GuestOperationPhase.conflict.rawValue
+            let rejected = GuestOperationPhase.rejected.rawValue, superseded = GuestOperationPhase.superseded.rawValue
+            let rows = try modelContext.fetch(FetchDescriptor<PendingGuestOperation>(
+                predicate: #Predicate {
+                    $0.phaseRaw != completed && $0.phaseRaw != conflict && $0.phaseRaw != rejected && $0.phaseRaw != superseded
+                },
+                sortBy: [SortDescriptor(\.createdAt)]
+            ))
+            // Checked again per row: another call can settle a row while an
+            // earlier one is awaiting the sheet.
             for row in rows where row.phase == .queued || row.phase == .checking {
                 await drainGuestOperation(id: row.id)
                 // Retrying an unsent head must not let newer structural changes
@@ -16,8 +27,11 @@ extension SyncEngine {
     func drainGuestOperation(id: UUID) async {
         var attemptedDispatch = false
         do {
-            guard let row = try guestOperationRecord(id: id), let operation = row.operation,
+            guard let row = try guestOperationRecord(id: id),
                   row.phase == .queued || row.phase == .checking else { return }
+            // Decode explicitly: corrupt bytes must reject the row, not return
+            // early and leave a head that blocks every later operation.
+            let operation = try JSONCoding.decoder.decode(SharedGuestOperation.self, from: row.operationData)
             guard row.endpointIdentity == api.endpointIdentity,
                   try currentSharedState()?.spreadsheetId == row.spreadsheetId else {
                 row.lastError = "Return to the original sheet to check this saved change."; try modelContext.save(); return
@@ -41,20 +55,23 @@ extension SyncEngine {
                 attemptedDispatch = true
                 response = try await api.perform(operation)
             }
-            row.phase = .completed; row.lastError = nil; row.responseData = try JSONEncoder().encode(response)
+            row.phase = .completed; row.lastError = nil; row.responseData = try JSONCoding.encoder.encode(response)
             row.conflictData = nil
             if let guestJSON = response["guest"], let guest = try? guestJSON.decoded(SharedGuest.self) {
-                let cached = try modelContext.fetch(FetchDescriptor<CachedGuest>()).first { $0.spreadsheetId == row.spreadsheetId && $0.guestId == guest.guestId }
-                if let cached {
+                if let cached = try cachedGuest(spreadsheetId: row.spreadsheetId, guestId: guest.guestId) {
                     // Mutation responses need not contain a total. Preserve the
                     // confirmed snapshot until an authoritative state refresh.
                     try cached.updateGuest(guest, preserveMissingTotals: true)
                 } else { modelContext.insert(try CachedGuest(spreadsheetId: row.spreadsheetId, guest: guest)) }
-                for provisional in try modelContext.fetch(FetchDescriptor<ProvisionalGuest>()) where provisional.operationId == id {
+                let provisionals = try modelContext.fetch(FetchDescriptor<ProvisionalGuest>(predicate: #Predicate { $0.operationId == id }))
+                for provisional in provisionals {
                     provisional.resolvedGuestId = guest.guestId
                 }
             }
-            for candidate in try modelContext.fetch(FetchDescriptor<GuestRecoveryCandidate>()) where candidate.operationId == id {
+            // Optional on both sides: #Predicate will not promote a UUID to UUID?.
+            let operationId: UUID? = id
+            let candidates = try modelContext.fetch(FetchDescriptor<GuestRecoveryCandidate>(predicate: #Predicate { $0.operationId == operationId }))
+            for candidate in candidates {
                 candidate.status = .imported
             }
             try modelContext.save()
@@ -65,22 +82,18 @@ extension SyncEngine {
                 row.phase = conflict.operationId != nil && conflict.operationId != id.uuidString.lowercased() ? .queued : .checking
                 row.lastError = UserFacingError.checkingSavedChanges
             } else {
-                row.phase = .conflict; row.conflictData = try? JSONEncoder().encode(conflict); row.lastError = conflict.message
+                row.phase = .conflict; row.conflictData = try? JSONCoding.encoder.encode(conflict); row.lastError = conflict.message
             }
             try? modelContext.save()
         } catch {
             guard let row = try? guestOperationRecord(id: id) else { return }
-            // An ordinary transport failure does not prove non-delivery.
-            // Typed validation/authentication errors occur before any mutation.
-            if attemptedDispatch, case SheetAPIError.requestNotSent = error {
-                row.phase = .queued; row.lastError = UserFacingError.offline
-            } else if attemptedDispatch, let error = error as? SheetAPIError,
-               error.code == "bad_secret" || error.code == "busy" {
-                row.phase = .queued; row.lastError = UserFacingError.sync(error)
-            } else if attemptedDispatch, let error = error as? SheetAPIError,
-                      !error.isRetryable, error.code != "decoding", error.code != "internal_error" {
-                row.phase = .rejected; row.lastError = UserFacingError.sync(error)
-            } else { row.lastError = UserFacingError.checkingSavedChanges }
+            switch OutboxFailure(error, attemptedDispatch: attemptedDispatch) {
+            case .notSent: row.phase = .queued; row.lastError = UserFacingError.offline
+            case .refused(let error): row.phase = .queued; row.lastError = UserFacingError.sync(error)
+            // A rejected head no longer blocks the queue behind it.
+            case .rejected(let message): row.phase = .rejected; row.lastError = message
+            case .unknown: row.lastError = UserFacingError.checkingSavedChanges
+            }
             try? modelContext.save()
         }
     }
@@ -90,7 +103,7 @@ extension SyncEngine {
         guard row.phase == .completed, let data = row.responseData else {
             throw SheetAPIError.server(code: "pending_verification", message: row.lastError ?? UserFacingError.checkingSavedChanges)
         }
-        return try JSONDecoder().decode(GuestJSON.self, from: data)
+        return try JSONCoding.decoder.decode(GuestJSON.self, from: data)
     }
     func addSharedMember(name: String, state: SheetState) async throws -> AddMemberResult {
         guard let season = state.seasonSheetId else { throw SheetAPIError.notConfigured }
@@ -98,7 +111,9 @@ extension SyncEngine {
             "name": .string(name), "seasonSheetId": .number(Double(season)), "baseRevision": .string(state.sheetRevision)
         ])
         _ = try saveGuestOperation(operation, state: state); try modelContext.save()
-        await drainGuestOperation(id: operation.id)
+        // The serial drain keeps older unknown outcomes ahead of this one. If
+        // it cannot send yet, `completedGuestResponse` throws pending.
+        await drain()
         let result: AddMemberResult = try completedGuestResponse(id: operation.id).decoded()
         _ = try await refreshState(seasonSheetId: season)
         return result
@@ -111,7 +126,7 @@ extension SyncEngine {
             "approxKm": request.approxKm.map(GuestJSON.number) ?? .null, "baseRevision": .string(state.sheetRevision)
         ])
         _ = try saveGuestOperation(operation, state: state); try modelContext.save()
-        await drainGuestOperation(id: operation.id)
+        await drain()
         let result: AddRunResult = try completedGuestResponse(id: operation.id).decoded()
         _ = try await refreshState(seasonSheetId: season)
         return result

@@ -4,6 +4,11 @@ import XCTest
 final class SharedGuestUITests: XCTestCase {
     private var app: XCUIApplication!
 
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
     private func launch(_ extra: [String] = []) {
         app = XCUIApplication()
         app.launchArguments = ["-ui-testing", "-ui-shared-guests"] + extra
@@ -61,16 +66,31 @@ final class SharedGuestUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Rene"].waitForExistence(timeout: 5))
         capture("shared-guests-history")
         app.buttons["guest-promote"].tap()
-        app.buttons["promotion-preview"].tap()
-        let save = app.buttons["Save run and review promotion"].firstMatch
-        if save.waitForExistence(timeout: 2) { save.tap() }
+        // Run 43 has only an approx km. The prefilled km is not a change, so the
+        // untouched checklist goes straight to the preview with no save step.
+        // The save-then-preview path is covered by testSavedRunRemainsSavedWhenPromotionPreviewFails.
+        let preview = app.buttons["promotion-preview"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertEqual(preview.label, "Preview promotion")
+        preview.tap()
         XCTAssertTrue(app.staticTexts["promotion-confirmed-count"].waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["Save run and review promotion"].exists)
         capture("shared-guests-promotion-preview")
         tap(app.buttons["promotion-confirm"])
         XCTAssertTrue(app.staticTexts["Added as a member with 11 recorded runs."].waitForExistence(timeout: 8))
         XCTAssertFalse(app.buttons["promotion-confirm"].exists)
         capture("shared-guests-promotion-completed")
     }
+    /// CA-9: a legacy row with guest names must surface the Home reminder.
+    func testRecoveryReminderAppearsOnHome() {
+        launch(["-ui-recovery", "-ui-store-name", UUID().uuidString])
+        let reminder = app.buttons["recover-guests-reminder"]
+        // The reminder is the last Home section; scroll until it loads in.
+        for _ in 0..<4 where !reminder.waitForExistence(timeout: 2) { app.swipeUp() }
+        XCTAssertTrue(reminder.waitForExistence(timeout: 4))
+        capture("shared-guests-recovery-home-reminder")
+    }
+
     func testRecoveryReminderCanBeDismissedAndReopenedAfterRelaunch() {
         let store = UUID().uuidString
         launch(["-ui-recovery", "-ui-store-name", store])

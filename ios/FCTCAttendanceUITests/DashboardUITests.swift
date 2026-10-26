@@ -151,7 +151,7 @@ final class DashboardUITests: XCTestCase {
         tap(app.buttons["member-Aaron"])
         app.buttons["confirm-attendance"].tap()
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["home-unsynced"].label.contains("1 submissions"), app.buttons["home-unsynced"].label)
+        XCTAssertTrue(app.buttons["home-unsynced"].label.contains("1 submission"), app.buttons["home-unsynced"].label)
 
         openDashboard()
         let headline = element("headline-value")

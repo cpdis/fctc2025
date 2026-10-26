@@ -86,7 +86,7 @@ private final class AudioRequestBox: @unchecked Sendable {
 @MainActor
 public final class SpeechService: Transcriber {
     private static let logger = Logger(
-        subsystem: "com.fctc.attendance",
+        subsystem: "com.cpdis.fctc-attendance",
         category: "SpeechService"
     )
 
@@ -120,11 +120,7 @@ public final class SpeechService: Transcriber {
     }
 
     public func requestAuthorization() async -> TranscriberAuthorization {
-        let speechStatus = await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { status in
-                continuation.resume(returning: status)
-            }
-        }
+        let speechStatus = await Self.speechAuthorizationStatus()
 
         let speechAuthorization = Self.authorization(from: speechStatus)
         guard speechAuthorization == .authorized else { return speechAuthorization }
@@ -162,6 +158,9 @@ public final class SpeechService: Transcriber {
         self.updateHandler = updateHandler
         self.sessionID = sessionID
 
+        // The handler below is formed in a @MainActor class, so it relies on
+        // the main queue. Pin it explicitly instead of trusting the default.
+        recognizer.queue = .main
         recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
             let isTerminal = result?.isFinal == true || error != nil
             let update = TranscriptionUpdate(
@@ -193,9 +192,7 @@ public final class SpeechService: Transcriber {
             guard format.sampleRate > 0, format.channelCount > 0 else {
                 throw SpeechServiceError.audioInputUnavailable
             }
-            input.installTap(onBus: 0, bufferSize: 1_024, format: format) { buffer, _ in
-                box.request.append(buffer)
-            }
+            input.installTap(onBus: 0, bufferSize: 1_024, format: format, block: Self.tapBlock(appendingTo: box))
             hasInputTap = true
             audioEngine.prepare()
             try audioEngine.start()
@@ -249,6 +246,25 @@ public final class SpeechService: Transcriber {
             try audioSession.setActive(false, options: [.notifyOthersOnDeactivation])
         } catch {
             throw SpeechServiceError.audioSessionDeactivation(error.localizedDescription)
+        }
+    }
+
+    /// The microphone tap runs on a real-time audio thread. A closure written
+    /// inside this `@MainActor` class could be inferred main-actor isolated and
+    /// trap there, so the block is formed in a nonisolated context instead.
+    private nonisolated static func tapBlock(appendingTo box: AudioRequestBox) -> AVAudioNodeTapBlock {
+        { buffer, _ in box.request.append(buffer) }
+    }
+
+    /// The permission service calls this completion handler on a background
+    /// queue. A closure written inside this `@MainActor` class would be inferred
+    /// main-actor isolated and trap on that queue, so it is formed in a
+    /// nonisolated context instead.
+    private nonisolated static func speechAuthorizationStatus() async -> SFSpeechRecognizerAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { status in
+                continuation.resume(returning: status)
+            }
         }
     }
 

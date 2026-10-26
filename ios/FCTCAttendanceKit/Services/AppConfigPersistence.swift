@@ -11,7 +11,10 @@ import Security
 
 public protocol SecretStoring: Sendable {
     func readSecret() throws -> String?
+    /// Stores a non-empty secret. `save` routes an empty one to `deleteSecret`.
     func writeSecret(_ value: String) throws
+    /// Removes the stored secret. A missing secret counts as success (PLAT-18).
+    func deleteSecret() throws
 }
 
 public protocol AppConfigPersisting: Sendable {
@@ -19,6 +22,8 @@ public protocol AppConfigPersisting: Sendable {
     func save(_ config: AppConfig) throws
 }
 
+/// `@unchecked` because `UserDefaults` is not marked `Sendable`, though Apple
+/// documents it as thread-safe; every other stored property is immutable.
 public final class UserDefaultsAppConfigPersistence: AppConfigPersisting, @unchecked Sendable {
     private enum Key {
         static let endpoint = "fctc.endpoint"
@@ -36,18 +41,30 @@ public final class UserDefaultsAppConfigPersistence: AppConfigPersisting, @unche
         self.secretStore = secretStore
     }
 
+    /// Throws `AppConfigLoadError` when the secret cannot be read. The error
+    /// keeps the endpoint, so a locked keychain never reads as "not set up".
     public func load() throws -> AppConfig {
-        AppConfig(
+        var config = AppConfig(
             endpoint: defaults.string(forKey: Key.endpoint).flatMap(URL.init(string:)),
-            secret: try secretStore.readSecret() ?? "",
             deviceName: defaults.string(forKey: Key.deviceName)
         )
+        do {
+            config.secret = try secretStore.readSecret() ?? ""
+        } catch {
+            throw AppConfigLoadError(endpointOnly: config, underlying: error)
+        }
+        return config
     }
 
     public func save(_ config: AppConfig) throws {
         // Write the sensitive value first. If Keychain rejects the write, the visible
         // endpoint does not move ahead to a configuration the app cannot use.
-        try secretStore.writeSecret(config.secret)
+        // An empty secret means "forget it", never "store an empty string".
+        if config.secret.isEmpty {
+            try secretStore.deleteSecret()
+        } else {
+            try secretStore.writeSecret(config.secret)
+        }
         defaults.set(config.endpoint?.absoluteString, forKey: Key.endpoint)
         defaults.set(config.deviceName, forKey: Key.deviceName)
     }
@@ -80,14 +97,6 @@ public struct KeychainSecretStore: SecretStoring {
     }
 
     public func writeSecret(_ value: String) throws {
-        if value.isEmpty {
-            let status = SecItemDelete(baseQuery() as CFDictionary)
-            guard status == errSecSuccess || status == errSecItemNotFound else {
-                throw KeychainStoreError(status: status)
-            }
-            return
-        }
-
         let data = Data(value.utf8)
         let updateStatus = SecItemUpdate(
             baseQuery() as CFDictionary,
@@ -107,6 +116,14 @@ public struct KeychainSecretStore: SecretStoring {
         }
     }
 
+    /// Removes the stored secret. A missing item counts as success.
+    public func deleteSecret() throws {
+        let status = SecItemDelete(baseQuery() as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw KeychainStoreError(status: status)
+        }
+    }
+
     private func baseQuery(matchingData: Bool = false) -> [String: Any] {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -121,12 +138,35 @@ public struct KeychainSecretStore: SecretStoring {
     }
 }
 
+/// The saved endpoint loaded but the secret did not. `endpointOnly` has the
+/// endpoint and device name with an empty secret.
+public struct AppConfigLoadError: LocalizedError, Sendable {
+    public let endpointOnly: AppConfig
+    public let underlying: any Error
+
+    public init(endpointOnly: AppConfig, underlying: any Error) {
+        self.endpointOnly = endpointOnly
+        self.underlying = underlying
+    }
+
+    /// The secret is there but unreadable until the device unlocks: retry
+    /// later, and do not ask the person to set up the app again.
+    public var isRetryLater: Bool {
+        (underlying as? KeychainStoreError) == .interactionNotAllowed
+    }
+
+    public var errorDescription: String? { underlying.localizedDescription }
+}
+
 public enum KeychainStoreError: LocalizedError, Sendable, Equatable {
     case operationFailed(OSStatus)
+    /// `errSecInteractionNotAllowed` (-25308): the device has not been unlocked
+    /// since it started, so an `AfterFirstUnlock` item cannot be read yet.
+    case interactionNotAllowed
     case invalidData
 
     init(status: OSStatus) {
-        self = .operationFailed(status)
+        self = status == errSecInteractionNotAllowed ? .interactionNotAllowed : .operationFailed(status)
     }
 
     public var errorDescription: String? {
@@ -134,6 +174,8 @@ public enum KeychainStoreError: LocalizedError, Sendable, Equatable {
         case .operationFailed(let status):
             SecCopyErrorMessageString(status, nil) as String?
                 ?? "Keychain operation failed (\(status))."
+        case .interactionNotAllowed:
+            "The keychain stays locked until this iPhone is unlocked."
         case .invalidData:
             "The saved secret is not valid UTF-8 text."
         }

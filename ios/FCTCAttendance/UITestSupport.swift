@@ -6,6 +6,7 @@
 //  `-ui-testing`. Production launches never construct these values.
 //
 
+#if DEBUG
 import CoreGraphics
 import FCTCAttendanceKit
 import Foundation
@@ -175,6 +176,8 @@ enum UITestSupport {
         switch url.path() {
         case "/route/today-checklist":
             routes.set(.todayChecklist)
+        case "/route/today-dictation":
+            routes.set(.todayDictation)
         case "/route/missing-run":
             // A reminder for a run the sheet does not have: it can never resolve.
             routes.set(.checklist(rowIndex: 9_999, date: "Never", run: "Missing"))
@@ -308,11 +311,15 @@ private actor UITestSheetAPI: SheetAPIClient {
         return formatter.string(from: date)
     }
 
-    func getState() async throws -> SheetState { state }
+    func getState() async throws -> SheetState {
+        try await holdIfSlow()
+        return state
+    }
 
     func submitAttendance(
         _ submission: AttendanceSubmission
     ) async throws -> SubmissionOutcome {
+        try await holdIfSlow()
         writeAttempts += 1
         guard let index = state.runs.firstIndex(where: { $0.rowIndex == submission.rowIndex }) else {
             throw SheetAPIError.badPayload(message: "Unknown UI-test row.")
@@ -334,6 +341,14 @@ private actor UITestSheetAPI: SheetAPIClient {
         if let actualKm = submission.actualKm { state.runs[index].actualKm = actualKm }
         state.sheetRevision = "ui-rev-\(writeAttempts + 1)"
         return .written(cells: 1, sheetRevision: state.sheetRevision)
+    }
+
+    /// "-ui-slow-sheet" holds each read and attendance write for 3 s, as a slow
+    /// Apps Script call does, so a test can see the sync status while it runs.
+    private func holdIfSlow() async throws {
+        if ProcessInfo.processInfo.arguments.contains("-ui-slow-sheet") {
+            try await Task.sleep(for: .seconds(3))
+        }
     }
 
     func addMember(name: String) async throws -> AddMemberResult {
@@ -385,3 +400,26 @@ private actor UITestTextRecognizer: TextRecognizer {
         }
     }
 }
+#else
+import FCTCAttendanceKit
+import Foundation
+import SwiftData
+import CoreGraphics
+
+/// Release stand-in: the fixtures above compile only in Debug, so the app calls
+/// these inert members and no test hook, fixture or launch flag ships.
+enum UITestSupport {
+    static let isEnabled = false
+    static let shouldSkipScreenshotCoach = false
+    static var storeName: String { "" }
+
+    static func prepareLaunch() {}
+    static func screenshotParser() -> PollScreenshotParser { PollScreenshotParser() }
+    static func screenshotImages() -> [CGImage] { [] }
+    @MainActor
+    static func makeRuntime(modelContainer: ModelContainer) -> AppRuntime {
+        AppRuntime(modelContainer: modelContainer)
+    }
+    static func handleHook(_ url: URL, runtime: AppRuntime, routes: PendingRouteStore) -> Bool { false }
+}
+#endif

@@ -20,11 +20,6 @@ public enum SubmissionStatus: String, Codable, Sendable, CaseIterable {
     case inFlight
     case conflict
     case done
-
-    /// Compatibility spellings from the U1 placeholder.
-    public static var sending: Self { .inFlight }
-    public static var written: Self { .done }
-    public static var conflicted: Self { .conflict }
 }
 
 @Model
@@ -132,13 +127,13 @@ extension PendingSubmission {
 
     public var conflictState: SheetState? {
         guard let conflictStateData else { return nil }
-        return try? JSONDecoder().decode(SheetState.self, from: conflictStateData)
+        return try? JSONCoding.decoder.decode(SheetState.self, from: conflictStateData)
     }
 
     public func attachConflict(reason: String, message: String, state: SheetState) {
         conflictReason = reason
         conflictMessage = message
-        conflictStateData = try? JSONEncoder().encode(state)
+        conflictStateData = try? JSONCoding.encoder.encode(state)
     }
 
     public func clearConflict() {
@@ -179,6 +174,16 @@ extension PendingSubmission {
         return RunIdentity(spreadsheetId: spreadsheetId, seasonSheetId: seasonSheetId, runId: runId)
     }
     public var outcome: SubmissionDisposition? { outcomeRaw.flatMap(SubmissionDisposition.init(rawValue:)) }
+
+    /// Rows not yet done. Shared by the `@Query` lists and the outstanding count.
+    /// A `#Predicate` cannot call into the enum, so the raw value is captured first.
+    /// One stored instance, not a computed property: a `@Query` given a fresh
+    /// predicate on every render refetches and re-renders without end, which
+    /// froze the guest history screen.
+    public static let outstandingPredicate: Predicate<PendingSubmission> = {
+        let done = SubmissionStatus.done.rawValue
+        return #Predicate { $0.stateRaw != done }
+    }()
 
     /// Rows not yet done for one endpoint. SyncEngine only sends a row to the
     /// endpoint it was saved for, so a connection switch leaves these parked.

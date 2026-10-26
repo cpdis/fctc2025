@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Synchronization
 
 public struct RetryPolicy: Hashable, Sendable {
     public var initialDelay: TimeInterval
@@ -52,8 +53,7 @@ public struct SystemSyncClock: SyncClock {
     public func now() async -> Date { Date() }
 
     public func sleep(for seconds: TimeInterval) async throws {
-        let nanoseconds = UInt64(max(0, seconds) * 1_000_000_000)
-        try await Task.sleep(nanoseconds: nanoseconds)
+        try await Task.sleep(for: .seconds(max(0, seconds)))
     }
 }
 
@@ -74,25 +74,29 @@ public enum SyncEvent: Hashable, Sendable {
 
 /// AsyncStream is a work-sharing sequence when several iterators consume the same
 /// instance. Screens need broadcast semantics, so each access to `events` receives
-/// its own stream and continuation.
-final class SyncEventBroadcaster: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuations: [UUID: AsyncStream<SyncEvent>.Continuation] = [:]
-    /// Whether a drain is running now. Unlike other events it is state, so a
-    /// screen that subscribes mid-drain is told at once.
-    private var isActive = false
+/// its own stream and continuation. A `Mutex` guards the state, so the type is
+/// checked `Sendable` without `@unchecked` (CC-10).
+final class SyncEventBroadcaster: Sendable {
+    private struct State {
+        var continuations: [UUID: AsyncStream<SyncEvent>.Continuation] = [:]
+        /// Whether a drain is running now. Unlike other events it is state, so a
+        /// screen that subscribes mid-drain is told at once.
+        var isActive = false
+    }
+
+    private let state = Mutex(State())
 
     func stream() -> AsyncStream<SyncEvent> {
         let id = UUID()
         return AsyncStream(bufferingPolicy: .bufferingNewest(100)) { continuation in
             // Register and replay under one lock, so a concurrent change of
             // activity cannot slip between them and leave the replay stale.
-            lock.withLock {
-                continuations[id] = continuation
-                if isActive { continuation.yield(.syncActivity(isActive: true)) }
+            state.withLock { state in
+                state.continuations[id] = continuation
+                if state.isActive { continuation.yield(.syncActivity(isActive: true)) }
             }
             continuation.onTermination = { [weak self] _ in
-                self?.lock.withLock { self?.continuations[id] = nil }
+                self?.state.withLock { _ = $0.continuations.removeValue(forKey: id) }
             }
         }
     }
@@ -100,25 +104,24 @@ final class SyncEventBroadcaster: @unchecked Sendable {
     /// Records drain activity and tells every subscriber when it changes.
     /// Yielding inside the lock keeps activity events in order with the replay.
     func setActivity(_ active: Bool) {
-        lock.withLock {
-            guard isActive != active else { return }
-            isActive = active
-            for listener in continuations.values {
+        state.withLock { state in
+            guard state.isActive != active else { return }
+            state.isActive = active
+            for listener in state.continuations.values {
                 listener.yield(.syncActivity(isActive: active))
             }
         }
     }
 
     func yield(_ event: SyncEvent) {
-        let listeners = lock.withLock { Array(continuations.values) }
+        let listeners = state.withLock { Array($0.continuations.values) }
         for listener in listeners { listener.yield(event) }
     }
 
     func finish() {
-        let listeners = lock.withLock {
-            let values = Array(continuations.values)
-            continuations.removeAll()
-            return values
+        let listeners = state.withLock { state in
+            defer { state.continuations.removeAll() }
+            return Array(state.continuations.values)
         }
         for listener in listeners { listener.finish() }
     }
@@ -132,7 +135,9 @@ public enum ConflictResolutionAction: String, Hashable, Sendable, CaseIterable {
     case discard
 }
 
-public protocol SyncEngineClient: Sendable {
+/// The app's engine. It inherits `OutboxDraining`, so the background task
+/// drains through this same client and a process has one drain owner.
+public protocol SyncEngineClient: OutboxDraining {
     func refreshState(seasonSheetId: Int?) async throws -> SheetState
     /// The season before `year` (the live season when nil) as a read-only
     /// snapshot; nil when the endpoint has none.
@@ -164,7 +169,9 @@ public protocol SyncEngineClient: Sendable {
         mode: SubmissionMode,
         deviceName: String?
     ) async throws -> UUID
-    func drain() async
+    /// Retires this client before another takes over the same store: no new
+    /// drain starts, and the call returns once a running drain has finished.
+    func quiesce() async
     func addMember(name: String) async throws -> AddMemberResult
     func addRun(_ request: AddRunRequest) async throws -> AddRunResult
     func resolveConflict(id: UUID, action: ConflictResolutionAction) async throws -> UUID?
@@ -172,10 +179,14 @@ public protocol SyncEngineClient: Sendable {
     var events: AsyncStream<SyncEvent> { get }
 }
 
+extension SyncEngineClient {
+    /// Clients that own no outbox (previews, test doubles) have nothing to stop.
+    public func quiesce() async {}
+}
+
 public struct UnimplementedSyncEngine: SyncEngineClient {
     public init() {}
     public func refreshState() async throws -> SheetState { throw SheetAPIError.notImplemented }
-    public func refresh() async throws -> SheetState { throw SheetAPIError.notImplemented }
     public func enqueue(_ submission: AttendanceSubmission) async throws -> UUID {
         throw SheetAPIError.notImplemented
     }

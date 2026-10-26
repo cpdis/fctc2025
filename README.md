@@ -499,12 +499,14 @@ Settings on that row and Dashboard puts its season menu there.
 Each tab keeps its own navigation stack. The run picker and the checklist hide the tab bar,
 so their bottom-bar search and Review button stay reachable. A reminder tap or an App Intent
 route always lands on Runs. The app selects Runs, pops it to its root and opens the checklist.
-The other tabs keep their stacks. A new connection (for example, a scanned setup code) returns
+The other tabs keep their stacks. A route older than ten minutes is dropped: the tap it came
+from is forgotten by then. A new connection (for example, a scanned setup code) returns
 every tab to its root.
 
 The app keeps its Reminders look on every tab: system colours, the accent the user picks in
 Settings, and SF Pro. Dashboard numbers use SF Pro Rounded bold. The web's Poster brand stays
-on the web.
+on the web. Settings also has a **Siri and Shortcuts** row that opens the app's shortcuts, and
+its accent swatches are 44 pt targets.
 
 ### Events tab
 
@@ -610,11 +612,32 @@ something is waiting to send. **Retry Now** refreshes again, and so does returni
 A refresh cancelled because its screen went away (a tab switch, a pushed screen) is not a
 failure and shows nothing.
 
+### When the local store cannot open
+
+The app's SwiftData store lives in the App Group container, with CloudKit off and a versioned
+schema (`AttendanceSchemaV1`, `AttendanceMigrationPlan`). If the store cannot open at launch,
+`StoreRecovery` moves the database and its `-wal` and `-shm` sidecars into a folder named
+"Set aside <date>" beside them, opens a fresh store, and shows a one-time notice: the local
+data was set aside, the folder name, the sheet is not affected, and unsent submissions are in
+that folder. Nothing is deleted. A store that is unreadable because the device has not been
+unlocked yet is left alone, and the app fails loudly instead of setting a healthy store aside.
+
 ### Recording attendance
 
 The **Attendance** heading shows the number of checked members across the full
 draft, even during a search. When guests are present, a second line shows the total
 people, including named and unnamed guests. Both counts update as the draft changes.
+
+**Actual kms** uses the decimal pad, which has no Return key. A **Done** button sits above
+the keyboard while that field is focused, and the first scroll of the list also dismisses
+it. **Add Run**'s approx kms field works the same way. Every other text field on the app's
+screens has a Return key and dismisses on scroll. A blank distance leaves the sheet's value
+alone; a distance that is not a number, such as `8..2`, shows an error under the field and
+disables Confirm (or Add) until it is fixed. The field is prefilled with the run's approx kms
+(or its saved actual kms), and that value on its own does not enable Confirm. Confirm needs a
+checked runner, a guest change, or a typed distance; a confirm that leaves the prefilled value
+untouched records it as the actual distance. Error and success messages are primary text with
+a coloured symbol, so colour is never the only signal, and VoiceOver hears each failure once.
 
 Screenshot and voice entry pre-check a member only on a sure match: an exact name, a
 nickname, or one wrong letter in a name of seven or more letters. A close but different
@@ -661,6 +684,7 @@ Every UI test launches with `-ui-testing`, which replaces the sheet with an in-m
 |------|---------|
 | `-ui-shared-guests` | The shared (API v2) fake with this season and last (`UITestSharedGuestAPI.swift`). |
 | `-ui-offline` | No automatic outbox drain, so a queued row stays queued until Retry. |
+| `-ui-slow-sheet` | Each read and attendance write of the legacy fake takes 3 s, so the Runs sync pill ("Checking the sheet…", "Sending 1 change…") stays on screen. |
 | `-ui-events` | Planned club runs from tomorrow to the Sunday after next, plus three Xmas races on one date. It pins today to Mon 21 Sep 2026, 18:00 Perth (`UITestSupport.now`), so the week has the same shape on any day. |
 | `-ui-dashboard` | A season of 30 club days with fixed streaks: Aaron 14, Col 10, Dan 2 (`UITestDashboardFixture.swift`). |
 | `-ui-dashboard-full` | The profiling size: 118 club days and 30 runners. No test pins its numbers. |

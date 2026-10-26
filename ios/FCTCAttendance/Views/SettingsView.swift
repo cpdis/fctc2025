@@ -3,6 +3,7 @@
 //  FCTCAttendance
 //
 
+import AppIntents
 import FCTCAttendanceKit
 import SwiftUI
 import UIKit
@@ -15,6 +16,8 @@ struct SettingsView: View {
     @State private var viewModel: SettingsViewModel
     @State private var showingSetupScanner = false
     @State private var currentAlternateIcon: String?
+    /// A Save that failed, shown as an alert rather than a row below the fold.
+    @State private var saveError: String?
     /// The selection rings slide between choices rather than jumping.
     @Namespace private var selectionRing
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -68,7 +71,6 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings-endpoint")
 
                 SecureField("Shared secret", text: $viewModel.secret)
-                    .textContentType(.password)
                     .accessibilityLabel("Shared secret")
                     .accessibilityIdentifier("settings-secret")
             }
@@ -86,6 +88,10 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings-device-name")
             }
 
+            Section("Siri and Shortcuts") {
+                ShortcutsLink()
+            }
+
             Section {
                 Toggle(
                     "Run reminders",
@@ -96,6 +102,8 @@ struct SettingsView: View {
                         }
                     )
                 )
+                // Off while a toggle is still scheduling or cancelling notifications.
+                .disabled(runtime.isUpdatingReminders)
                 .accessibilityIdentifier("settings-run-reminders")
             } footer: {
                 Text(runtime.reminderMessage ?? "Get a local reminder after each future run.")
@@ -128,13 +136,14 @@ struct SettingsView: View {
 
             if let error = viewModel.errorMessage {
                 Section {
-                    Label(error, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.red)
+                    // Text stays primary for contrast; the icon carries the colour.
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.primary, .red)
                 }
             } else if let success = viewModel.successMessage {
                 Section {
-                    Label(success, systemImage: "checkmark.circle")
-                        .foregroundStyle(.green)
+                    Label(success, systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.primary, .green)
                 }
             }
 
@@ -146,6 +155,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings-app-version")
             }
         }
+        .scrollDismissesKeyboard(.immediately)
         .navigationTitle(configurationRequired ? "Set Up FCTC" : "Settings")
         .navigationBarTitleDisplayMode(configurationRequired ? .large : .inline)
         .toolbar {
@@ -156,6 +166,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings-save")
             }
         }
+        .actionErrorAlert("Could not save", message: $saveError)
         .sheet(isPresented: $showingSetupScanner) {
             SetupCodeScannerView { payload in
                 let config = try viewModel.importAndSaveSetupCode(payload)
@@ -232,8 +243,9 @@ struct SettingsView: View {
                                 .matchedGeometryEffect(id: ringID("accent", choice.rawValue), in: selectionRing)
                         }
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 36)
+                    // The whole 44 pt cell is the tap target, not just the swatch.
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(choice.label) accent")
@@ -265,6 +277,8 @@ struct SettingsView: View {
             runtime.apply(config)
             viewModel.replaceEngine(runtime.engine)
             if !configurationRequired { dismiss() }
-        } catch {}
+        } catch {
+            saveError = viewModel.errorMessage ?? error.localizedDescription
+        }
     }
 }

@@ -48,7 +48,7 @@ private struct MilestoneRow: View {
                 Text(candidate.name)
                 // A shortlisted runner is at most 10 short of a multiple of 50,
                 // so the count is never 1.
-                Text("\(candidate.runs) all-time runs")
+                Text(Self.allTimeRuns(candidate.runs))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
@@ -65,12 +65,17 @@ private struct MilestoneRow: View {
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(candidate.name), \(distance), \(candidate.runs) all-time runs")
+        .accessibilityLabel("\(candidate.name), \(distance), \(Self.allTimeRuns(candidate.runs))")
     }
 
     /// "3 runs to 150", for VoiceOver, where the pill's shorthand reads badly.
     private var distance: String {
-        let runs = candidate.runsNeeded == 1 ? "1 run" : "\(candidate.runsNeeded) runs"
+        let runs = DashboardFormat.runs(candidate.runsNeeded)
         return "\(runs) to \(candidate.milestone)"
     }
+    /// "147 all-time runs": the count and the adjective read in that order.
+    private static func allTimeRuns(_ count: Int) -> String {
+        "\(count) all-time \(count == 1 ? "run" : "runs")"
+    }
+
 }

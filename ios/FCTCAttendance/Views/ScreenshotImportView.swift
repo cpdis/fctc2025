@@ -148,7 +148,7 @@ struct ScreenshotImportView: View {
                 }
                 .padding(24)
             }
-            .navigationTitle("Import a poll")
+            .navigationTitle("Import Poll")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { coachHasEntered = true }
             .toolbar {
@@ -189,7 +189,7 @@ struct ScreenshotImportView: View {
                 }
 
                 if screenshotCount > 0 {
-                    Section("Selected — \(screenshotCount)") {
+                    Section("Selected: \(screenshotCount)") {
                         ScrollView(.horizontal) {
                             LazyHStack(spacing: 12) {
                                 ForEach(displayedScreenshots) { screenshot in
@@ -246,7 +246,7 @@ struct ScreenshotImportView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Label("The screenshot only contains vote counts", systemImage: "person.crop.circle.badge.questionmark")
                                 .font(.headline)
-                            Text("Open the poll and tap View votes, screenshot that screen")
+                            Text("Open the poll and tap View votes. Then screenshot that screen.")
                                 .foregroundStyle(.secondary)
                             Button("Show instructions") { showingCoach = true }
                         }
@@ -269,7 +269,7 @@ struct ScreenshotImportView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("Import poll")
+            .navigationTitle("Import Poll")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

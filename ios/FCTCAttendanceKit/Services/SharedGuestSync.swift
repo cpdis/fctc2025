@@ -11,7 +11,10 @@ extension SyncEngine {
     /// never outranks it, so `addRun` and `addMember` keep writing to the tab
     /// the server last called live.
     func cachedLiveState() throws -> SheetState? {
-        SharedSheetCache.live(in: try modelContext.fetch(FetchDescriptor<SharedSheetCache>()), endpoint: api.endpointIdentity)?.state
+        // `live` matches no row for a nil endpoint, so skip the fetch.
+        guard let endpoint = api.endpointIdentity else { return nil }
+        let rows = try modelContext.fetch(FetchDescriptor<SharedSheetCache>(predicate: #Predicate { $0.endpointIdentity == endpoint }))
+        return SharedSheetCache.live(in: rows, endpoint: endpoint)?.state
     }
     /// Stamp the row a live refresh returned (`SharedSheetCache.liveAt`).
     /// Runs after `reconcile` upserted it; the fetch sees that unsaved row.
@@ -21,9 +24,23 @@ extension SyncEngine {
         try sharedSheetCache(endpoint: endpoint, spreadsheetId: book, seasonSheetId: season)?.liveAt = requestedAt
     }
     func sharedSheetCache(endpoint: String, spreadsheetId: String, seasonSheetId: Int) throws -> SharedSheetCache? {
-        try modelContext.fetch(FetchDescriptor<SharedSheetCache>()).first {
-            $0.endpointIdentity == endpoint && $0.spreadsheetId == spreadsheetId && $0.seasonSheetId == seasonSheetId
-        }
+        try cacheRow(forKey: SharedSheetCache.key(endpoint: endpoint, spreadsheetId: spreadsheetId, seasonSheetId: seasonSheetId))
+    }
+    /// Fetch the one row with this unique key (sees unsaved inserts), or nil.
+    private func cacheRow(forKey key: String) throws -> SharedSheetCache? {
+        var descriptor = FetchDescriptor<SharedSheetCache>(predicate: #Predicate { $0.key == key })
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
+    }
+    /// One workbook's cached guests (sees unsaved inserts).
+    func cachedGuests(spreadsheetId book: String) throws -> [CachedGuest] {
+        try modelContext.fetch(FetchDescriptor<CachedGuest>(predicate: #Predicate { $0.spreadsheetId == book }))
+    }
+    /// The one cached guest for this workbook and guest ID, or nil.
+    func cachedGuest(spreadsheetId book: String, guestId: String) throws -> CachedGuest? {
+        var descriptor = FetchDescriptor<CachedGuest>(predicate: #Predicate { $0.spreadsheetId == book && $0.guestId == guestId })
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
     func requireSharedState() throws -> SheetState {
         guard let state = try currentSharedState(), state.supportsSharedGuests,
@@ -35,9 +52,10 @@ extension SyncEngine {
     func reconcileSharedState(_ state: SheetState, seenAt: Date) throws {
         guard let endpoint = api.endpointIdentity, let book = state.spreadsheetId else { return }
         try upsertSharedSheetCache(state, endpoint: endpoint, seenAt: seenAt)
-        let guests = try modelContext.fetch(FetchDescriptor<CachedGuest>())
+        // Read once before the loop, as before the predicate fetch.
+        let guests = Dictionary(try cachedGuests(spreadsheetId: book).map { ($0.guestId, $0) }) { first, _ in first }
         for guest in state.guests ?? [] {
-            if let existing = guests.first(where: { $0.spreadsheetId == book && $0.guestId == guest.guestId }) {
+            if let existing = guests[guest.guestId] {
                 try existing.updateGuest(guest)
             } else { modelContext.insert(try CachedGuest(spreadsheetId: book, guest: guest)) }
         }
@@ -45,22 +63,21 @@ extension SyncEngine {
     /// Insert or replace one endpoint/workbook/season row. The caller saves.
     func upsertSharedSheetCache(_ state: SheetState, endpoint: String, seenAt: Date) throws {
         let newCache = try SharedSheetCache(endpointIdentity: endpoint, state: state, refreshedAt: seenAt)
-        let caches = try modelContext.fetch(FetchDescriptor<SharedSheetCache>())
-        if let existing = caches.first(where: { $0.key == newCache.key }) {
+        if let existing = try cacheRow(forKey: newCache.key) {
             // An older script can omit birthdays after another season was opened.
             // Preserve only this endpoint/workbook/season's confirmed snapshot.
             if state.birthdays == nil {
                 var preserved = state
                 let rosterNames = Set(state.roster.map(\.name))
                 preserved.birthdays = existing.state?.birthdays?.filter { rosterNames.contains($0.name) }
-                newCache.stateData = try JSONEncoder().encode(preserved)
+                newCache.stateData = try JSONCoding.encoder.encode(preserved)
             }
             existing.stateData = newCache.stateData; existing.refreshedAt = seenAt
         } else { modelContext.insert(newCache) }
     }
     public func sharedGuests() async throws -> [SharedGuest] {
         guard let book = try currentSharedState()?.spreadsheetId else { return [] }
-        return try modelContext.fetch(FetchDescriptor<CachedGuest>()).filter { $0.spreadsheetId == book }
+        return try cachedGuests(spreadsheetId: book)
             .compactMap(\.guest).sorted {
                 if $0.displayName == $1.displayName { return $0.guestId < $1.guestId }
                 return Member.sheetOrder($0.displayName, $1.displayName)
@@ -69,14 +86,14 @@ extension SyncEngine {
     public func guestHistory(id: String) async throws -> GuestHistory {
         let state = try requireSharedState()
         guard state.capabilities?.guestHistory == true else { throw SheetAPIError.notImplemented }
-        var result: GuestHistory = try await api.sharedRead(action: "getGuestHistory", fields: ["guestId": .string(id)]).decoded()
-        let cached = try modelContext.fetch(FetchDescriptor<CachedGuest>()).first { $0.spreadsheetId == state.spreadsheetId && $0.guestId == id }
-        if let cached {
+        var result: GuestHistory = try await api.sharedRead(action: .getGuestHistory, fields: ["guestId": .string(id)]).decoded()
+        // `requireSharedState` guarantees the workbook ID.
+        if let book = state.spreadsheetId, let cached = try cachedGuest(spreadsheetId: book, guestId: id) {
             let receivedRevision = result.guest.revision
             result.guest = try cached.updateGuest(result.guest)
             // Do not persist old history over a newer identity's confirmed cache.
             if result.guest.revision == receivedRevision {
-                cached.historyData = try JSONEncoder().encode(result)
+                cached.historyData = try JSONCoding.encoder.encode(result)
             }
         }
         try modelContext.save()
@@ -101,20 +118,25 @@ extension SyncEngine {
     func prepareGuestDependencies(_ guests: [Guest], identity: RunIdentity) throws {
         let state = try requireSharedState()
         guard state.spreadsheetId == identity.spreadsheetId else { throw SheetAPIError.badPayload(message: "This draft belongs to another workbook.") }
-        let shared = try modelContext.fetch(FetchDescriptor<CachedGuest>())
-        let provisional = try modelContext.fetch(FetchDescriptor<ProvisionalGuest>())
+        // Read once before the loop, as before the predicate fetches.
+        let book = identity.spreadsheetId
+        let shared = Set(try cachedGuests(spreadsheetId: book).map(\.guestId))
+        var provisional = Set<String>()
+        if let endpoint = api.endpointIdentity {
+            provisional = Set(try modelContext.fetch(FetchDescriptor<ProvisionalGuest>(predicate: #Predicate {
+                $0.spreadsheetId == book && $0.endpointIdentity == endpoint
+            })).map(\.guestId))
+        }
         for guest in guests {
             let id = guest.id.uuidString.lowercased()
-            if shared.contains(where: { $0.spreadsheetId == identity.spreadsheetId && $0.guestId == id }) { continue }
-            if provisional.contains(where: { $0.spreadsheetId == identity.spreadsheetId && $0.guestId == id && $0.endpointIdentity == api.endpointIdentity }) { continue }
+            if shared.contains(id) || provisional.contains(id) { continue }
             try persistProvisionalGuest(guest, state: state, confirmDistinct: false)
         }
     }
     public func resolveGuestIdentity(provisionalId: String, existingGuestId: String?, confirmDistinct: Bool) async throws {
         let state = try requireSharedState()
-        guard let provisional = try modelContext.fetch(FetchDescriptor<ProvisionalGuest>()).first(where: {
-            $0.guestId == provisionalId && $0.endpointIdentity == api.endpointIdentity && $0.spreadsheetId == state.spreadsheetId
-        }), let old = try guestOperationRecord(id: provisional.operationId), old.phase == .conflict else {
+        guard let provisional = try provisionalGuest(id: provisionalId, spreadsheetId: state.spreadsheetId),
+              let old = try guestOperationRecord(id: provisional.operationId), old.phase == .conflict else {
             throw SheetAPIError.badPayload(message: "This identity is not waiting for review.")
         }
         if let existingGuestId {
@@ -133,9 +155,14 @@ extension SyncEngine {
         // Resume only rows that `resolveDependencies` parked on this identity.
         // Discarded or superseded rows keep their guest IDs as history, but
         // `.done` is final. No operation bytes exist until the park is lifted.
-        for pending in try modelContext.fetch(FetchDescriptor<PendingSubmission>())
-        where pending.status == .conflict && pending.conflictReason == "identity_ambiguous"
-            && pending.namedGuestIds?.contains(provisionalId) == true && pending.sharedOperationData == nil {
+        let conflict = SubmissionStatus.conflict.rawValue
+        // Optional on both sides: #Predicate will not promote a String to String?.
+        let ambiguous: String? = "identity_ambiguous"
+        let parked = try modelContext.fetch(FetchDescriptor<PendingSubmission>(predicate: #Predicate {
+            $0.stateRaw == conflict && $0.conflictReason == ambiguous && $0.sharedOperationData == nil
+        }))
+        // A predicate cannot look inside the stored guest ID array.
+        for pending in parked where pending.namedGuestIds?.contains(provisionalId) == true {
             pending.status = .queued; pending.lastError = nil; pending.clearConflict()
         }
         try modelContext.save(); startAutomaticDrainIfNeeded()
@@ -146,13 +173,15 @@ extension SyncEngine {
             "guestId": .string(guest.guestId), "displayName": .string(name), "baseGuestRevision": .number(Double(guest.revision))
         ])
         _ = try saveGuestOperation(operation, state: state); try modelContext.save()
-        await drainGuestOperation(id: operation.id)
+        // The serial drain keeps older unknown outcomes ahead of this one; the
+        // caller reads the result through `guestOperation(id:)`.
+        await drain()
         return operation.id
     }
     public func previewPromotion(guestId: String, memberName: String, targetMode: PromotionTargetMode) async throws -> PromotionPreview {
         let state = try await refreshState(seasonSheetId: nil)
         guard state.capabilities?.guestPromotion == true else { throw SheetAPIError.server(code: "update_required", message: "Enable guest promotion before continuing.") }
-        return try await api.sharedRead(action: "previewPromotion", fields: [
+        return try await api.sharedRead(action: .previewPromotion, fields: [
             "guestId": .string(guestId), "memberName": .string(memberName), "targetMode": .string(targetMode.rawValue)
         ]).decoded()
     }
@@ -164,14 +193,14 @@ extension SyncEngine {
             "targetMode": .string(preview.targetMode.rawValue), "previewToken": .string(preview.previewToken)
         ])
         _ = try saveGuestOperation(operation, state: state); try modelContext.save()
-        await drainGuestOperation(id: operation.id)
+        await drain()
         return operation.id
     }
     public func guestOperation(id: UUID) async throws -> GuestOperationSnapshot? {
         guard let row = try guestOperationRecord(id: id) else { return nil }
         return GuestOperationSnapshot(id: row.id, action: row.operation?.action ?? "", phase: row.phase,
             message: row.lastError, conflict: row.conflict,
-            response: row.responseData.flatMap { try? JSONDecoder().decode(GuestJSON.self, from: $0) },
+            response: row.responseData.flatMap { try? JSONCoding.decoder.decode(GuestJSON.self, from: $0) },
             guestId: row.operation?.request["guestId"]?.string,
             proposedName: row.operation?.request["displayName"]?.string)
     }
@@ -180,6 +209,15 @@ extension SyncEngine {
         let row = try PendingGuestOperation(operation: operation, endpointIdentity: endpoint, spreadsheetId: book)
         modelContext.insert(row)
         return row
+    }
+    /// The provisional guest this endpoint saved in this workbook, or nil.
+    private func provisionalGuest(id: String, spreadsheetId book: String?) throws -> ProvisionalGuest? {
+        guard let endpoint = api.endpointIdentity, let book else { return nil }
+        var descriptor = FetchDescriptor<ProvisionalGuest>(predicate: #Predicate {
+            $0.guestId == id && $0.endpointIdentity == endpoint && $0.spreadsheetId == book
+        })
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
     func guestOperationRecord(id: UUID) throws -> PendingGuestOperation? {
         var descriptor = FetchDescriptor<PendingGuestOperation>(predicate: #Predicate { $0.id == id })

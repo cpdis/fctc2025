@@ -16,33 +16,51 @@ enum PendingAppRoute: Codable, Hashable, Sendable {
     case checklist(rowIndex: Int, date: String, run: String)
 }
 
+/// A route plus the moment it was stored. `consume()` drops stale routes.
+private struct StoredRoute: Codable {
+    let route: PendingAppRoute
+    let createdAt: Date
+}
+
 final class PendingRouteStore: @unchecked Sendable {
     static let shared = PendingRouteStore()
     static let changed = Notification.Name("FCTCAttendance.pendingRouteChanged")
 
     private static let key = "pendingAppRoute"
     private let defaults: UserDefaults
+    /// A route older than this was a tap the person has forgotten about.
+    private static let maximumAge: TimeInterval = 10 * 60
     private let lock = NSLock()
+    private let now: @Sendable () -> Date
 
-    init(defaults: UserDefaults? = UserDefaults(suiteName: AppGroupConstants.identifier)) {
+    init(
+        defaults: UserDefaults? = UserDefaults(suiteName: AppGroupConstants.identifier),
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) {
         self.defaults = defaults ?? .standard
+        self.now = now
     }
 
     func set(_ route: PendingAppRoute) {
-        guard let data = try? JSONEncoder().encode(route) else { return }
+        guard let data = try? JSONCoding.encoder.encode(StoredRoute(route: route, createdAt: now()))
+        else { return }
         lock.withLock { defaults.set(data, forKey: Self.key) }
-        DispatchQueue.main.async {
+        Task { @MainActor in
             NotificationCenter.default.post(name: Self.changed, object: nil)
         }
     }
 
     func consume() -> PendingAppRoute? {
         lock.withLock {
-            guard let data = defaults.data(forKey: Self.key),
-                  let route = try? JSONDecoder().decode(PendingAppRoute.self, from: data)
-            else { return nil }
+            guard let data = defaults.data(forKey: Self.key) else { return nil }
             defaults.removeObject(forKey: Self.key)
-            return route
+            let decoder = JSONCoding.decoder
+            if let stored = try? decoder.decode(StoredRoute.self, from: data) {
+                return now().timeIntervalSince(stored.createdAt) <= Self.maximumAge
+                    ? stored.route : nil
+            }
+            // Older builds stored the bare route with no date. Treat it as fresh once.
+            return try? decoder.decode(PendingAppRoute.self, from: data)
         }
     }
 }
@@ -84,7 +102,7 @@ final class AttendanceNotificationDelegate: NSObject, UNUserNotificationCenterDe
 struct RecordAttendanceIntent: AppIntent {
     static let title: LocalizedStringResource = "Record Attendance"
     static let description = IntentDescription("Open today's attendance checklist.")
-    static let openAppWhenRun = true
+    static let supportedModes: IntentModes = .foreground(.immediate)
 
     func perform() async throws -> some IntentResult {
         PendingRouteStore.shared.set(.todayChecklist)
@@ -95,7 +113,7 @@ struct RecordAttendanceIntent: AppIntent {
 struct DictateAttendanceIntent: AppIntent {
     static let title: LocalizedStringResource = "Dictate Attendance"
     static let description = IntentDescription("Open today's checklist and start dictation.")
-    static let openAppWhenRun = true
+    static let supportedModes: IntentModes = .foreground(.immediate)
 
     func perform() async throws -> some IntentResult {
         PendingRouteStore.shared.set(.todayDictation)
@@ -104,16 +122,25 @@ struct DictateAttendanceIntent: AppIntent {
 }
 
 struct AttendanceShortcuts: AppShortcutsProvider {
+    static let shortcutTileColor: ShortcutTileColor = .lime
+
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: RecordAttendanceIntent(),
-            phrases: ["Record attendance in \(.applicationName)"],
+            phrases: [
+                "Record attendance in \(.applicationName)",
+                "Take attendance in \(.applicationName)",
+                "Start \(.applicationName) attendance",
+            ],
             shortTitle: "Record Attendance",
             systemImageName: "checklist"
         )
         AppShortcut(
             intent: DictateAttendanceIntent(),
-            phrases: ["Dictate attendance in \(.applicationName)"],
+            phrases: [
+                "Dictate attendance in \(.applicationName)",
+                "Say who ran in \(.applicationName)",
+            ],
             shortTitle: "Dictate Attendance",
             systemImageName: "waveform"
         )

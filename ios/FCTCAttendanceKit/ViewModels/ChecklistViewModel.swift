@@ -13,7 +13,7 @@ public final class ChecklistViewModel {
     public private(set) var roster: [String]
     public var draft: AttendanceDraft
     public var actualKmText: String {
-        didSet { draft.actualKm = Self.parseDistance(actualKmText) }
+        didSet { draft.actualKm = DistanceText.parse(actualKmText) }
     }
     public var quickAddName = ""
     public private(set) var isSubmitting = false
@@ -62,7 +62,7 @@ public final class ChecklistViewModel {
         }
         if draft.actualKm == nil { draft.actualKm = run.actualKm ?? run.approxKm }
         self.draft = draft
-        self.actualKmText = Self.formatDistance(draft.actualKm)
+        self.actualKmText = DistanceText.format(draft.actualKm)
         self.initialKmText = self.actualKmText
         self.initialPlusOnesOverride = draft.plusOnesOverride
         self.initialGuestCount = draft.guests.count
@@ -84,7 +84,7 @@ public final class ChecklistViewModel {
         }
 
         if let distance = set.distanceKm, actualKmText == initialKmText {
-            actualKmText = Self.formatDistance(distance)
+            actualKmText = DistanceText.format(distance)
         }
 
         let hadUntouchedGuests = draft.guests.count == initialGuestCount
@@ -110,14 +110,21 @@ public final class ChecklistViewModel {
     }
 
     public var canConfirm: Bool {
-        !isSubmitting && unresolvedGuestNames.isEmpty && draftDiffersFromSheet
+        !isSubmitting && unresolvedGuestNames.isEmpty && draftDiffersFromSheet && !distanceIsMalformed
     }
 
+    /// The distance text is not blank and not a number. `draft.actualKm` is nil
+    /// in that state, which the sheet would read as "keep the old distance".
+    public var distanceIsMalformed: Bool { DistanceText.isMalformed(actualKmText) }
+
     public var draftDiffersFromSheet: Bool {
-        Set(draft.attendees) != Set(run.attendees)
+        // The prefilled distance (the sheet's actual, else its approx) is not a
+        // change on its own. A typed distance that differs from it is.
+        let prefilled = run.actualKm ?? run.approxKm
+        return Set(draft.attendees) != Set(run.attendees)
             || Set(draft.namedGuestIds) != Set(run.namedGuestIds)
             || draft.plusOnes != run.plusOnes
-            || (draft.actualKm ?? run.actualKm) != run.actualKm
+            || (draft.actualKm ?? prefilled) != prefilled
     }
 
     public var requiresRecordedChoice: Bool { run.hasRecordedAttendance || requiresGuestOverwrite }
@@ -213,7 +220,7 @@ public final class ChecklistViewModel {
             guests: (record.namedGuestIds ?? []).compactMap { id in sharedGuests.first { $0.guestId == id }?.draftGuest },
             actualKm: record.actualKm, baseRevision: state.sheetRevision, runIdentity: identity,
             endpointIdentity: run.endpointIdentity, unnamedGuests: record.unnamedGuests ?? 0)
-        actualKmText = Self.formatDistance(record.actualKm)
+        actualKmText = DistanceText.format(record.actualKm)
     }
 
     public func toggleMember(_ name: String) {
@@ -237,23 +244,29 @@ public final class ChecklistViewModel {
         draft.plusOnesOverride = nil
     }
 
-    public func removeGuests(at offsets: IndexSet) {
-        for index in offsets.sorted(by: >) {
-            guard draft.guests.indices.contains(index) else { continue }
-            draft.guests.remove(at: index)
+    /// The quick-add field's Return key. The field clears at once, so typing
+    /// can continue, and gets its text back if the add fails.
+    public func commitQuickAdd() async throws {
+        let name = quickAddName
+        quickAddName = ""
+        do {
+            try await commitQuickAdd(name: name)
+        } catch {
+            if quickAddName.isEmpty { quickAddName = name }
+            throw error
         }
-        draft.plusOnesOverride = nil
     }
 
-    public func commitQuickAdd() async throws {
-        let clean = quickAddName.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// Adds `name` to the roster and checks them. Each call carries its own
+    /// name, so callers that await one add after another never share state.
+    public func commitQuickAdd(name: String) async throws {
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty else { return }
         if supportsSharedGuests && sharedGuests.contains(where: { GuestNames.canonical($0.displayName) == GuestNames.canonical(clean) }) {
             let message = "Open this guest's history to review promotion and retain all previous runs."
             errorMessage = message
             throw SheetAPIError.badPayload(message: message)
         }
-        quickAddName = ""
         errorMessage = nil
 
         if let existing = roster.first(where: { GuestNames.canonical($0) == GuestNames.canonical(clean) }) {
@@ -265,8 +278,6 @@ public final class ChecklistViewModel {
         // through @Query while the network reconciliation is still suspended.
         roster.append(clean)
         roster.sort(by: Member.sheetOrder)
-        let oldGuests = draft.guests
-        let oldPlusOnesOverride = draft.plusOnesOverride
         draft.check(clean)
         isAddingPerson = true
         defer { isAddingPerson = false }
@@ -278,14 +289,21 @@ public final class ChecklistViewModel {
             // a stale write.
             draft.baseRevision = result.sheetRevision
         } catch {
+            // Undo only this add. Guests, counts and other checks may have
+            // changed during the request; they are the organiser's edits.
             roster.removeAll { GuestNames.canonical($0) == GuestNames.canonical(clean) }
             draft.uncheck(clean)
-            draft.guests = oldGuests
-            draft.plusOnesOverride = oldPlusOnesOverride
-            quickAddName = clean
             errorMessage = UserFacingError.sync(error)
             throw error
         }
+    }
+
+    /// "Add as new person" from a poll or dictation triage. The add checks the
+    /// person by hand; unchecking lets `applyProposals` check them again with
+    /// the proposal's provenance.
+    public func addProposedPerson(_ name: String) async throws {
+        try await commitQuickAdd(name: name)
+        uncheckMember(name)
     }
 
     public func diffSummary(
@@ -302,8 +320,17 @@ public final class ChecklistViewModel {
 
     @discardableResult
     public func confirm(mode: SubmissionMode) async throws -> UUID {
-        guard canConfirm else { throw ChecklistError.unchangedDraft }
-        guard mode != .merge || !requiresGuestOverwrite else { throw ChecklistError.guestOverwriteRequired }
+        // A second tap while the first submit is in flight is not an error.
+        guard !isSubmitting else { throw CancellationError() }
+        // Each refusal also sets `errorMessage`, so the screen can say why.
+        let refusal: ChecklistError? = if distanceIsMalformed { .malformedDistance }
+            else if !canConfirm { .unchangedDraft }
+            else if mode == .merge && requiresGuestOverwrite { .guestOverwriteRequired }
+            else { nil }
+        if let refusal {
+            errorMessage = refusal.errorDescription
+            throw refusal
+        }
         isSubmitting = true
         errorMessage = nil
         defer { isSubmitting = false }
@@ -322,38 +349,23 @@ public final class ChecklistViewModel {
 
     private func observeEvents() {
         eventMonitor.start(engine: engine) { [weak self] event in
-            switch event {
-            case .failed(_, let message), .serviceFailed(let message):
-                self?.errorMessage = message
-            case .parked(_, let message):
-                self?.errorMessage = message
-            case .conflict:
-                self?.errorMessage = UserFacingError.conflict
-            case .authenticationRequired:
-                self?.errorMessage = UserFacingError.authentication
-            case .queued, .written, .rosterRefreshed, .syncActivity:
-                break
-            }
+            // These screens show problems only; a success leaves the last
+            // error in place, as before.
+            guard let banner = SyncBanner(event: event), banner.isProblem else { return }
+            self?.errorMessage = banner.message
         }
-    }
-
-    private static func parseDistance(_ value: String) -> Double? {
-        Double(value.trimmingCharacters(in: .whitespacesAndNewlines).replacing(",", with: "."))
-    }
-
-    private static func formatDistance(_ value: Double?) -> String {
-        guard let value else { return "" }
-        return value.formatted(.number.precision(.fractionLength(0...2)))
     }
 }
 
 public enum ChecklistError: LocalizedError, Sendable, Equatable {
     case unchangedDraft
     case guestOverwriteRequired
+    case malformedDistance
 
     public var errorDescription: String? {
         switch self {
         case .unchangedDraft: "Change the attendance before you confirm it."
+        case .malformedDistance: DistanceText.malformedMessage
         case .guestOverwriteRequired: "Review an overwrite to name, replace or remove a saved guest. Merge keeps the old guest allocation."
         }
     }

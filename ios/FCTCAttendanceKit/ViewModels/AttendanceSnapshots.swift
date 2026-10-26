@@ -73,6 +73,13 @@ public struct RunSnapshot: Hashable, Sendable, Identifiable {
         )
     }
 
+    /// Oldest first; dateless rows last, ties broken by sheet row. Reverse the
+    /// arguments for newest first.
+    public static func chronological(_ lhs: RunSnapshot, _ rhs: RunSnapshot) -> Bool {
+        (lhs.scheduledAt ?? .distantFuture, lhs.rowIndex)
+            < (rhs.scheduledAt ?? .distantFuture, rhs.rowIndex)
+    }
+
     public var hasRecordedAttendance: Bool {
         !attendees.isEmpty || plusOnes > 0
     }

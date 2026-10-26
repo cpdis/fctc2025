@@ -168,6 +168,16 @@ public struct ClubDate: Hashable, Comparable, Sendable, CustomStringConvertible 
         (lhs.year, lhs.month, lhs.day) < (rhs.year, rhs.month, rhs.day)
     }
 
+    /// The sheet's own cell text for a date, such as "Fri, 25-Sep". The sheet's
+    /// hyphen rules out `Date.FormatStyle`. `DateFormatter` is not Sendable, so
+    /// one is built per call: cheap for a single tap.
+    public static func sheetString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE, d-MMM"
+        return formatter.string(from: date)
+    }
+
     private var noon: Date {
         Self.calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12)) ?? .distantPast
     }

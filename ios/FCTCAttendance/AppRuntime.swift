@@ -9,6 +9,7 @@
 import FCTCAttendanceKit
 import Foundation
 import Observation
+import os
 import SwiftData
 
 @MainActor
@@ -17,12 +18,17 @@ final class AppRuntime {
     let modelContainer: ModelContainer
     let configPersistence: any AppConfigPersisting
     private(set) var config: AppConfig
+    /// The saved secret exists but the keychain is locked (a launch before the
+    /// first unlock). The app is set up; it waits and reads the secret again.
+    private(set) var isSecretLocked: Bool
     private(set) var engine: any SyncEngineClient
     private(set) var generation = 0
     var activeState: SheetState?
     private(set) var accent: AccentChoice
     private(set) var runRemindersEnabled: Bool
     private(set) var reminderMessage: String?
+    /// True while the permission prompt and scheduling run, so the toggle can disable.
+    private(set) var isUpdatingReminders = false
     let reminderService: any RunReminderManaging
     let sharedScreenshotInbox: SharedScreenshotInbox
 
@@ -35,6 +41,7 @@ final class AppRuntime {
     let now: () -> Date
 
     @ObservationIgnored private let appearanceStore: any AppearanceStoring
+    private static let logger = Logger(subsystem: "com.cpdis.fctc-attendance", category: "config")
 
     init(
         modelContainer: ModelContainer,
@@ -60,8 +67,9 @@ final class AppRuntime {
         // change the line on every state change while the app is in use.
         var generator = SystemRandomNumberGenerator()
         self.milestoneEmptyPhrase = MilestonePhrases.drawForLaunch(generator: &generator)
-        let loaded = configOverride ?? (try? configPersistence.load()) ?? AppConfig()
+        let (loaded, locked) = configOverride.map { ($0, locked: false) } ?? Self.loadConfig(configPersistence)
         self.config = loaded
+        self.isSecretLocked = locked
         self.engine = engineOverride ?? SyncEngine(
             modelContainer: modelContainer,
             api: SheetAPI(config: loaded),
@@ -132,21 +140,57 @@ final class AppRuntime {
         appearanceStore.saveAccent(choice)
     }
 
+    /// Swaps in an engine for `config`. The old engine retires at once, and
+    /// the new one's first drain waits until the old one has stopped, so the
+    /// store never has two drain owners (CC-2).
     func apply(_ config: AppConfig, engineOverride: (any SyncEngineClient)? = nil) {
         self.config = config
+        // Settings applied on purpose replace whatever a locked launch held.
+        isSecretLocked = false
+        let retired = engine
         engine = engineOverride ?? SyncEngine(
             modelContainer: modelContainer,
             api: SheetAPI(config: config),
-            runReminderScheduler: reminderService
+            runReminderScheduler: reminderService,
+            replacing: retired
         )
+        Task { await retired.quiesce() }
         activeState = nil
         generation += 1
     }
 
+    /// Reads the secret again after a locked launch, and applies the full
+    /// settings once the keychain opens. Cheap to call on every activation.
+    func reloadConfigIfLocked() {
+        guard isSecretLocked else { return }
+        let (loaded, locked) = Self.loadConfig(configPersistence)
+        guard !locked else { return }
+        apply(loaded)
+    }
+
+    /// The saved settings, and whether the keychain was locked. A failed
+    /// secret read keeps the endpoint: "locked" means retry later, and any
+    /// other failure shows Settings with the endpoint still known.
+    private static func loadConfig(_ persistence: any AppConfigPersisting) -> (AppConfig, locked: Bool) {
+        do {
+            return (try persistence.load(), false)
+        } catch let error as AppConfigLoadError {
+            logger.error("Secret read failed (retry later: \(error.isRetryLater, privacy: .public)): \(error.localizedDescription, privacy: .public)")
+            return (error.endpointOnly, error.isRetryLater)
+        } catch {
+            logger.error("Settings read failed: \(error.localizedDescription, privacy: .public)")
+            return (AppConfig(), false)
+        }
+    }
+
     func setRunRemindersEnabled(_ enabled: Bool) async {
         reminderMessage = nil
+        // Show the requested value at once; the service answer below overrules it.
+        runRemindersEnabled = enabled
+        isUpdatingReminders = true
         let result = await reminderService.setEnabled(enabled)
         runRemindersEnabled = reminderService.isEnabled
+        isUpdatingReminders = false
         switch result {
         case .enabled:
             do {

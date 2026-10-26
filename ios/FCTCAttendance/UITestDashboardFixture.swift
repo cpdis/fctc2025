@@ -22,6 +22,7 @@
 //  about 85% to 5%). Instruments runs use it; no test pins its numbers.
 //
 
+#if DEBUG
 import FCTCAttendanceKit
 import Foundation
 
@@ -137,3 +138,4 @@ enum UITestDashboardFixture {
         )
     }
 }
+#endif
