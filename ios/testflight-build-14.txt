@@ -1,0 +1,22 @@
+Tap the season menu and pick All time with a tap,
+Twenty-five and twenty-six share a single recap.
+A streak leaps New Year without missing a beat,
+And each runner's calendars stack, one per year, neat.
+
+Filament Coffee Track Club: every season in one view
+
+Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone. Nothing to set up again.
+
+New since build 13:
+• The Dashboard's season menu starts with All time. It adds every season together: runs, km together, streaks, the Wall, the leaderboard and the run log.
+• All time streaks carry over New Year: a streak to Wed 31 Dec 2025 continues into Fri 2 Jan 2026.
+• On the All time Wall, the runs from a season you were not on stay blank instead of showing as missed.
+• A runner's screen in All time shows one calendar per season, newest first.
+• Milestones are the same in every view: this season's members and their all-time totals.
+
+Please check:
+• Open the Dashboard, tap the season menu and pick All time. The headline should count every run since 2025.
+• Open your own runner screen in All time. A 2026 calendar should sit above a 2025 one.
+• Switch back to 2026 and check the numbers match what you saw before.
+
+Share feedback through TestFlight.
