@@ -1,5 +1,21 @@
 # iOS handoff
 
+## TestFlight build 13 (26 October 2026)
+
+- Version 0.1.0 build 13 from `release/testflight-build-13` (`bb4afa9`, pushed): build 12 plus
+  `e10bdd2`. Colin's build 12 review: Runs read the sheet on every appear, so a look at today's
+  run read it again 5 s later. Now `HomeViewModel.needsRefresh` (no good sync yet, or the last
+  one 5 minutes old) gates a plain return to Runs and an app activation; a `refreshRequest`
+  (Sync, engine swap, activation) always reads, and a cancelled one stays owed
+  (`servedRequest`). Pull-to-refresh, launch and sends are unchanged.
+- Build `6aa2bd8d-e9d2-46d2-85f4-4d509e94cb0d` is VALID. Groups FCTC Internal and FCTC
+  Friends; beta app review APPROVED at once; internal and external `IN_BETA_TESTING`, automatic
+  notification on. FCTC External has no testers and was not attached. One set of en-AU notes
+  for everyone (`ios/testflight-build-13.txt`, read back), covering all since build 11.
+- Verification: iOS kit 500, iOS UI 74 run (1 skipped screen tour), 0 failed. Apps Script and
+  web unchanged since build 12 (279, 506).
+- `main` still lacks build 11 to 13. A PR from `release/testflight-build-13` would catch it up.
+
 ## Private TestFlight build 12 (26 October 2026)
 
 - Version 0.1.0 build 12 from `release/testflight-build-12` (`8a1aefa`): build 11
