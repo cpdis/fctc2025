@@ -1,0 +1,22 @@
+There's a Sync by the gear: give it one little tap,
+And a pill by the tabs gives a running recap.
+It is Checking, then Sending, then Updated, hooray!
+Then it rests for five minutes and stays out of your way.
+
+Filament Coffee Track Club: a Sync button, a pill that says what it is doing, and fewer sheet reads
+
+Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone. Nothing to set up again.
+
+New since build 11:
+• Runs has a Sync button next to Settings. It reads the sheet, then sends anything waiting in the outbox. Pull to refresh does the same.
+• A pill above the tab bar says what is happening: "Checking the sheet…", "Sending 1 change…", then "Updated" with the time and a tick for 2 seconds. If a sync fails, the pill goes and the usual banner says why.
+• The Sync arrow and the Unsynced tile turn for as long as a sync runs and stop when it ends. With Reduce Motion on, they stay still.
+• Coming back to Runs reads the sheet only if the last sync was 5 minutes ago or more. Coming back to the app after 5 minutes reads it too, so the runs are not a day behind after a night away. Check-ins still send as soon as you tap Confirm.
+
+Please check:
+• Tap Sync on Runs. The arrow turns and the pill says "Checking the sheet…", then "Updated" with the time.
+• Check someone in on a run and tap Confirm. Back on Runs, the pill says "Sending 1 change…" until it lands.
+• Open a run and swipe back to Runs. The pill should not appear.
+• Record a run the usual way and make sure it lands in the sheet as before.
+
+Share feedback through TestFlight.
