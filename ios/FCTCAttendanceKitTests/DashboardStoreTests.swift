@@ -262,6 +262,107 @@ struct DashboardStoreTests {
         #expect(await replacement.asks == 1)
         #expect(store.lastSeason == .unavailable)
     }
+
+    // MARK: - All time
+
+    /// 2025's sheet listed Aaron only; Col joined in 2026.
+    private let season2025 = SheetState(
+        roster: [RosterEntry(name: "Aaron", colIndex: 6)],
+        runs: [RunRecord(rowIndex: 2, date: "Wed, 17-Sep", meet: "Filament", run: "Lakes Loop",
+                         actualKm: 10, attendees: ["Aaron"])],
+        seasonYear: 2025
+    )
+
+    /// 2024, from a sheet whose columns the app never saw.
+    private let season2024 = SheetState(
+        runs: [RunRecord(rowIndex: 2, date: "Wed, 18-Sep", meet: "Filament", run: "Lakes Loop",
+                         actualKm: 10, attendees: ["Aaron"])],
+        seasonYear: 2024
+    )
+
+    @Test("The menu puts All time first, then each season newest first; one season has no menu")
+    func allTimeMenu() {
+        let store = DashboardStore(engine: LastSeasonClient(answers: []))
+        store.update(fingerprint: "a") { inputsWithSeasons() }
+        #expect(store.periods == [.allTime, .season(2026), .season(2025), .season(2024)])
+
+        let single = DashboardStore(engine: LastSeasonClient(answers: []))
+        single.update(fingerprint: "a") { inputs() }
+        #expect(single.periods.isEmpty)
+    }
+
+    @Test("All time joins the live season, outbox included, with every earlier season")
+    func pickAllTime() async throws {
+        let client = LastSeasonClient(answers: [], seasonAnswers: [.success(season2025), .success(season2024)])
+        let store = DashboardStore(engine: client)
+        store.update(fingerprint: "a") {
+            var live = inputsWithSeasons()
+            live.roster = ["Aaron", "Col"]
+            return live
+        }
+        let liveAllTime = try #require(store.model?.runners["Aaron"]?.allTime)
+
+        await store.select(.allTime)
+
+        #expect(await client.seasonAsks == [2025, 2024])
+        // All time compares with nothing, so last season is never asked for.
+        #expect(await client.befores.isEmpty)
+        #expect(store.showing == .loaded)
+        #expect(store.shown == .allTime)
+        #expect(store.shownSeason == nil)
+        let model = try #require(store.model)
+        #expect(model.period == .allTime)
+        #expect(model.runs.count == 4)
+        #expect(model.progress == nil)
+        #expect(store.unsyncedCount == 2)
+        #expect(model.runners["Aaron"]?.allTime == liveAllTime)
+        // Col was not on 2025's sheet; 2024's columns are unknown, so a miss.
+        let col = try #require(model.wall.rows.first { $0.name == "Col" })
+        #expect(col.cells.prefix(2) == [.missed, .notOnRoster])
+
+        await store.select(season: 2026)
+        #expect(store.shown == .season(2026))
+        #expect(store.model?.period == .season(2026))
+    }
+
+    @Test("All time with a season it cannot download says so, and load() fetches only that one")
+    func allTimeOffline() async {
+        let client = LastSeasonClient(answers: [], seasonAnswers: [
+            .success(season2025), .failure(SheetAPIError.network("Offline")), .success(season2024),
+        ])
+        let store = DashboardStore(engine: client)
+        store.update(fingerprint: "a") { inputsWithSeasons() }
+
+        await store.select(.allTime)
+        #expect(store.showing == .notDownloaded)
+        #expect(store.model == nil)
+
+        await store.load()
+        #expect(await client.seasonAsks == [2025, 2024, 2024])
+        #expect(store.showing == .loaded)
+        #expect(store.model?.runs.count == 4)
+    }
+
+    @Test("Every view shows the live season's milestone shortlist")
+    func sameMilestonesEverywhere() async throws {
+        let client = LastSeasonClient(answers: [.success(nil)], seasonAnswers: [
+            .success(season2025), .success(season2025), .success(season2024),
+        ])
+        let store = DashboardStore(engine: client)
+        store.update(fingerprint: "a") {
+            var live = inputsWithSeasons()
+            // Col: 47 lifetime, one of them this season. 3 to go to 50.
+            live.priors = LifetimePriors(lifetimeTotals: [MemberTotal(name: "Col", runs: 47)], payload: live.runs)
+            return live
+        }
+        let live = try #require(store.model?.milestones)
+        #expect(live.map(\.name) == ["Col"])
+
+        await store.select(season: 2025)
+        #expect(store.model?.milestones == live)
+        await store.select(.allTime)
+        #expect(store.model?.milestones == live)
+    }
 }
 
 /// Answers `previousSeasonSnapshot(before:)` from a script and counts the

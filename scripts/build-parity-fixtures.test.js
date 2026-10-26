@@ -15,6 +15,7 @@ import {
 const built = buildParityFiles()
 const committed = (season) => readFileSync(join(PARITY_DIR, `${season}.json`), 'utf8')
 const fixture = Object.fromEntries(built.map(({ season, content }) => [season, JSON.parse(content)]))
+const allTime = fixture['all-time']
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 /** Calendar weekday of an ISO date, read as a local date like the parser does. */
@@ -25,9 +26,9 @@ const weekdayOf = (iso) => {
 const roundKm = (km) => Math.round(km * 100) / 100
 
 describe('committed parity fixtures', () => {
-  it('cover every season in the snapshot and nothing else', () => {
-    expect(built.map(({ season }) => season)).toEqual([2025, 2026])
-    expect(readdirSync(PARITY_DIR).sort()).toEqual(['2025.json', '2026.json'])
+  it('cover every season in the snapshot, then All time, and nothing else', () => {
+    expect(built.map(({ season }) => season)).toEqual([2025, 2026, 'all-time'])
+    expect(readdirSync(PARITY_DIR).sort()).toEqual(['2025.json', '2026.json', 'all-time.json'])
   })
 
   it.each(built)('parity/$season.json equals a fresh build (rerun the script if this fails)', ({ season, content }) => {
@@ -180,6 +181,38 @@ describe('expected block', () => {
       expect(runs, name).toBe(cell(1, name))
       expect(Math.abs(memberKm - cell(kmRowsUp, name)), name).toBeLessThanOrEqual(tolerance)
     }
+  })
+})
+
+describe('all-time.json', () => {
+  const seasons = [fixture[2025], fixture[2026]]
+  const { expected } = allTime
+
+  it('adds the seasons together: runs, member-km and club days', () => {
+    expect(allTime.seasons).toEqual([2025, 2026])
+    expect(expected.totals.runs).toBe(seasons[0].runs.length + seasons[1].runs.length)
+    expect(expected.totals.memberKm).toBe(roundKm(seasons[0].expected.totals.memberKm + seasons[1].expected.totals.memberKm))
+    expect(expected.clubDays.dates).toEqual([...seasons[0].expected.clubDays.dates, ...seasons[1].expected.clubDays.dates])
+  })
+
+  it('sums each runner across seasons', () => {
+    for (const member of expected.members) {
+      const runs = seasons.map((s) => s.expected.members.find((m) => m.name === member.name)?.runs ?? 0)
+      expect(member.runs).toBe(runs[0] + runs[1])
+    }
+  })
+
+  it("marks a season off the roster for every one of that season's runs", () => {
+    // Dan B, Deano and René joined in 2026; Laura K, Sam and Tim left after 2025.
+    const gaps = Object.fromEntries(expected.notOnRoster.map(({ name, cells }) => [name, cells]))
+    for (const name of ['Dan B', 'Deano', 'René']) expect(gaps[name]).toBe(seasons[0].runs.length)
+    for (const name of ['Laura K', 'Sam', 'Tim']) expect(gaps[name]).toBe(seasons[1].runs.length)
+  })
+
+  it('lists milestones for the latest season’s members only', () => {
+    const latest = new Set(allTime.rosters[2026])
+    expect(expected.milestones.length).toBeGreaterThan(0)
+    for (const { name } of expected.milestones) expect(latest.has(name)).toBe(true)
   })
 })
 

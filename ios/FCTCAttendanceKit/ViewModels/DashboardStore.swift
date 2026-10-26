@@ -39,6 +39,14 @@
 //                                   │                          previousSeasonSnapshot(before: 2025)
 //                                   └──throws──> .notDownloaded (load() tries again)
 //
+//  All time (first in the menu) joins the live season, outbox applied, with a
+//  snapshot of every earlier listed season, and compares with nothing:
+//
+//    select(.allTime) ──> .loading ──> seasonSnapshot(2025), ... ──all ok──> .loaded
+//                                       └──any throws──> .notDownloaded
+//
+//  Every view shows the live season's milestone shortlist, as the web does.
+//
 
 import Foundation
 import Observation
@@ -55,13 +63,24 @@ public struct DashboardInputs: Sendable {
     /// Every season year the live state lists (`SheetState.supportedSeasons`),
     /// the menu's source. Empty on a legacy endpoint.
     public var listedSeasons: [Int]
+    /// The live sheet's member columns, for All time's Wall. Empty when unknown,
+    /// which marks nobody as off the roster.
+    public var roster: Set<String>
 
-    public init(season: Int, runs: [ClubRun], priors: LifetimePriors?, unsyncedCount: Int, listedSeasons: [Int] = []) {
+    public init(
+        season: Int,
+        runs: [ClubRun],
+        priors: LifetimePriors?,
+        unsyncedCount: Int,
+        listedSeasons: [Int] = [],
+        roster: [String] = []
+    ) {
         self.season = season
         self.runs = runs
         self.priors = priors
         self.unsyncedCount = unsyncedCount
         self.listedSeasons = listedSeasons
+        self.roster = Set(roster.map(ClubRun.memberName))
     }
 }
 
@@ -85,33 +104,64 @@ public final class DashboardStore {
     public enum Showing: Hashable, Sendable {
         /// The live season (the default).
         case live
-        /// An earlier season was picked and its snapshot is in flight.
+        /// An earlier season or All time was picked and a snapshot is in flight.
         case loading
-        /// The picked season's fetch failed with nothing cached.
+        /// A snapshot it needs failed with nothing cached.
         case notDownloaded
-        /// The picked season's runs are in the model.
+        /// The picked view's runs are in the model.
         case loaded
     }
 
-    /// Every card's data. Nil until the shown season has runs.
+    /// Every card's data. Nil until the shown view has runs.
     public private(set) var model: DashboardModel?
-    /// The cards' "Includes N unsynced". Always 0 for an earlier season.
+    /// The cards' "Includes N unsynced": the live season's and All time's
+    /// outbox overlay. Always 0 for an earlier season.
     public private(set) var unsyncedCount = 0
     public private(set) var lastSeason = LastSeason.loading
-    /// The season the cards show; nil until the live season has inputs.
-    public private(set) var shownSeason: Int?
+    /// What the cards show; nil until the live season has inputs.
+    public private(set) var shown: DashboardPeriod?
     public private(set) var showing = Showing.live
     /// The menu's seasons, newest first: the live season and each listed season
     /// before it. Fewer than two means there is nothing to pick.
     public private(set) var seasons: [Int] = []
 
+    /// The season shown; nil for All time or before the live season loads.
+    public var shownSeason: Int? {
+        if case .season(let year) = shown { year } else { nil }
+    }
+
+    /// The menu, top to bottom: All time, then each season newest first. Empty
+    /// while there is only one season (All time would repeat it).
+    public var periods: [DashboardPeriod] {
+        seasons.count > 1 ? [.allTime] + seasons.map(DashboardPeriod.season) : []
+    }
+
+    /// One earlier season as the menu needs it: its runs, and its sheet's
+    /// member columns for All time's Wall.
+    private struct Snapshot {
+        let runs: [ClubRun]
+        let roster: Set<String>
+
+        init(_ state: SheetState) {
+            runs = state.runs.compactMap { ClubRun($0, season: state.seasonYear) }
+            roster = Set(state.roster.map { ClubRun.memberName($0.name) })
+        }
+
+        /// A season the live state no longer lists: All time leaves it out.
+        init() {
+            runs = []
+            roster = []
+        }
+    }
+
     @ObservationIgnored private var engine: any SyncEngineClient
     @ObservationIgnored private var fingerprint: String?
     @ObservationIgnored private var inputs: DashboardInputs?
     @ObservationIgnored private var previousRuns: [ClubRun]?
-    /// A picked earlier season, or nil for the live one, and its runs once loaded.
-    @ObservationIgnored private var picked: Int?
-    @ObservationIgnored private var pickedRuns: [ClubRun]?
+    /// The picked view, or nil for the live season, and the earlier seasons'
+    /// snapshots it has loaded.
+    @ObservationIgnored private var picked: DashboardPeriod?
+    @ObservationIgnored private var snapshots: [Int: Snapshot] = [:]
     @ObservationIgnored private var isLoadingPicked = false
     /// The live season that `lastSeason` and `previousRuns` answer for, set
     /// when the question is asked. Nil until the first question.
@@ -153,50 +203,86 @@ public final class DashboardStore {
         rebuild()
     }
 
-    /// Shows `year`: the live season, or an earlier listed one from its
-    /// snapshot. The model is nil (`.loading`) until the snapshot lands.
-    public func select(season year: Int) async {
-        guard let live = inputs?.season, year != shownSeason else { return }
+    /// Shows `period`: the live season, an earlier listed one from its
+    /// snapshot, or All time. The model is nil (`.loading`) until every
+    /// snapshot it needs lands.
+    public func select(_ period: DashboardPeriod) async {
+        guard let live = inputs?.season, period != shown else { return }
         forgetPicked()
         forgetLastSeason()
-        if year != live {
-            picked = year
+        if period != .season(live) {
+            picked = period
             showing = .loading
         }
         rebuild()
         await load()
     }
 
-    /// Loads what the shown season still needs: a picked season's snapshot,
-    /// then its comparison. Call it after each `update`; it asks again after a
-    /// failure and costs nothing once both are in.
+    /// Shows one season.
+    public func select(season year: Int) async {
+        await select(.season(year))
+    }
+
+    /// Loads what the shown view still needs: the picked view's snapshots,
+    /// then a season's comparison. Call it after each `update`; it asks again
+    /// after a failure and costs nothing once both are in.
     public func load() async {
-        if picked != nil, pickedRuns == nil { await loadPickedSeason() }
+        if !missingSnapshots.isEmpty { await loadPicked() }
         await loadLastSeason()
     }
 
-    private func loadPickedSeason() async {
-        guard let year = picked, !isLoadingPicked else { return }
+    /// The earlier seasons the picked view needs and does not have yet.
+    private var missingSnapshots: [Int] {
+        guard let inputs else { return [] }
+        let years: [Int] = switch picked {
+        case .season(let year)?: [year]
+        case .allTime?: earlierSeasons(inputs)
+        case nil: []
+        }
+        return years.filter { snapshots[$0] == nil }
+    }
+
+    /// Every listed season before the live one, newest first.
+    private func earlierSeasons(_ inputs: DashboardInputs) -> [Int] {
+        Array(Set(inputs.listedSeasons.filter { $0 < inputs.season })).sorted(by: >)
+    }
+
+    /// Fetches the picked view's snapshots one at a time. Each comes from the
+    /// engine's cache after its first fetch in a session.
+    private func loadPicked() async {
+        guard let period = picked, !isLoadingPicked else { return }
         isLoadingPicked = true
         let generation = self.generation
-        let result: Result<SheetState?, any Error>
-        do {
-            result = .success(try await engine.seasonSnapshot(year: year))
-        } catch {
-            result = .failure(error)
+        for year in missingSnapshots {
+            let result: Result<SheetState?, any Error>
+            do {
+                result = .success(try await engine.seasonSnapshot(year: year))
+            } catch {
+                result = .failure(error)
+            }
+            // A new pick, swap or live season started over; it owns the flags.
+            guard generation == self.generation, picked == period else { return }
+            switch result {
+            case .success(let state?):
+                snapshots[year] = Snapshot(state)
+            case .success(nil):
+                // No longer listed. One season goes back to the live one; All
+                // time leaves it out.
+                guard period == .allTime else {
+                    forgetPicked()
+                    rebuild()
+                    return
+                }
+                snapshots[year] = Snapshot()
+            case .failure:
+                isLoadingPicked = false
+                showing = .notDownloaded
+                rebuild()
+                return
+            }
         }
-        guard generation == self.generation, picked == year else { return }
         isLoadingPicked = false
-        switch result {
-        case .success(let state?):
-            pickedRuns = state.runs.compactMap { ClubRun($0, season: state.seasonYear) }
-            showing = .loaded
-        case .success(nil):
-            // No longer listed: back to the live season.
-            forgetPicked()
-        case .failure:
-            showing = .notDownloaded
-        }
+        showing = .loaded
         rebuild()
     }
 
@@ -204,15 +290,17 @@ public final class DashboardStore {
     /// for the live season, retries a failed fetch and picks up a revalidated
     /// snapshot. It stops asking once the answer is `.unavailable`.
     public func loadLastSeason() async {
+        // All time compares with nothing (shownSeason is nil).
         guard let season = shownSeason, !isLoadingLastSeason, lastSeason != .unavailable else { return }
         // A picked season waits for its own runs before its comparison.
-        if picked != nil, pickedRuns == nil { return }
+        guard missingSnapshots.isEmpty else { return }
         isLoadingLastSeason = true
         answeredSeason = season
         let generation = self.generation
+        let pickedSeason: Int? = if case .season(let year)? = picked { year } else { nil }
         let result: Result<SheetState?, any Error>
         do {
-            result = .success(try await engine.previousSeasonSnapshot(before: picked))
+            result = .success(try await engine.previousSeasonSnapshot(before: pickedSeason))
         } catch {
             result = .failure(error)
         }
@@ -242,7 +330,7 @@ public final class DashboardStore {
     /// Back to the live season.
     private func forgetPicked() {
         picked = nil
-        pickedRuns = nil
+        snapshots = [:]
         isLoadingPicked = false
         showing = .live
     }
@@ -260,24 +348,46 @@ public final class DashboardStore {
         guard let inputs else {
             model = nil
             unsyncedCount = 0
-            shownSeason = nil
+            shown = nil
             seasons = []
             return
         }
-        seasons = Array(Set([inputs.season] + inputs.listedSeasons.filter { $0 < inputs.season })).sorted(by: >)
-        guard let year = picked else {
-            shownSeason = inputs.season
-            model = DashboardModel(season: inputs.season, runs: inputs.runs, previous: previousRuns, priors: inputs.priors)
+        seasons = [inputs.season] + earlierSeasons(inputs)
+        // The live season's shortlist, so every view names the same people.
+        let milestones = inputs.priors.map { MilestoneBoard.shortlist(priors: $0, season: inputs.runs) }
+        switch picked {
+        case nil:
+            shown = .season(inputs.season)
+            model = DashboardModel(season: inputs.season, runs: inputs.runs, previous: previousRuns,
+                                   priors: inputs.priors, milestones: milestones)
             unsyncedCount = inputs.unsyncedCount
-            return
+        case .season(let year)?:
+            shown = .season(year)
+            unsyncedCount = 0
+            guard let runs = snapshots[year]?.runs else {
+                model = nil
+                return
+            }
+            model = DashboardModel(season: year, runs: runs, previous: previousRuns,
+                                   priors: inputs.priors?.rebased(live: inputs.runs, onto: runs),
+                                   milestones: milestones)
+        case .allTime?:
+            shown = .allTime
+            // The live season carries the outbox, so its count stands.
+            unsyncedCount = inputs.unsyncedCount
+            guard missingSnapshots.isEmpty else {
+                model = nil
+                return
+            }
+            let earlier = earlierSeasons(inputs).compactMap { snapshots[$0] }
+            let runs = inputs.runs + earlier.flatMap(\.runs)
+            // An unknown roster (empty) marks nobody.
+            var rosters: [Int: Set<String>] = [:]
+            if !inputs.roster.isEmpty { rosters[inputs.season] = inputs.roster }
+            for (year, snapshot) in snapshots where !snapshot.roster.isEmpty { rosters[year] = snapshot.roster }
+            model = DashboardModel(allTime: runs, rosters: rosters,
+                                   priors: inputs.priors?.rebased(live: inputs.runs, onto: runs),
+                                   milestones: milestones)
         }
-        shownSeason = year
-        unsyncedCount = 0
-        guard let runs = pickedRuns else {
-            model = nil
-            return
-        }
-        model = DashboardModel(season: year, runs: runs, previous: previousRuns,
-                               priors: inputs.priors?.rebased(live: inputs.runs, onto: runs))
     }
 }

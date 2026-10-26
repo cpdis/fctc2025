@@ -105,6 +105,40 @@ final class DashboardUITests: XCTestCase {
         XCTAssertEqual(onARoll.value as? String, liveRoll)
     }
 
+    /// All time is first in the season menu and joins both seasons: 30 runs
+    /// this season and 30 last, no Vs last year, and a runner screen with one
+    /// calendar per season, newest on top.
+    func testSeasonMenuShowsAllTime() {
+        launch()
+        openDashboard()
+        let year = Calendar.current.component(.year, from: .now)
+        let menu = element("dashboard-season")
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        menu.tap()
+        let allTime = app.buttons["All time"]
+        XCTAssertTrue(allTime.waitForExistence(timeout: 5))
+        allTime.tap()
+
+        XCTAssertTrue(menu.waitForValue("All time"), "The menu did not switch to All time")
+        let headline = element("headline-value")
+        XCTAssertTrue(headline.waitForValue("60"), String(describing: headline.value))
+        XCTAssertEqual(headline.label, "Runs, all time")
+        settle()
+        XCTAssertFalse(element("vs-last-year").exists, "All time compares with nothing")
+        XCTAssertFalse(element("vs-last-year-not-downloaded").exists)
+        capture("dashboard-all-time")
+
+        // The streak leader's screen: this season's calendar above last season's.
+        tap(element("on-a-roll"))
+        let current = element("runner-calendar-\(year)")
+        let previous = element("runner-calendar-\(year - 1)")
+        XCTAssertTrue(current.waitForExistence(timeout: 5))
+        scrollTo(previous)
+        XCTAssertTrue(previous.exists)
+        XCTAssertLessThan(current.frame.minY, previous.frame.minY)
+        capture("dashboard-all-time-runner")
+    }
+
     /// The full Wall opens scrolled to the latest run, and a tapped cell opens
     /// that row's runner.
     func testFullWallOpensAtLatestRun() {

@@ -25,6 +25,8 @@ import Foundation
 /// One club day: a club weekday with at least one run on it.
 public struct ClubDay: Hashable, Sendable, Identifiable {
     public let date: ClubDate
+    /// The season of that day's runs (one sheet holds one date).
+    public let season: Int
     /// That day's run ids, in the order the runs were given.
     public let runIDs: [String]
     /// Everyone who ran any run that day.
@@ -90,18 +92,21 @@ public struct ClubDays: Hashable, Sendable {
     /// Build club days from runs.
     ///
     /// - Parameters:
-    ///   - runs: one season's runs, in sheet order. Unrecorded rows are skipped.
+    ///   - runs: one season's runs, or every season's for All time, in sheet
+    ///     order. Unrecorded rows are skipped.
     ///   - weekdays: a season's club weekdays. Each run is judged by its own
     ///     season's set; tests pin it, callers use the season table.
     public init(runs: [ClubRun], weekdays: (Int) -> [Weekday] = ClubDays.weekdays(for:)) {
         var runIDs: [ClubDate: [String]] = [:]
         var attendees: [ClubDate: Set<String>] = [:]
+        var seasons: [ClubDate: Int] = [:]
         for run in runs where run.isRecorded && weekdays(run.season).contains(run.weekday) {
             runIDs[run.date, default: []].append(run.id)
             attendees[run.date, default: []].formUnion(run.attendees)
+            seasons[run.date] = run.season
         }
         days = runIDs.keys.sorted().map { date in
-            ClubDay(date: date, runIDs: runIDs[date] ?? [], attendees: attendees[date] ?? [])
+            ClubDay(date: date, season: seasons[date] ?? 0, runIDs: runIDs[date] ?? [], attendees: attendees[date] ?? [])
         }
         clubRunIDs = Set(runIDs.values.joined())
         countsByWeekday = Dictionary(grouping: days, by: \.weekday).mapValues(\.count)

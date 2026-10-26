@@ -131,6 +131,10 @@ public enum WallMark: Hashable, Sendable {
     case ran
     /// Ran a club-day run inside the runner's current streak.
     case streak
+    /// All time only: the runner had no column on that run's season sheet
+    /// (René on a 2025 run, Sam on a 2026 one). Nobody expected them, so it
+    /// is not a miss (the web's `notOnRoster`).
+    case notOnRoster
 }
 
 /// One Wall row. `cells` line up with `Wall.columns` by index.
@@ -192,6 +196,9 @@ public struct Leaderboard: Hashable, Sendable {
 /// One club day on the runner screen's season calendar.
 public struct RunnerDay: Hashable, Sendable, Identifiable {
     public let date: ClubDate
+    /// The season whose sheet holds the day, so All time draws one calendar
+    /// per season.
+    public let season: Int
     public let made: Bool
     /// Made, and part of the current streak.
     public let inStreak: Bool
@@ -208,12 +215,20 @@ public struct RunnerDetail: Hashable, Sendable, Identifiable {
     public let rank: Int
     /// Current and best streaks, and club days made per weekday.
     public let record: ClubDayRecord
-    /// Every club day of the season, oldest first.
+    /// Every club day of the view, oldest first.
     public let calendar: [RunnerDay]
     /// Prior seasons plus this one; nil when the server sent no lifetime totals.
     public let allTime: Int?
 
     public var id: String { name }
+
+    /// The calendar split by season, newest first: one entry for a season,
+    /// one per season for All time (stacked on the runner screen).
+    public var calendarBySeason: [(season: Int, days: [RunnerDay])] {
+        Dictionary(grouping: calendar, by: \.season)
+            .sorted { $0.key > $1.key }
+            .map { (season: $0.key, days: $0.value) }
+    }
 
     /// The next landmark after the all-time total (MilestoneBoard's rule).
     public var nextMilestone: Int? {

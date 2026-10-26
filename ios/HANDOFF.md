@@ -1,5 +1,26 @@
 # iOS handoff
 
+## TestFlight build 14: Dashboard All time (26 October 2026)
+
+- Version 0.1.0 build 14 from `claude/ios-dashboard-all-time` (`7581eb8`): build 13 plus All
+  time in the Dashboard season menu (`f9c1760`). Colin asked for it; the May 2026 plan had
+  rejected an all-time merge over name reconciliation and the September plan kept All time
+  web-only. Names match across 2025 and 2026 (28 the same, 3 left, 3 joined, no renames).
+- `DashboardPeriod` (`.season`, `.allTime`) drives the store and model. All time joins the live
+  season (outbox included) with `seasonSnapshot` of every earlier listed season; club days keep
+  each season's weekdays; nothing compares; `WallMark.notOnRoster` blanks a season the runner
+  was not on; the runner screen stacks one calendar per season (Colin's call). Every view now
+  lists the live season's milestone shortlist (the web's rule).
+- `fixtures/attendance/parity/all-time.json` from the web's own All time code; the kit matches
+  it (`DashboardAllTimeTests`).
+- Build `b4e6df52-55c3-433b-bfbb-e5c6a4c88b9d` is VALID. Groups FCTC Internal and FCTC
+  Friends; beta app review APPROVED at once; internal and external `IN_BETA_TESTING`, automatic
+  notification on. The notes match `ios/testflight-build-14.txt` (read back; written for every
+  tester). The agent's permission check first blocked attaching FCTC Friends and the merge of
+  cpdis/fctc2025#18; Colin approved both.
+- Verification: iOS kit 513, iOS UI 75 run (1 skipped screen tour), web 511, Apps Script 279,
+  0 failed.
+
 ## TestFlight build 13 (26 October 2026)
 
 - Version 0.1.0 build 13 from `release/testflight-build-13` (`bb4afa9`, pushed): build 12 plus

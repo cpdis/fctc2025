@@ -26,7 +26,7 @@ wrong, say so in the PR and let the orchestrator adjudicate.
 | `*.expected.json` | The expected parse result for the same-stem input file. |
 | `guests/contract.json` | Synthetic shared guest identities, eleven-run history, v2 requests/responses, canonical digests, and conflicts. |
 | `2026-09-27/2025.csv`, `2026-09-27/2026.csv` | Dated snapshot of the live sheets on 27 Sep 2026: the 2026 BIRTHDAY row, the 2025 annotation cells ("🛕", "sad face") and 2026's planned rows to December are all present. The club-day and parser tests and the parity fixtures read it. Do not edit; add a new dated folder for a newer snapshot. |
-| `parity/2025.json`, `parity/2026.json` | Golden parity fixtures (R28), generated from the dated snapshot by `scripts/build-parity-fixtures.js`. See [Parity fixtures](#parity-fixtures). Do not edit by hand. |
+| `parity/2025.json`, `parity/2026.json`, `parity/all-time.json` | Golden parity fixtures (R28), generated from the dated snapshot by `scripts/build-parity-fixtures.js`. See [Parity fixtures](#parity-fixtures). Do not edit by hand. |
 
 Roster names in every expectation are the **real 2026 sheet header names** (`Alex 👑`,
 `Alex Kr`, `Dan B`, `Laura K`, …). `apps-script/test` asserts this mechanically against
@@ -100,6 +100,16 @@ Each file holds:
   `bestFrom`/`bestTo` (null when 0; the earlier of two equal bests) and
   `madeByWeekday`.
 - `expected.milestones` — the milestone shortlist over that season's totals.
+
+`parity/all-time.json` is the web's All time view (`combineYearData`) of every season. It
+has no runs: the Swift tests join the season files' runs. It holds `seasons`, `rosters` (each
+season's sheet member columns, sorted) and `expected` with the same `totals`, `members`,
+`clubDays` and `streaks` over all seasons, plus:
+
+- `expected.milestones` — the shortlist over all-time totals of the latest season's members
+  (the web Dashboard's rule, which the app's store follows in every view).
+- `expected.notOnRoster` — per runner with any, how many Wall cells sit on runs whose season
+  sheet had no column for them.
 
 Names sort in plain UTF-16 string order, and every key keeps a fixed position, so a
 rule change reads as a small diff.

@@ -20,6 +20,10 @@
  * order) and the JSON is 2-space with a trailing newline, so a rule change
  * shows up as a small, readable diff.
  *
+ * `parity/all-time.json` holds the web's All time view of every season
+ * (`combineYearData`). It has no runs of its own: the Swift tests join the
+ * season files' runs and take each season's sheet columns from `rosters`.
+ *
  * Run: node scripts/build-parity-fixtures.js
  */
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -27,7 +31,8 @@ import { join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { clubWeekdays } from '../src/config/years.js'
 import { buildClubDays, memberClubDays, milestoneShortlist } from '../src/utils/clubDays.js'
-import { parseRunData } from '../src/utils/dataParser.js'
+import { wallModel } from '../src/utils/dashboardMetrics.js'
+import { combineYearData, parseRunData } from '../src/utils/dataParser.js'
 import { isoDate } from '../src/utils/runLabels.js'
 
 const ROOT = resolve(import.meta.dirname, '..')
@@ -111,30 +116,92 @@ export function buildParityFixture(csvText, season) {
   }
 }
 
+/**
+ * Build the All time parity fixture: every season merged as the web's All
+ * time view merges them.
+ *
+ * `expected.milestones` follows the web Dashboard's rule: all-time totals of
+ * the latest season's members only. `expected.notOnRoster` counts, per runner,
+ * the Wall cells on runs whose season sheet had no column for them.
+ *
+ * @param {Array<{ season: number, csvText: string }>} seasons - oldest first
+ * @returns {object} plain JSON-ready fixture, keys in a fixed order
+ */
+export function buildAllTimeFixture(seasons) {
+  const datasets = seasons.map(({ season, csvText }) => parseRunData(csvText, season))
+  const view = combineYearData(datasets)
+  const runs = [...view.runs].sort((a, b) => a.parsedDate - b.parsedDate)
+  const runners = view.members.filter((name) => view.memberTotals[name].totalRuns > 0).sort(byString)
+  // Club days across seasons, each run judged by its own season's weekdays.
+  const days = buildClubDays(runs)
+  const roster = new Set(datasets[datasets.length - 1].members)
+
+  return {
+    seasons: seasons.map(({ season }) => season),
+    rosters: Object.fromEntries(seasons.map(({ season }, i) => [season, [...datasets[i].members].sort(byString)])),
+    expected: {
+      totals: { runs: view.totalRuns, memberKm: roundKm(view.totalClubKm), runners: runners.length },
+      members: runners.map((name) => ({
+        name,
+        runs: view.memberTotals[name].totalRuns,
+        memberKm: roundKm(view.memberTotals[name].totalKm),
+      })),
+      clubDays: { count: days.length, dates: days.map((day) => day.date) },
+      streaks: runners.map((name) => {
+        const record = memberClubDays(days, name)
+        return {
+          name,
+          current: record.current,
+          currentFrom: record.currentFrom,
+          best: record.best,
+          bestFrom: record.bestFrom,
+          bestTo: record.bestTo,
+          madeByWeekday: record.madeByWeekday,
+        }
+      }),
+      milestones: milestoneShortlist(
+        Object.values(view.memberTotals)
+          .filter(({ name }) => roster.has(name))
+          .map(({ name, totalRuns }) => ({ name, runs: totalRuns })),
+      ),
+      notOnRoster: wallModel(view)
+        .rows.map(({ name, cells }) => ({ name, cells: cells.filter((cell) => cell.notOnRoster).length }))
+        .filter(({ cells }) => cells > 0)
+        .sort((a, b) => byString(a.name, b.name)),
+    },
+  }
+}
+
 /** Serialize a fixture exactly as it is committed: 2-space JSON and a trailing newline. */
 export function formatFixture(fixture) {
   return JSON.stringify(fixture, null, 2) + '\n'
 }
 
 /**
- * Every parity file for the snapshot, oldest season first. A season is any
- * `<year>.csv` in SNAPSHOT_DIR.
+ * Every parity file for the snapshot: each season, oldest first, then All time.
+ * A season is any `<year>.csv` in SNAPSHOT_DIR.
  *
- * @returns {Array<{ season: number, path: string, content: string }>}
+ * @returns {Array<{ season: number | 'all-time', path: string, content: string }>}
  */
 export function buildParityFiles() {
-  return readdirSync(SNAPSHOT_DIR)
+  const seasons = readdirSync(SNAPSHOT_DIR)
     .filter((name) => /^\d{4}\.csv$/.test(name))
     .map((name) => Number(name.slice(0, 4)))
     .sort((a, b) => a - b)
-    .map((season) => {
-      const csvText = readFileSync(join(SNAPSHOT_DIR, `${season}.csv`), 'utf8')
-      return {
-        season,
-        path: join(PARITY_DIR, `${season}.json`),
-        content: formatFixture(buildParityFixture(csvText, season)),
-      }
-    })
+    .map((season) => ({ season, csvText: readFileSync(join(SNAPSHOT_DIR, `${season}.csv`), 'utf8') }))
+
+  return [
+    ...seasons.map(({ season, csvText }) => ({
+      season,
+      path: join(PARITY_DIR, `${season}.json`),
+      content: formatFixture(buildParityFixture(csvText, season)),
+    })),
+    {
+      season: 'all-time',
+      path: join(PARITY_DIR, 'all-time.json'),
+      content: formatFixture(buildAllTimeFixture(seasons)),
+    },
+  ]
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

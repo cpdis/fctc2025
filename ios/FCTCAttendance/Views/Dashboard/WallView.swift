@@ -131,8 +131,9 @@ struct WallGrid: View {
                 let y = top + CGFloat(r) * rowHeight + (rowHeight - cellHeight) / 2
                 for (position, index) in columns.enumerated() {
                     let mark = row.cells[index]
-                    // A special nobody expects you at is not a miss: leave it blank.
-                    if mark == .missed && wall.columns[index].isSpecial { continue }
+                    // A special nobody expects you at is not a miss, and nor is
+                    // a season you were not on (All time): leave them blank.
+                    if mark == .notOnRoster || (mark == .missed && wall.columns[index].isSpecial) { continue }
                     let cell = CGRect(x: CGFloat(position) * columnWidth + columnWidth * 0.1, y: y, width: cellWidth, height: cellHeight)
                     paths[mark, default: Path()].addRoundedRect(in: cell, cornerSize: CGSize(width: 2.5, height: 2.5))
                 }
@@ -169,6 +170,8 @@ struct WallGrid: View {
         case .missed: Color(.tertiarySystemFill)
         case .ran: Color.primary
         case .streak: accent
+        // Never drawn (skipped above).
+        case .notOnRoster: Color.clear
         }
     }
 }
@@ -198,10 +201,11 @@ struct WallLegend: View {
     }
 }
 
-/// Every runner against every run of the season.
+/// Every runner against every run of the season, or of every season.
 struct WallView: View {
     /// Nil or empty before the season has a run.
     let wall: Wall?
+    let period: DashboardPeriod?
     let accent: Color
     let open: (String) -> Void
 
@@ -219,7 +223,7 @@ struct WallView: View {
             if let wall, !wall.columns.isEmpty {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Every runner against every run this season, latest on the right. Shaded columns are specials: off the club days, they never break a streak.")
+                        Text(description)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 12) {
@@ -252,6 +256,14 @@ struct WallView: View {
                 .accessibilityIdentifier("wall-sort")
             }
         }
+    }
+
+    private var description: String {
+        let specials = "Shaded columns are specials: off the club days, they never break a streak."
+        guard period == .allTime else {
+            return "Every runner against every run this season, latest on the right. \(specials)"
+        }
+        return "Every runner against every run of every season, latest on the right. \(specials) A blank stretch is a season the runner was not on."
     }
 
     /// Runs order is the model's own (most runs, then name).
