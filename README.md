@@ -684,6 +684,7 @@ Every UI test launches with `-ui-testing`, which replaces the sheet with an in-m
 |------|---------|
 | `-ui-shared-guests` | The shared (API v2) fake with this season and last (`UITestSharedGuestAPI.swift`). |
 | `-ui-offline` | No automatic outbox drain, so a queued row stays queued until Retry. |
+| `-ui-slow-sheet` | Each read and attendance write of the legacy fake takes 3 s, so the Runs sync pill ("Checking the sheet…", "Sending 1 change…") stays on screen. |
 | `-ui-events` | Planned club runs from tomorrow to the Sunday after next, plus three Xmas races on one date. It pins today to Mon 21 Sep 2026, 18:00 Perth (`UITestSupport.now`), so the week has the same shape on any day. |
 | `-ui-dashboard` | A season of 30 club days with fixed streaks: Aaron 14, Col 10, Dan 2 (`UITestDashboardFixture.swift`). |
 | `-ui-dashboard-full` | The profiling size: 118 club days and 30 runners. No test pins its numbers. |

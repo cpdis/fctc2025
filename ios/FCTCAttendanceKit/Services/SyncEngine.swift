@@ -14,7 +14,9 @@ import SwiftData
 // MARK: - Engine
 
 public actor SyncEngine: ModelActor, SyncEngineClient {
-    /// Row failures. Error codes are public; the endpoint is hashed; the secret never logs.
+    /// Row failures and sync timing. Error codes are public; the endpoint is
+    /// hashed; the secret never logs. Timing shows where a slow sync spent its
+    /// time: Console.app with the phone attached, category "sync".
     static let logger = Logger(subsystem: "com.cpdis.fctc-attendance", category: "sync")
 
     /// Logs one outbox row's failure without the secret or the raw endpoint.
@@ -111,14 +113,26 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         var attempt = 1
         while true {
             let requestedAt = await clock.now()
+            let started = ContinuousClock.now
             do {
-                return (try await api.getState(seasonSheetId: seasonSheetId), requestedAt)
-            } catch let error as SheetAPIError where error.isRetryable
-                        && attempt < readRetryPolicy.maxAttempts && !Task.isCancelled {
+                let state = try await api.getState(seasonSheetId: seasonSheetId)
+                Self.logger.notice("Read the sheet in \(Self.milliseconds(since: started)) ms (attempt \(attempt))")
+                return (state, requestedAt)
+            } catch {
+                // The code only: an error's text can carry the endpoint.
+                let code = (error as? SheetAPIError)?.code ?? "untyped"
+                Self.logger.error("Read attempt \(attempt) failed after \(Self.milliseconds(since: started)) ms: \(code, privacy: .public)")
+                guard let error = error as? SheetAPIError, error.isRetryable,
+                      attempt < readRetryPolicy.maxAttempts, !Task.isCancelled else { throw error }
                 attempt += 1
                 try await clock.sleep(for: readRetryPolicy.delay(forAttempt: attempt))
             }
         }
+    }
+
+    /// Whole milliseconds since `start`, for the timing logs.
+    static func milliseconds(since start: ContinuousClock.Instant) -> Int {
+        Int(start.duration(to: .now) / .milliseconds(1))
     }
 
     /// The newest listed season older than `year` (the live season when nil),
@@ -282,6 +296,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
     /// One pass over the outbox: guest operations first, then submissions
     /// oldest first.
     private func drainPass() async {
+        let started = ContinuousClock.now
         let ids: [UUID]
         do {
             try prepareLegacyRecovery()
@@ -331,6 +346,10 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                 // rows after it (CA-15).
                 eventBroadcaster.yield(.serviceFailed(message: UserFacingError.sync(error)))
             }
+        }
+        // Each sent row costs a write plus a full read of the sheet.
+        if !ids.isEmpty {
+            Self.logger.notice("Sent \(ids.count) outbox rows in \(Self.milliseconds(since: started)) ms")
         }
     }
 

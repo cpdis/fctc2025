@@ -6,6 +6,28 @@
 import Foundation
 import Observation
 
+/// What the Runs header says about sync. A sync has two phases: a refresh
+/// reads the sheet, then the engine sends the outbox. Each confirmed write
+/// reads the sheet again, so sending can outlast the pull-to-refresh spinner.
+///
+///     tap ──► checking ──► sending(2) ──► sending(1) ──► idle(9:42 PM)
+///                │                                         ▲
+///                └──── nothing queued ─────────────────────┘
+public enum SyncStatus: Hashable, Sendable {
+    /// A refresh is reading the sheet.
+    case checking
+    /// The outbox is sending; the count of changes still unsent.
+    case sending(Int)
+    /// Nothing runs. The last time the phone and the sheet agreed
+    /// (`HomeViewModel.lastSyncedAt`), nil before the first.
+    case idle(updatedAt: Date?)
+
+    public var isWorking: Bool {
+        if case .idle = self { return false }
+        return true
+    }
+}
+
 @MainActor
 @Observable
 public final class HomeViewModel {
@@ -19,6 +41,26 @@ public final class HomeViewModel {
     public private(set) var initialLoadFailed = false
     /// True while the engine drains, so the Unsynced tile can show real work.
     public private(set) var isSyncing = false
+    /// True while the newest refresh is in flight, whoever started it: the
+    /// sync button, pull-to-refresh, launch or the app becoming active.
+    public private(set) var isRefreshing = false
+    /// When this engine last agreed with the sheet: any read of it (Runs'
+    /// refresh, the read after a shared write) or a confirmed write. A send
+    /// then ends on its own time, not on the last read from minutes before.
+    public private(set) var lastSyncedAt: Date?
+
+    /// A send outranks a read: returning to Runs after Confirm starts a read
+    /// that runs alongside the send, and the change just made is the news.
+    /// A drain with nothing to send is not worth a word.
+    public var syncStatus: SyncStatus {
+        if isSyncing && unsyncedCount > 0 { return .sending(unsyncedCount) }
+        if isRefreshing { return .checking }
+        return .idle(updatedAt: lastSyncedAt)
+    }
+
+    /// True when the banner reports a problem from the last refresh or send.
+    /// Runs' sync pill then skips its "Updated" tick and lets the banner speak.
+    public var syncFailed: Bool { syncBanner?.isProblem ?? false }
 
     /// True when the banner shows a failed refresh (not a failed send), so the
     /// app refreshes again when it becomes active.
@@ -50,6 +92,8 @@ public final class HomeViewModel {
         isInitialLoading = false
         initialLoadFailed = false
         isSyncing = false
+        isRefreshing = false
+        lastSyncedAt = nil
         observeEvents()
     }
 
@@ -84,20 +128,23 @@ public final class HomeViewModel {
         let requestGeneration = refreshGeneration
         let connectionGeneration = engineGeneration
         let engine = self.engine
-        // The newest request owns both the result and its loading indicator.
+        // The newest request owns both the result and its loading indicators.
         isInitialLoading = !hasCachedState
+        isRefreshing = true
         if !hasCachedState {
             initialLoadFailed = false
         }
         defer {
             if requestGeneration == refreshGeneration && connectionGeneration == engineGeneration {
                 isInitialLoading = false
+                isRefreshing = false
             }
         }
         do {
             let state = try await engine.refreshState()
             guard requestGeneration == refreshGeneration, connectionGeneration == engineGeneration else { return }
             activeState = state
+            lastSyncedAt = .now
             initialLoadFailed = false
             if syncBanner != nil { syncBanner = nil }
             bannerSource = nil
@@ -134,6 +181,13 @@ public final class HomeViewModel {
                 // Home is the one screen that also confirms a success.
                 syncBanner = banner
                 bannerSource = .sync
+            }
+            // A confirmed write, or any read of the sheet: the two agree now.
+            switch event {
+            case .written, .rosterRefreshed:
+                lastSyncedAt = .now
+            default:
+                break
             }
         }
     }

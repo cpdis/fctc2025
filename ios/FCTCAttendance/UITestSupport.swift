@@ -311,11 +311,15 @@ private actor UITestSheetAPI: SheetAPIClient {
         return formatter.string(from: date)
     }
 
-    func getState() async throws -> SheetState { state }
+    func getState() async throws -> SheetState {
+        try await holdIfSlow()
+        return state
+    }
 
     func submitAttendance(
         _ submission: AttendanceSubmission
     ) async throws -> SubmissionOutcome {
+        try await holdIfSlow()
         writeAttempts += 1
         guard let index = state.runs.firstIndex(where: { $0.rowIndex == submission.rowIndex }) else {
             throw SheetAPIError.badPayload(message: "Unknown UI-test row.")
@@ -337,6 +341,14 @@ private actor UITestSheetAPI: SheetAPIClient {
         if let actualKm = submission.actualKm { state.runs[index].actualKm = actualKm }
         state.sheetRevision = "ui-rev-\(writeAttempts + 1)"
         return .written(cells: 1, sheetRevision: state.sheetRevision)
+    }
+
+    /// "-ui-slow-sheet" holds each read and attendance write for 3 s, as a slow
+    /// Apps Script call does, so a test can see the sync status while it runs.
+    private func holdIfSlow() async throws {
+        if ProcessInfo.processInfo.arguments.contains("-ui-slow-sheet") {
+            try await Task.sleep(for: .seconds(3))
+        }
     }
 
     func addMember(name: String) async throws -> AddMemberResult {
