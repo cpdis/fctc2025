@@ -1,5 +1,25 @@
 # iOS handoff
 
+## Private TestFlight build 12 (26 October 2026)
+
+- Version 0.1.0 build 12 from `release/testflight-build-12` (`8a1aefa`): build 11
+  (`37221d5`, whose branch is not on `main`) merged with the Runs sync work (`9d8aded`, branch
+  `claude/fctc-ios-manual-sync-c7cf1a`). The release starts from build 11 so its fixes and its
+  versioned store survive the update.
+- New: a Sync button beside Settings, a status pill above the tab bar (`SyncStatusViews.swift`,
+  driven by `HomeViewModel.syncStatus`), the Unsynced tile's steady spin, and read and send
+  timing in the `sync` logger. The Sync button bumps `refreshRequest`, as activation does.
+- Build `b29cbc7c-8626-44e7-9115-ef6d8430f360` is VALID and `IN_BETA_TESTING` for FCTC Internal
+  only. External state `READY_FOR_BETA_SUBMISSION`: FCTC Friends and External have no access.
+  The en-AU notes match `ios/testflight-build-12.txt` (read back).
+- Archive `ios/.ddata/FCTC-12.xcarchive`; app and share extension report 0.1.0 (12), signed
+  Apple Distribution.
+- Verification on the merged head: Apps Script 279, web Vitest 506, iOS kit 499, iOS UI 73 run
+  (1 skipped screen tour), 0 failed.
+- To release to Aaron and Grant: rewrite the notes for them (these say "Private build for
+  Colin"), then `testflight-notes.py --build 12 --file <notes> --group "FCTC Friends"` and a
+  beta app review submission if asked.
+
 ## Keyboard dismissal (2 October 2026)
 
 - Aaron (build 10): the checklist's "Actual kms" decimal pad had no way off the screen, so
