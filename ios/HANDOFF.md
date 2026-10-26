@@ -13,12 +13,11 @@
   lists the live season's milestone shortlist (the web's rule).
 - `fixtures/attendance/parity/all-time.json` from the web's own All time code; the kit matches
   it (`DashboardAllTimeTests`).
-- Build `b4e6df52-55c3-433b-bfbb-e5c6a4c88b9d` is VALID and `IN_BETA_TESTING` for FCTC Internal.
-  The notes match `ios/testflight-build-14.txt` (read back; written for every tester). The FCTC
-  Friends release was held back: the agent's permission check blocked attaching an external
-  group. To release: `python3 ios/Tools/testflight-notes.py --build 14 --file
-  ios/testflight-build-14.txt --group "FCTC Friends"`, then a beta app review submission if the
-  external state reads `READY_FOR_BETA_SUBMISSION`.
+- Build `b4e6df52-55c3-433b-bfbb-e5c6a4c88b9d` is VALID. Groups FCTC Internal and FCTC
+  Friends; beta app review APPROVED at once; internal and external `IN_BETA_TESTING`, automatic
+  notification on. The notes match `ios/testflight-build-14.txt` (read back; written for every
+  tester). The agent's permission check first blocked attaching FCTC Friends and the merge of
+  cpdis/fctc2025#18; Colin approved both.
 - Verification: iOS kit 513, iOS UI 75 run (1 skipped screen tour), web 511, Apps Script 279,
   0 failed.
 
