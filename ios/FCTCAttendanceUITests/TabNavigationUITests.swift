@@ -78,6 +78,67 @@ final class TabNavigationUITests: XCTestCase {
         XCTAssertTrue(birthdays.exists)
     }
 
+    /// Sync sits next to the gear and reads the sheet again. A pill above the
+    /// tab bar follows the read: checking, then the time it landed, then it
+    /// hides. `-ui-slow-sheet` holds each read for 3 s.
+    func testSyncButtonShowsProgressThenTheUpdateTime() {
+        launch(["-ui-today-run", "-ui-slow-sheet"])
+        let sync = app.buttons["home-sync"]
+        let pill = app.descendants(matching: .any)["home-sync-status"]
+        XCTAssertTrue(sync.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["home-settings"].exists)
+        // The launch read shows the pill too. Start from a clean screen.
+        XCTAssertTrue(pill.waitForNonExistence(timeout: 10), "The launch pill never hid")
+
+        sync.tap()
+        XCTAssertTrue(waitFor("home-sync-status", labelContaining: "Checking the sheet", timeout: 2), "Sync shows no progress")
+        XCTAssertEqual(sync.value as? String, "Checking the sheet…")
+        XCTAssertTrue(waitFor("home-sync-status", labelContaining: "Updated", timeout: 5), "Sync never finished")
+        XCTAssertEqual(sync.value as? String ?? "", "", "The Sync button still reports work")
+        capture("runs-sync-updated")
+        assertTickHolds()
+        XCTAssertTrue(pill.waitForNonExistence(timeout: 5), "The pill never hid")
+    }
+
+    /// A confirmed check-in sends from Runs: the pill reads "Sending 1 change…"
+    /// and the Unsynced tile reports syncing, then both stop when the write
+    /// lands. `-ui-slow-sheet` holds the write for 3 s.
+    func testSendShowsProgressThenStops() {
+        launch(["-ui-slow-sheet"])
+        let pill = app.descendants(matching: .any)["home-sync-status"]
+        let tile = app.buttons["home-unsynced"]
+        XCTAssertTrue(pill.waitForNonExistence(timeout: 10), "The launch pill never hid")
+
+        app.buttons["home-all-runs"].tap()
+        let run = app.buttons["run-row-43"]
+        XCTAssertTrue(run.waitForExistence(timeout: 5))
+        run.tap()
+        let aaron = app.buttons["member-Aaron"]
+        XCTAssertTrue(aaron.waitForExistence(timeout: 5))
+        aaron.tap()
+        app.buttons["confirm-attendance"].tap()
+
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(waitFor("home-sync-status", labelContaining: "Sending 1 change", timeout: 3), "The send shows no progress")
+        XCTAssertTrue(tile.label.contains("syncing"), tile.label)
+        capture("runs-sending")
+        XCTAssertTrue(waitFor("home-sync-status", labelContaining: "Updated", timeout: 6), "The send never finished")
+        XCTAssertFalse(tile.label.contains("syncing"), "The tile still reports a send")
+        assertTickHolds()
+        XCTAssertTrue(pill.waitForNonExistence(timeout: 5), "The pill never hid")
+    }
+
+    /// The "Updated" tick holds 2 s. A cancelled hide timer once cut it to
+    /// 0.2 s, because one sync moves the sync time twice. One `exists` read
+    /// 0.5 s on: a short `waitForExistence` can give up before its snapshot.
+    private func assertTickHolds() {
+        Thread.sleep(forTimeInterval: 0.5)
+        let tick = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'home-sync-status' AND label CONTAINS 'Updated'"))
+            .firstMatch
+        XCTAssertTrue(tick.exists, "The tick did not hold")
+    }
+
     /// Each tab has its own stack: a screen pushed on Runs survives a visit to
     /// the other tabs.
     func testSwitchingTabsKeepsRunsPushedScreen() {
@@ -308,6 +369,17 @@ final class TabNavigationUITests: XCTestCase {
     /// Lets push and pop transitions finish before a visibility check or capture.
     private func settle() {
         Thread.sleep(forTimeInterval: 0.8)
+    }
+
+    /// Waits until an element with `identifier` has a label containing `text`.
+    /// It matches afresh on every check: the sync pill changes element type
+    /// (an activity indicator while it spins, then a tick), and an element
+    /// resolved once kept looking for the old type.
+    private func waitFor(_ identifier: String, labelContaining text: String, timeout: TimeInterval) -> Bool {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", identifier, text))
+            .firstMatch
+            .waitForExistence(timeout: timeout)
     }
 
     private func capture(_ name: String) {

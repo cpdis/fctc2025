@@ -208,7 +208,11 @@ struct SummaryTile: View {
                     .foregroundStyle(tint)
                     // Unsynced -> Conflicts swaps the glyph in place.
                     .contentTransition(.symbolEffect(.replace))
-                    .symbolEffect(.rotate, options: .repeating, isActive: isWorking)
+                    // As the Sync button: a steady turn for the whole send
+                    // (`.repeating` pauses 2 s between turns), and a new view
+                    // when it stops, as `isActive` alone can keep it turning.
+                    .symbolEffect(.rotate, options: .repeat(.continuous), isActive: isWorking)
+                    .id(isWorking)
                     .frame(width: 28, height: 28)
                     .background(.white, in: .circle)
                     .accessibilityHidden(true)

@@ -8,11 +8,16 @@
 
 
 import Foundation
+import OSLog
 import SwiftData
 
 // MARK: - Engine
 
 public actor SyncEngine: ModelActor, SyncEngineClient {
+    /// Sync timing, so a slow sync on a phone shows where the time went. Read it
+    /// in Console.app with the phone attached, filtered to category "Sync".
+    static let logger = Logger(subsystem: "com.fctc.attendance", category: "Sync")
+
     public nonisolated let modelExecutor: any ModelExecutor
     public nonisolated let modelContainer: ModelContainer
     public nonisolated var events: AsyncStream<SyncEvent> { eventBroadcaster.stream() }
@@ -91,14 +96,24 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         var attempt = 1
         while true {
             let requestedAt = await clock.now()
+            let started = ContinuousClock.now
             do {
-                return (try await api.getState(seasonSheetId: seasonSheetId), requestedAt)
-            } catch let error as SheetAPIError where error.isRetryable
-                        && attempt < readRetryPolicy.maxAttempts && !Task.isCancelled {
+                let state = try await api.getState(seasonSheetId: seasonSheetId)
+                Self.logger.notice("Read the sheet in \(Self.milliseconds(since: started)) ms (attempt \(attempt))")
+                return (state, requestedAt)
+            } catch {
+                Self.logger.error("Read attempt \(attempt) failed after \(Self.milliseconds(since: started)) ms: \(String(describing: error), privacy: .public)")
+                guard let error = error as? SheetAPIError, error.isRetryable,
+                      attempt < readRetryPolicy.maxAttempts, !Task.isCancelled else { throw error }
                 attempt += 1
                 try await clock.sleep(for: readRetryPolicy.delay(forAttempt: attempt))
             }
         }
+    }
+
+    /// Whole milliseconds since `start`, for the timing logs.
+    static func milliseconds(since start: ContinuousClock.Instant) -> Int {
+        Int(start.duration(to: .now) / .milliseconds(1))
     }
 
     /// The newest listed season older than `year` (the live season when nil),
@@ -225,6 +240,7 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
         }
         isDraining = true
         eventBroadcaster.setActivity(true)
+        let started = ContinuousClock.now
         defer {
             isDraining = false
             eventBroadcaster.setActivity(false)
@@ -265,6 +281,10 @@ public actor SyncEngine: ModelActor, SyncEngineClient {
                 else if try currentSharedState()?.supportsSharedGuests == true {
                     try parkForReview(row, message: "Choose the original season and run before recovering this submission.")
                 } else { await drain(id: id) }
+            }
+            // Each sent row costs a write plus a full read of the sheet.
+            if !ids.isEmpty {
+                Self.logger.notice("Sent \(ids.count) outbox rows in \(Self.milliseconds(since: started)) ms")
             }
         } catch {
             // A cache error cannot safely identify one row. The next foreground or

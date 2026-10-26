@@ -3,13 +3,13 @@
 //  FCTCAttendance
 //
 //  The title row every tab root draws itself (Runs, Events, Dashboard), in
-//  place of the system large title. Runs needs its gear on the title line,
+//  place of the system large title. Runs needs its buttons on the title line,
 //  which the system bar cannot do, and a system title sits lower than a row in
 //  the content, so all three tabs use this one row to put their titles at the
 //  same height:
 //
 //    ┌──────────────────────────────────────┐
-//    │ FCTC                           (⚙)   │  ← Runs: Settings
+//    │ FCTC                      (↻)  (⚙)   │  ← Runs: Sync, Settings
 //    │ Events                               │
 //    │ Dashboard                  2026 ⌄    │  ← Dashboard: season menu
 //    └──────────────────────────────────────┘
@@ -24,7 +24,7 @@ struct TabHeader<Trailing: View>: View {
     let identifier: String
     @ViewBuilder var trailing: Trailing
 
-    /// The tallest trailing control (the 44 pt gear), so every tab's row, and
+    /// The tallest trailing control (Runs' 44 pt buttons), so every tab's row, and
     /// so its title, sits at the same height with or without one.
     static var rowHeight: CGFloat { 44 }
 

@@ -53,27 +53,26 @@ struct HomeView: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
-                // The tab header: the large title and the gear share one line
-                // (Colin's review), which the system large-title bar cannot do.
+                // The tab header: the large title, Sync and the gear share one
+                // line (Colin's review), which the system large-title bar cannot do.
                 Section {
                     TabHeader(title: "FCTC", identifier: "home-title") {
-                        // A solid circle in the card color, not glass: any glass
-                        // (hand-applied or `.glass` style) renders a grey shadow
-                        // smear to its left inside this list row in light mode.
-                        Button {
-                            path.append(HomeRoute.settings)
-                        } label: {
-                            // 44 pt matches the system toolbar buttons (Back, +,
-                            // Retry) on every pushed screen.
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(.primary)
-                                .frame(width: 44, height: 44)
-                                .background(Color(.secondarySystemGroupedBackground), in: .circle)
+                        HStack(spacing: 12) {
+                            SyncButton(status: viewModel.syncStatus) {
+                                // Pull-to-refresh may already be reading the sheet.
+                                guard !viewModel.isRefreshing else { return }
+                                Task { await refresh() }
+                            }
+
+                            Button {
+                                path.append(HomeRoute.settings)
+                            } label: {
+                                HeaderCircleIcon(systemImage: "gearshape")
+                            }
+                            .buttonStyle(.pressable)
+                            .accessibilityLabel("Settings")
+                            .accessibilityIdentifier("home-settings")
                         }
-                        .buttonStyle(.pressable)
-                        .accessibilityLabel("Settings")
-                        .accessibilityIdentifier("home-settings")
                     }
                     .staggeredEntrance(0, hasEntered: hasEntered)
                     .tabHeaderRow()
@@ -183,6 +182,14 @@ struct HomeView: View {
             }
             .listStyle(.insetGrouped)
             .contentMargins(.top, 4, for: .scrollContent)
+            // Above the tab bar, outside the List: glass inside a list row
+            // smears (see `HeaderCircleIcon`).
+            .overlay(alignment: .bottom) {
+                SyncStatusPill(status: viewModel.syncStatus, failed: viewModel.syncFailed)
+                    .padding(.bottom, 12)
+                    // Status only: a tap on the row beneath must still land.
+                    .allowsHitTesting(false)
+            }
             // The custom header row IS the title bar; the system bar would
             // stack a second empty line above it.
             .navigationTitle("FCTC")
@@ -212,15 +219,11 @@ struct HomeView: View {
                     SettingsView(runtime: runtime)
                 }
             }
-            .refreshable {
-                await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
-                updateFromCache()
-            }
+            .refreshable { await refresh() }
             .onAppear { hasEntered = true }
             .task {
                 updateFromCache()
-                await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
-                updateFromCache()
+                await refresh()
             }
             .onChange(of: viewModel.activeState) { _, state in
                 runtime.activeState = state
@@ -234,19 +237,13 @@ struct HomeView: View {
             // tries again when the app comes back, so its banner clears itself.
             .onReceive(NotificationCenter.default.publisher(for: .fctcAppDidActivate)) { _ in
                 guard viewModel.refreshFailed else { return }
-                Task {
-                    await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
-                    updateFromCache()
-                }
+                Task { await refresh() }
             }
             // RootTabView resets the path on a swap; the model follows the new
             // engine here, next to the refresh it drives.
             .onChange(of: runtime.generation) { _, _ in
                 viewModel.replaceEngine(runtime.engine)
-                Task {
-                    await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
-                    updateFromCache()
-                }
+                Task { await refresh() }
             }
         }
     }
@@ -322,6 +319,13 @@ struct HomeView: View {
         let guestChanges = pendingGuestOperations.map { "\($0.id):\($0.phaseRaw)" }.joined(separator: "|")
         return [runtime.activeRunsFingerprint(runs: cachedRuns, caches: sheetCaches), submissions, guestChanges]
             .joined(separator: "#")
+    }
+
+    /// Reads the sheet (the engine then sends the outbox) and redraws from the
+    /// cache. Sync, pull-to-refresh, launch and app activation all land here.
+    private func refresh() async {
+        await viewModel.refresh(hasCachedState: !activeRuns.isEmpty)
+        updateFromCache()
     }
 
     /// The one place Runs resolves the season cache.
