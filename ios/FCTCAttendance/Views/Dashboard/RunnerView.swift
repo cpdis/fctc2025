@@ -11,6 +11,9 @@
 //      W       ■ ■ ■ ■ ▢ ...  ■ ■ ■     marks the current streak.
 //      F       ■ ▢ ■ ■ ■ ...  ■ ■ ■
 //
+//  All time stacks one calendar per season, newest first (Colin's call), so
+//  each keeps a season's width and its own weekday rows.
+//
 
 import Charts
 import FCTCAttendanceKit
@@ -20,8 +23,9 @@ struct RunnerView: View {
     let name: String
     /// Nil when the runner has no run this season (or left the data).
     let detail: RunnerDetail?
-    /// The season's run count, for "29 of 30 runs".
+    /// The view's run count, for "29 of 30 runs".
     let seasonRuns: Int
+    let period: DashboardPeriod?
     let accent: Color
 
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -37,7 +41,7 @@ struct RunnerView: View {
                             .padding(.horizontal, 4)
                             .accessibilityIdentifier("runner-summary")
                         stats(detail)
-                        SeasonCalendarCard(detail: detail, accent: accent)
+                        calendars(detail)
                         ByDayCard(record: detail.record)
                         AllTimeCard(detail: detail, accent: accent)
                     }
@@ -51,6 +55,35 @@ struct RunnerView: View {
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle(name)
+    }
+
+    /// One calendar for a season; for All time, one per season, newest first.
+    /// The newest card carries the streak sentence, whichever season the
+    /// streak started in (the accent marks it on every card).
+    @ViewBuilder private func calendars(_ detail: RunnerDetail) -> some View {
+        let record = detail.record
+        let streak = record.currentFrom.map {
+            "Accent marks the current streak of \(record.current), since \(DashboardFormat.day($0))."
+        } ?? "No current streak."
+        if period == .allTime {
+            let seasons = detail.calendarBySeason
+            ForEach(seasons, id: \.season) { season in
+                let made = season.days.count(where: \.made)
+                let tally = "Made \(made) of \(season.days.count) club days."
+                SeasonCalendarCard(
+                    title: String(season.season),
+                    days: season.days,
+                    caption: season.season == seasons.first?.season
+                        ? "\(streak) Longest: \(record.best). \(tally)" : tally,
+                    accent: accent
+                )
+                .accessibilityIdentifier("runner-calendar-\(season.season)")
+            }
+        } else {
+            SeasonCalendarCard(title: "Season", days: detail.calendar,
+                               caption: "\(streak) Best this season: \(record.best).", accent: accent)
+                .accessibilityIdentifier("runner-calendar")
+        }
     }
 
     private func stats(_ detail: RunnerDetail) -> some View {
@@ -91,9 +124,13 @@ private struct RunnerStat: View {
     }
 }
 
-/// Every club day of the season on a week-by-weekday grid.
+/// Every club day of one season on a week-by-weekday grid.
 private struct SeasonCalendarCard: View {
-    let detail: RunnerDetail
+    /// "Season", or the season's year in All time.
+    let title: String
+    /// The season's club days, oldest first.
+    let days: [RunnerDay]
+    let caption: String
     let accent: Color
 
     @ScaledMetric(relativeTo: .caption) private var rowHeight: CGFloat = 22
@@ -110,8 +147,9 @@ private struct SeasonCalendarCard: View {
         let cells = self.cells
         let weeks = (cells.map(\.week).max() ?? 0) + 1
         let months = monthStarts(cells)
-        let weekdays = detail.record.byWeekday.map(\.weekday)
-        DashboardCard("Season", summary: summary) {
+        // This season's club weekdays (2025 had no Monday row).
+        let weekdays = Set(days.map(\.date.weekday)).sorted()
+        DashboardCard(title, summary: summary) {
             Text(range)
         } content: {
             // Weekday initials in a column beside the plot, one per band, as
@@ -162,8 +200,8 @@ private struct SeasonCalendarCard: View {
     }
 
     private var cells: [Cell] {
-        guard let firstMonday = detail.calendar.first?.date.startOfWeek.perthNoon else { return [] }
-        return detail.calendar.compactMap { day in
+        guard let firstMonday = days.first?.date.startOfWeek.perthNoon else { return [] }
+        return days.compactMap { day in
             guard let monday = day.date.startOfWeek.perthNoon,
                   let days = BirthdayBoard.calendar.dateComponents([.day], from: firstMonday, to: monday).day
             else { return nil }
@@ -184,21 +222,14 @@ private struct SeasonCalendarCard: View {
 
     /// "Jan – Sep".
     private var range: String {
-        let months = [detail.calendar.first, detail.calendar.last].compactMap {
+        let months = [days.first, days.last].compactMap {
             $0?.date.formatted(Date.FormatStyle.perth.month(.abbreviated))
         }
         return months.count == 2 && months[0] != months[1] ? "\(months[0]) – \(months[1])" : months.first ?? ""
     }
 
-    private var caption: String {
-        let record = detail.record
-        let best = "Best this season: \(record.best)."
-        guard let from = record.currentFrom else { return "No current streak. \(best)" }
-        return "Accent marks the current streak of \(record.current), since \(DashboardFormat.day(from)). \(best)"
-    }
-
     private var summary: String {
-        "Season calendar: \(detail.record.made) of \(detail.calendar.count) club days made. \(caption)"
+        "\(title) calendar: \(days.count(where: \.made)) of \(days.count) club days made. \(caption)"
     }
 }
 

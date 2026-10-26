@@ -9,8 +9,9 @@
 //    @Query rows ─> ActiveSeason.fingerprint ─> store.update ─changed─> DashboardModel
 //    engine ──────────────────────────────────> store.load ───> picked season, Vs last year
 //
-//  The header's season menu (the live season and each listed one before it)
-//  calls `store.select(season:)`. An earlier season shows from its snapshot.
+//  The header's season menu (All time, then the live season and each listed
+//  one before it) calls `store.select(_:)`. An earlier season shows from its
+//  snapshot; All time joins every season and compares with nothing.
 //
 //  Cards, top to bottom, in the approved mockup's order: the headline, Together
 //  beside On a roll, The Wall, Vs last year, Every run, the Leaderboard and the
@@ -87,19 +88,20 @@ struct DashboardView: View {
     /// than a ScrollView starts its content). `TabNavigationUITests` checks it.
     private static let headerTop: CGFloat = 8
 
-    /// The season menu, beside the title where Runs has its gear. Hidden while
-    /// there is only one season to show (a legacy endpoint, the first season).
+    /// The season menu, beside the title where Runs has its gear: All time,
+    /// then each season newest first. Hidden while there is only one season
+    /// to show (a legacy endpoint, the first season).
     @ViewBuilder private var seasonMenu: some View {
-        if store.seasons.count > 1, let shown = store.shownSeason {
+        if !store.periods.isEmpty, let shown = store.shown {
             Menu {
-                Picker("Season", selection: Binding(get: { shown }, set: { year in
-                    Task { await store.select(season: year) }
+                Picker("Season", selection: Binding(get: { shown }, set: { period in
+                    Task { await store.select(period) }
                 })) {
-                    ForEach(store.seasons, id: \.self) { Text(String($0)).tag($0) }
+                    ForEach(store.periods, id: \.self) { Text($0.label).tag($0) }
                 }
             } label: {
                 HStack(spacing: 5) {
-                    Text(String(shown))
+                    Text(shown.label)
                         .font(.headline)
                         .monospacedDigit()
                     Image(systemName: "chevron.down")
@@ -112,7 +114,7 @@ struct DashboardView: View {
                 .background(Color(.secondarySystemGroupedBackground), in: .capsule)
             }
             .accessibilityLabel("Season")
-            .accessibilityValue(String(shown))
+            .accessibilityValue(shown.label)
             .accessibilityIdentifier("dashboard-season")
         }
     }
@@ -130,10 +132,12 @@ struct DashboardView: View {
             } else {
                 cards(model)
             }
-        } else if store.showing == .notDownloaded, let season = store.shownSeason {
+        } else if store.showing == .notDownloaded, let shown = store.shown {
             SeasonUnavailableView(
                 identifier: "dashboard-season-unavailable",
-                detail: "The app could not load the \(String(season)) season. Try again when you are back online."
+                detail: shown == .allTime
+                    ? "The app could not load every season. Try again when you are back online."
+                    : "The app could not load the \(shown.label) season. Try again when you are back online."
             ) {
                 await store.load()
             }
@@ -154,11 +158,11 @@ struct DashboardView: View {
 
     @ViewBuilder private func cards(_ model: DashboardModel) -> some View {
         HeadlineCard(headline: model.headline, recentRuns: Array(model.recentRuns),
-                     unsyncedCount: store.unsyncedCount, accent: accent)
+                     unsyncedCount: store.unsyncedCount, period: model.period, accent: accent)
             .staggeredEntrance(0, hasEntered: hasEntered)
 
         pairLayout {
-            TogetherCard(headline: model.headline)
+            TogetherCard(headline: model.headline, period: model.period)
             OnARollCard(onARoll: model.onARoll, accent: accent)
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -167,16 +171,19 @@ struct DashboardView: View {
         WallCard(wall: model.recentWall, accent: accent, open: openRunner)
             .staggeredEntrance(2, hasEntered: hasEntered)
 
-        switch store.lastSeason {
-        case .loaded:
-            if let progress = model.progress {
-                VsLastYearCard(progress: progress, accent: accent)
+        // All time compares with nothing, as on the web.
+        if model.period != .allTime {
+            switch store.lastSeason {
+            case .loaded:
+                if let progress = model.progress {
+                    VsLastYearCard(progress: progress, accent: accent)
+                }
+            case .notDownloaded:
+                LastSeasonMissingCard()
+            case .loading, .unavailable:
+                // Legacy endpoints and first seasons have nothing to compare.
+                EmptyView()
             }
-        case .notDownloaded:
-            LastSeasonMissingCard()
-        case .loading, .unavailable:
-            // Legacy endpoints and first seasons have nothing to compare.
-            EmptyView()
         }
 
         EveryRunCard(runs: Array(model.recentRuns.suffix(EveryRunCard.count)), accent: accent)
@@ -194,10 +201,10 @@ struct DashboardView: View {
     @ViewBuilder private func destination(for route: DashboardRoute) -> some View {
         switch route {
         case .wall:
-            WallView(wall: store.model?.wall, accent: accent, open: openRunner)
+            WallView(wall: store.model?.wall, period: store.model?.period, accent: accent, open: openRunner)
         case .runner(let name):
             RunnerView(name: name, detail: store.model?.runners[name],
-                       seasonRuns: store.model?.runs.count ?? 0, accent: accent)
+                       seasonRuns: store.model?.runs.count ?? 0, period: store.model?.period, accent: accent)
         case .runLog:
             RunLogView(runs: store.model?.runs ?? [])
         case .run(let id):
@@ -228,7 +235,9 @@ struct DashboardView: View {
             guard let year = runs.map(\.season).max() ?? season.state?.seasonYear, year > 0 else { return nil }
             return DashboardInputs(season: year, runs: runs, priors: season.priors,
                                    unsyncedCount: season.effective.unsyncedCount,
-                                   listedSeasons: season.state?.supportedSeasons?.map(\.seasonYear) ?? [])
+                                   listedSeasons: season.state?.supportedSeasons?.map(\.seasonYear) ?? [],
+                                   // The sheet's columns; the cached members stand in before a refresh.
+                                   roster: season.state?.roster.map(\.name) ?? cachedMembers.map(\.name))
         }
         Task { await store.load() }
     }

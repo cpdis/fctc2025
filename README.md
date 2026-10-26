@@ -541,12 +541,22 @@ See `docs/plans/2026-09-18-attendance-count-birthdays-plan.md`.
 
 ### Dashboard tab
 
-The Dashboard opens on the live season. The season menu beside the title lists the live
-season and every earlier season the sheet lists (`supportedSeasons`), so a new year appears
-when it goes live. An earlier season comes from a read-only snapshot (fetched once per app
-session, then served from the cache, offline too). It compares with the season before it,
-keeps each runner's all-time total as it is today, and never includes unsynced check-ins. The
-cards follow the approved mockup (`docs/reference/2026-09-28-dashboard-mockups/ios.html`),
+The Dashboard opens on the live season. The season menu beside the title lists All time, then
+the live season and every earlier season the sheet lists (`supportedSeasons`), so a new year
+appears when it goes live. An earlier season comes from a read-only snapshot (fetched once per
+app session, then served from the cache, offline too). It compares with the season before it,
+keeps each runner's all-time total as it is today, and never includes unsynced check-ins.
+
+**All time** joins the live season (unsynced check-ins included) with a snapshot of every
+earlier season, as the web's All time does. Club days keep each season's weekdays, so a streak
+to Wed 31 Dec 2025 continues into Fri 2 Jan 2026. Nothing compares (no Vs last year, no
+same-date delta). On the Wall, a runs column from a season whose sheet had no column for a
+runner stays blank (`WallMark.notOnRoster`): Dan B, Deano and René before 2026, Laura K, Sam and
+Tim after 2025. The runner screen stacks one calendar per season, newest first. Members are
+matched by name across seasons, so a renamed member would count as two people. Every view,
+All time included, lists the live season's milestone shortlist.
+
+The cards follow the approved mockup (`docs/reference/2026-09-28-dashboard-mockups/ios.html`),
 top to bottom:
 
 - **Headline**: runs this season, or km together, with a Runs/Km toggle. It compares with last

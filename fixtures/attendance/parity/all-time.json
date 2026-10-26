@@ -1,0 +1,966 @@
+{
+  "seasons": [
+    2025,
+    2026
+  ],
+  "rosters": {
+    "2025": [
+      "Aaron",
+      "Adam",
+      "Alex B",
+      "Alex Kr",
+      "Alex 👑",
+      "Anna",
+      "Cam",
+      "Celeste",
+      "Chartt",
+      "Claire",
+      "Col",
+      "Dan",
+      "Darren",
+      "Fraser",
+      "Grant",
+      "Jack",
+      "Joe",
+      "Kate B",
+      "Laura E",
+      "Laura K",
+      "Liam",
+      "Ming",
+      "Rhys",
+      "Rohan",
+      "Sam",
+      "Scott",
+      "Shane",
+      "Tarquin",
+      "Tim",
+      "Toby",
+      "Wes"
+    ],
+    "2026": [
+      "Aaron",
+      "Adam",
+      "Alex B",
+      "Alex Kr",
+      "Alex 👑",
+      "Anna",
+      "Cam",
+      "Celeste",
+      "Chartt",
+      "Claire",
+      "Col",
+      "Dan",
+      "Dan B",
+      "Darren",
+      "Deano",
+      "Fraser",
+      "Grant",
+      "Jack",
+      "Joe",
+      "Kate B",
+      "Laura E",
+      "Liam",
+      "Ming",
+      "René",
+      "Rhys",
+      "Rohan",
+      "Scott",
+      "Shane",
+      "Tarquin",
+      "Toby",
+      "Wes"
+    ]
+  },
+  "expected": {
+    "totals": {
+      "runs": 229,
+      "memberKm": 21053.99,
+      "runners": 34
+    },
+    "members": [
+      {
+        "name": "Aaron",
+        "runs": 177,
+        "memberKm": 1842.2
+      },
+      {
+        "name": "Adam",
+        "runs": 143,
+        "memberKm": 1439.61
+      },
+      {
+        "name": "Alex B",
+        "runs": 41,
+        "memberKm": 421.4
+      },
+      {
+        "name": "Alex Kr",
+        "runs": 13,
+        "memberKm": 116.25
+      },
+      {
+        "name": "Alex 👑",
+        "runs": 160,
+        "memberKm": 1659.4
+      },
+      {
+        "name": "Anna",
+        "runs": 54,
+        "memberKm": 526.44
+      },
+      {
+        "name": "Cam",
+        "runs": 166,
+        "memberKm": 1704.28
+      },
+      {
+        "name": "Celeste",
+        "runs": 50,
+        "memberKm": 494.05
+      },
+      {
+        "name": "Chartt",
+        "runs": 22,
+        "memberKm": 208.78
+      },
+      {
+        "name": "Claire",
+        "runs": 47,
+        "memberKm": 445.54
+      },
+      {
+        "name": "Col",
+        "runs": 148,
+        "memberKm": 1574.7
+      },
+      {
+        "name": "Dan",
+        "runs": 23,
+        "memberKm": 210.06
+      },
+      {
+        "name": "Dan B",
+        "runs": 30,
+        "memberKm": 322.33
+      },
+      {
+        "name": "Darren",
+        "runs": 76,
+        "memberKm": 785.31
+      },
+      {
+        "name": "Deano",
+        "runs": 16,
+        "memberKm": 154.24
+      },
+      {
+        "name": "Fraser",
+        "runs": 19,
+        "memberKm": 166.91
+      },
+      {
+        "name": "Grant",
+        "runs": 130,
+        "memberKm": 1371.16
+      },
+      {
+        "name": "Jack",
+        "runs": 15,
+        "memberKm": 141.13
+      },
+      {
+        "name": "Joe",
+        "runs": 73,
+        "memberKm": 702.85
+      },
+      {
+        "name": "Kate B",
+        "runs": 85,
+        "memberKm": 872.88
+      },
+      {
+        "name": "Laura E",
+        "runs": 21,
+        "memberKm": 228.98
+      },
+      {
+        "name": "Laura K",
+        "runs": 4,
+        "memberKm": 41.86
+      },
+      {
+        "name": "Liam",
+        "runs": 32,
+        "memberKm": 328.31
+      },
+      {
+        "name": "Ming",
+        "runs": 56,
+        "memberKm": 563.34
+      },
+      {
+        "name": "René",
+        "runs": 5,
+        "memberKm": 47.69
+      },
+      {
+        "name": "Rhys",
+        "runs": 36,
+        "memberKm": 343.1
+      },
+      {
+        "name": "Rohan",
+        "runs": 12,
+        "memberKm": 112.89
+      },
+      {
+        "name": "Sam",
+        "runs": 3,
+        "memberKm": 24.91
+      },
+      {
+        "name": "Scott",
+        "runs": 187,
+        "memberKm": 1917.1
+      },
+      {
+        "name": "Shane",
+        "runs": 83,
+        "memberKm": 877.81
+      },
+      {
+        "name": "Tarquin",
+        "runs": 7,
+        "memberKm": 64.52
+      },
+      {
+        "name": "Tim",
+        "runs": 3,
+        "memberKm": 29.56
+      },
+      {
+        "name": "Toby",
+        "runs": 78,
+        "memberKm": 759.93
+      },
+      {
+        "name": "Wes",
+        "runs": 57,
+        "memberKm": 554.47
+      }
+    ],
+    "clubDays": {
+      "count": 218,
+      "dates": [
+        "2025-01-03",
+        "2025-01-08",
+        "2025-01-10",
+        "2025-01-15",
+        "2025-01-17",
+        "2025-01-22",
+        "2025-01-24",
+        "2025-01-29",
+        "2025-01-31",
+        "2025-02-05",
+        "2025-02-07",
+        "2025-02-12",
+        "2025-02-14",
+        "2025-02-19",
+        "2025-02-21",
+        "2025-02-26",
+        "2025-02-28",
+        "2025-03-05",
+        "2025-03-07",
+        "2025-03-12",
+        "2025-03-14",
+        "2025-03-19",
+        "2025-03-21",
+        "2025-03-26",
+        "2025-03-28",
+        "2025-04-02",
+        "2025-04-04",
+        "2025-04-09",
+        "2025-04-11",
+        "2025-04-16",
+        "2025-04-18",
+        "2025-04-23",
+        "2025-04-25",
+        "2025-04-30",
+        "2025-05-02",
+        "2025-05-07",
+        "2025-05-09",
+        "2025-05-14",
+        "2025-05-16",
+        "2025-05-21",
+        "2025-05-23",
+        "2025-05-28",
+        "2025-05-30",
+        "2025-06-04",
+        "2025-06-06",
+        "2025-06-11",
+        "2025-06-13",
+        "2025-06-18",
+        "2025-06-20",
+        "2025-06-25",
+        "2025-06-27",
+        "2025-07-02",
+        "2025-07-04",
+        "2025-07-09",
+        "2025-07-11",
+        "2025-07-16",
+        "2025-07-18",
+        "2025-07-23",
+        "2025-07-25",
+        "2025-07-30",
+        "2025-08-01",
+        "2025-08-06",
+        "2025-08-08",
+        "2025-08-13",
+        "2025-08-15",
+        "2025-08-20",
+        "2025-08-22",
+        "2025-08-27",
+        "2025-08-29",
+        "2025-09-03",
+        "2025-09-05",
+        "2025-09-10",
+        "2025-09-12",
+        "2025-09-17",
+        "2025-09-19",
+        "2025-09-24",
+        "2025-09-26",
+        "2025-10-01",
+        "2025-10-03",
+        "2025-10-08",
+        "2025-10-10",
+        "2025-10-15",
+        "2025-10-17",
+        "2025-10-22",
+        "2025-10-24",
+        "2025-10-29",
+        "2025-10-31",
+        "2025-11-05",
+        "2025-11-07",
+        "2025-11-12",
+        "2025-11-14",
+        "2025-11-19",
+        "2025-11-21",
+        "2025-11-26",
+        "2025-11-28",
+        "2025-12-03",
+        "2025-12-05",
+        "2025-12-10",
+        "2025-12-12",
+        "2025-12-17",
+        "2025-12-19",
+        "2025-12-24",
+        "2025-12-26",
+        "2025-12-31",
+        "2026-01-02",
+        "2026-01-05",
+        "2026-01-07",
+        "2026-01-09",
+        "2026-01-12",
+        "2026-01-14",
+        "2026-01-16",
+        "2026-01-19",
+        "2026-01-21",
+        "2026-01-23",
+        "2026-01-26",
+        "2026-01-28",
+        "2026-01-30",
+        "2026-02-02",
+        "2026-02-04",
+        "2026-02-06",
+        "2026-02-09",
+        "2026-02-11",
+        "2026-02-13",
+        "2026-02-16",
+        "2026-02-18",
+        "2026-02-20",
+        "2026-02-23",
+        "2026-02-25",
+        "2026-02-27",
+        "2026-03-02",
+        "2026-03-04",
+        "2026-03-06",
+        "2026-03-09",
+        "2026-03-11",
+        "2026-03-13",
+        "2026-03-16",
+        "2026-03-18",
+        "2026-03-20",
+        "2026-03-23",
+        "2026-03-25",
+        "2026-03-27",
+        "2026-03-30",
+        "2026-04-01",
+        "2026-04-03",
+        "2026-04-06",
+        "2026-04-08",
+        "2026-04-10",
+        "2026-04-13",
+        "2026-04-15",
+        "2026-04-17",
+        "2026-04-20",
+        "2026-04-22",
+        "2026-04-24",
+        "2026-04-27",
+        "2026-04-29",
+        "2026-05-01",
+        "2026-05-04",
+        "2026-05-06",
+        "2026-05-11",
+        "2026-05-13",
+        "2026-05-15",
+        "2026-05-18",
+        "2026-05-20",
+        "2026-05-22",
+        "2026-05-25",
+        "2026-05-27",
+        "2026-05-29",
+        "2026-06-01",
+        "2026-06-03",
+        "2026-06-05",
+        "2026-06-08",
+        "2026-06-10",
+        "2026-06-12",
+        "2026-06-15",
+        "2026-06-17",
+        "2026-06-19",
+        "2026-06-22",
+        "2026-06-24",
+        "2026-06-26",
+        "2026-06-29",
+        "2026-07-01",
+        "2026-07-03",
+        "2026-07-06",
+        "2026-07-08",
+        "2026-07-10",
+        "2026-07-13",
+        "2026-07-15",
+        "2026-07-17",
+        "2026-07-20",
+        "2026-07-22",
+        "2026-07-24",
+        "2026-07-27",
+        "2026-07-29",
+        "2026-07-31",
+        "2026-08-03",
+        "2026-08-05",
+        "2026-08-07",
+        "2026-08-10",
+        "2026-08-12",
+        "2026-08-14",
+        "2026-08-17",
+        "2026-08-19",
+        "2026-08-21",
+        "2026-08-24",
+        "2026-08-26",
+        "2026-08-28",
+        "2026-08-31",
+        "2026-09-02",
+        "2026-09-04",
+        "2026-09-07",
+        "2026-09-09",
+        "2026-09-11",
+        "2026-09-14",
+        "2026-09-16",
+        "2026-09-18",
+        "2026-09-21",
+        "2026-09-23",
+        "2026-09-25"
+      ]
+    },
+    "streaks": [
+      {
+        "name": "Aaron",
+        "current": 14,
+        "currentFrom": "2026-08-26",
+        "best": 22,
+        "bestFrom": "2025-08-13",
+        "bestTo": "2025-10-24",
+        "madeByWeekday": {
+          "Mon": 19,
+          "Wed": 79,
+          "Fri": 74
+        }
+      },
+      {
+        "name": "Adam",
+        "current": 0,
+        "currentFrom": null,
+        "best": 14,
+        "bestFrom": "2025-03-05",
+        "bestTo": "2025-04-18",
+        "madeByWeekday": {
+          "Mon": 3,
+          "Wed": 73,
+          "Fri": 62
+        }
+      },
+      {
+        "name": "Alex B",
+        "current": 1,
+        "currentFrom": "2026-09-25",
+        "best": 3,
+        "bestFrom": "2026-02-13",
+        "bestTo": "2026-02-18",
+        "madeByWeekday": {
+          "Mon": 14,
+          "Wed": 20,
+          "Fri": 5
+        }
+      },
+      {
+        "name": "Alex Kr",
+        "current": 0,
+        "currentFrom": null,
+        "best": 2,
+        "bestFrom": "2025-03-21",
+        "bestTo": "2025-03-26",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 12,
+          "Fri": 1
+        }
+      },
+      {
+        "name": "Alex 👑",
+        "current": 0,
+        "currentFrom": null,
+        "best": 16,
+        "bestFrom": "2025-05-14",
+        "bestTo": "2025-07-04",
+        "madeByWeekday": {
+          "Mon": 28,
+          "Wed": 80,
+          "Fri": 47
+        }
+      },
+      {
+        "name": "Anna",
+        "current": 0,
+        "currentFrom": null,
+        "best": 2,
+        "bestFrom": "2025-04-16",
+        "bestTo": "2025-04-18",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 50,
+          "Fri": 2
+        }
+      },
+      {
+        "name": "Cam",
+        "current": 5,
+        "currentFrom": "2026-09-16",
+        "best": 33,
+        "bestFrom": "2025-01-03",
+        "bestTo": "2025-04-25",
+        "madeByWeekday": {
+          "Mon": 4,
+          "Wed": 77,
+          "Fri": 81
+        }
+      },
+      {
+        "name": "Celeste",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2025-04-30",
+        "bestTo": "2025-04-30",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 47,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Chartt",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2025-05-21",
+        "bestTo": "2025-05-21",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 21,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Claire",
+        "current": 0,
+        "currentFrom": null,
+        "best": 3,
+        "bestFrom": "2025-04-23",
+        "bestTo": "2025-04-30",
+        "madeByWeekday": {
+          "Mon": 1,
+          "Wed": 37,
+          "Fri": 9
+        }
+      },
+      {
+        "name": "Col",
+        "current": 0,
+        "currentFrom": null,
+        "best": 15,
+        "bestFrom": "2025-02-12",
+        "bestTo": "2025-04-02",
+        "madeByWeekday": {
+          "Mon": 5,
+          "Wed": 73,
+          "Fri": 65
+        }
+      },
+      {
+        "name": "Dan",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2025-01-08",
+        "bestTo": "2025-01-08",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 22,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Dan B",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-01-05",
+        "bestTo": "2026-01-05",
+        "madeByWeekday": {
+          "Mon": 28,
+          "Wed": 0,
+          "Fri": 1
+        }
+      },
+      {
+        "name": "Darren",
+        "current": 0,
+        "currentFrom": null,
+        "best": 4,
+        "bestFrom": "2026-05-04",
+        "bestTo": "2026-05-13",
+        "madeByWeekday": {
+          "Mon": 24,
+          "Wed": 48,
+          "Fri": 1
+        }
+      },
+      {
+        "name": "Deano",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-02-04",
+        "bestTo": "2026-02-04",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 15,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Fraser",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2025-01-15",
+        "bestTo": "2025-01-15",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 19,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Grant",
+        "current": 0,
+        "currentFrom": null,
+        "best": 5,
+        "bestFrom": "2025-03-05",
+        "bestTo": "2025-03-19",
+        "madeByWeekday": {
+          "Mon": 32,
+          "Wed": 77,
+          "Fri": 16
+        }
+      },
+      {
+        "name": "Jack",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2025-03-12",
+        "bestTo": "2025-03-12",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 15,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Joe",
+        "current": 0,
+        "currentFrom": null,
+        "best": 3,
+        "bestFrom": "2025-07-02",
+        "bestTo": "2025-07-09",
+        "madeByWeekday": {
+          "Mon": 9,
+          "Wed": 57,
+          "Fri": 7
+        }
+      },
+      {
+        "name": "Kate B",
+        "current": 2,
+        "currentFrom": "2026-09-23",
+        "best": 7,
+        "bestFrom": "2025-08-22",
+        "bestTo": "2025-09-12",
+        "madeByWeekday": {
+          "Mon": 19,
+          "Wed": 47,
+          "Fri": 18
+        }
+      },
+      {
+        "name": "Laura E",
+        "current": 0,
+        "currentFrom": null,
+        "best": 4,
+        "bestFrom": "2025-04-18",
+        "bestTo": "2025-04-30",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 17,
+          "Fri": 2
+        }
+      },
+      {
+        "name": "Laura K",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2025-02-19",
+        "bestTo": "2025-02-19",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 4,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Liam",
+        "current": 0,
+        "currentFrom": null,
+        "best": 2,
+        "bestFrom": "2025-10-08",
+        "bestTo": "2025-10-10",
+        "madeByWeekday": {
+          "Mon": 8,
+          "Wed": 15,
+          "Fri": 7
+        }
+      },
+      {
+        "name": "Ming",
+        "current": 0,
+        "currentFrom": null,
+        "best": 5,
+        "bestFrom": "2025-03-05",
+        "bestTo": "2025-03-19",
+        "madeByWeekday": {
+          "Mon": 7,
+          "Wed": 28,
+          "Fri": 19
+        }
+      },
+      {
+        "name": "René",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2026-08-26",
+        "bestTo": "2026-08-26",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 5,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Rhys",
+        "current": 0,
+        "currentFrom": null,
+        "best": 2,
+        "bestFrom": "2025-04-09",
+        "bestTo": "2025-04-11",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 32,
+          "Fri": 2
+        }
+      },
+      {
+        "name": "Rohan",
+        "current": 0,
+        "currentFrom": null,
+        "best": 6,
+        "bestFrom": "2025-01-22",
+        "bestTo": "2025-02-07",
+        "madeByWeekday": {
+          "Mon": 1,
+          "Wed": 5,
+          "Fri": 5
+        }
+      },
+      {
+        "name": "Sam",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2025-03-05",
+        "bestTo": "2025-03-05",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 3,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Scott",
+        "current": 2,
+        "currentFrom": "2026-09-23",
+        "best": 54,
+        "bestFrom": "2025-01-03",
+        "bestTo": "2025-07-09",
+        "madeByWeekday": {
+          "Mon": 5,
+          "Wed": 90,
+          "Fri": 88
+        }
+      },
+      {
+        "name": "Shane",
+        "current": 0,
+        "currentFrom": null,
+        "best": 7,
+        "bestFrom": "2025-02-26",
+        "bestTo": "2025-03-19",
+        "madeByWeekday": {
+          "Mon": 10,
+          "Wed": 48,
+          "Fri": 22
+        }
+      },
+      {
+        "name": "Tarquin",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2025-01-08",
+        "bestTo": "2025-01-08",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 6,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Tim",
+        "current": 0,
+        "currentFrom": null,
+        "best": 1,
+        "bestFrom": "2025-02-26",
+        "bestTo": "2025-02-26",
+        "madeByWeekday": {
+          "Mon": 0,
+          "Wed": 3,
+          "Fri": 0
+        }
+      },
+      {
+        "name": "Toby",
+        "current": 0,
+        "currentFrom": null,
+        "best": 5,
+        "bestFrom": "2026-01-12",
+        "bestTo": "2026-01-21",
+        "madeByWeekday": {
+          "Mon": 6,
+          "Wed": 61,
+          "Fri": 10
+        }
+      },
+      {
+        "name": "Wes",
+        "current": 0,
+        "currentFrom": null,
+        "best": 2,
+        "bestFrom": "2026-05-18",
+        "bestTo": "2026-05-20",
+        "madeByWeekday": {
+          "Mon": 4,
+          "Wed": 53,
+          "Fri": 0
+        }
+      }
+    ],
+    "milestones": [
+      {
+        "name": "Col",
+        "runs": 148,
+        "milestone": 150,
+        "runsNeeded": 2
+      },
+      {
+        "name": "Claire",
+        "runs": 47,
+        "milestone": 50,
+        "runsNeeded": 3
+      },
+      {
+        "name": "Adam",
+        "runs": 143,
+        "milestone": 150,
+        "runsNeeded": 7
+      }
+    ],
+    "notOnRoster": [
+      {
+        "name": "Dan B",
+        "cells": 111
+      },
+      {
+        "name": "Deano",
+        "cells": 111
+      },
+      {
+        "name": "Laura K",
+        "cells": 118
+      },
+      {
+        "name": "René",
+        "cells": 111
+      },
+      {
+        "name": "Sam",
+        "cells": 118
+      },
+      {
+        "name": "Tim",
+        "cells": 118
+      }
+    ]
+  }
+}

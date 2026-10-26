@@ -17,8 +17,27 @@
 //  previous one up to the month and day of the latest run. The card value types
 //  live in `DashboardValues.swift`.
 //
+//  All time is the same builders over every season's runs (the web's
+//  `combineYearData`): club days keep each season's weekdays, so a streak to
+//  Wed 31 Dec 2025 runs on into Fri 2 Jan 2026; nothing compares; and a Wall
+//  cell on a season whose sheet had no column for the runner is `notOnRoster`.
+//
 
 import Foundation
+
+/// What the Dashboard shows: one season, or every listed season together.
+public enum DashboardPeriod: Hashable, Sendable {
+    case season(Int)
+    case allTime
+
+    /// The season menu's label: "2026" or "All time".
+    public var label: String {
+        switch self {
+        case .season(let year): String(year)
+        case .allTime: "All time"
+        }
+    }
+}
 
 public struct DashboardModel: Hashable, Sendable {
 
@@ -32,8 +51,8 @@ public struct DashboardModel: Hashable, Sendable {
     /// Runs behind the headline sparkline and the Every run card.
     public static let recentRunCount = 24
 
-    public let season: Int
-    /// Every run of the season (rows with an attendee or +1), oldest first; runs
+    public let period: DashboardPeriod
+    /// Every run of the view (rows with an attendee or +1), oldest first; runs
     /// sharing a date keep the order they were given (sheet order).
     public let runs: [DashboardRun]
     public let clubDays: ClubDays
@@ -56,7 +75,12 @@ public struct DashboardModel: Hashable, Sendable {
         runs.suffix(Self.recentRunCount)
     }
 
-    /// Build every card.
+    /// The season shown; nil for All time.
+    public var season: Int? {
+        if case .season(let year) = period { year } else { nil }
+    }
+
+    /// Build every card for one season.
     ///
     /// - Parameters:
     ///   - season: the season year the runs belong to.
@@ -66,20 +90,64 @@ public struct DashboardModel: Hashable, Sendable {
     ///     whose season is not before `season` are ignored.
     ///   - priors: lifetime runs before this season (KTD12), or nil when the
     ///     server sent no lifetime totals; all-time numbers are then absent.
-    public init(season: Int, runs: [ClubRun], previous: [ClubRun]? = nil, priors: LifetimePriors? = nil) {
+    ///   - milestones: the shortlist to show, or nil to build it from `priors`
+    ///     and `runs`. The store passes the live season's, so every view names
+    ///     the same people (the web's rule).
+    public init(
+        season: Int,
+        runs: [ClubRun],
+        previous: [ClubRun]? = nil,
+        priors: LifetimePriors? = nil,
+        milestones: [MilestoneCandidate]? = nil
+    ) {
+        self.init(period: .season(season), runs: runs, previous: previous, priors: priors,
+                  rosters: nil, milestones: milestones)
+    }
+
+    /// Build every card for All time: every season's runs together.
+    ///
+    /// - Parameters:
+    ///   - runs: every season's effective runs; each keeps its own season.
+    ///   - rosters: each season's sheet columns by season year, so a Wall cell
+    ///     on a season the runner was not on reads `notOnRoster`. A season
+    ///     missing here marks nobody.
+    ///   - priors: lifetime runs before the earliest season shown.
+    ///   - milestones: as for one season.
+    public init(
+        allTime runs: [ClubRun],
+        rosters: [Int: Set<String>],
+        priors: LifetimePriors? = nil,
+        milestones: [MilestoneCandidate]? = nil
+    ) {
+        self.init(period: .allTime, runs: runs, previous: nil, priors: priors,
+                  rosters: rosters, milestones: milestones)
+    }
+
+    private init(
+        period: DashboardPeriod,
+        runs: [ClubRun],
+        previous: [ClubRun]?,
+        priors: LifetimePriors?,
+        rosters: [Int: Set<String>]?,
+        milestones: [MilestoneCandidate]?
+    ) {
         let ordered = Self.chronological(runs)
         let clubDays = ClubDays(runs: ordered)
         let entries = ordered.map { DashboardRun(run: $0, isSpecial: !clubDays.isClubRun($0)) }
         let standings = Self.standings(ordered).map { Standing(entry: $0, record: clubDays.record(for: $0.name)) }
 
-        self.season = season
+        self.period = period
         self.runs = entries
         self.clubDays = clubDays
 
         // The previous season lined up against this one (web: lineUpPrevious).
         // Only an earlier season compares: runs of this season or a later one
-        // are dropped, so a stale answer cannot pose as last year.
-        let previousRuns = Self.chronological((previous ?? []).filter { $0.season < season })
+        // are dropped, so a stale answer cannot pose as last year. All time
+        // never compares.
+        let season: Int? = if case .season(let year) = period { year } else { nil }
+        let previousRuns = season.map { season in
+            Self.chronological((previous ?? []).filter { $0.season < season })
+        } ?? []
         let lineUp = ordered.last.flatMap { latest in
             previousRuns.first.map { first in
                 (year: first.season, sameDate: previousRuns.filter { $0.date.isOnOrBefore(monthDayOf: latest.date) })
@@ -88,14 +156,16 @@ public struct DashboardModel: Hashable, Sendable {
 
         headline = Self.headline(ordered, runners: standings.count, lineUp: lineUp)
         onARoll = Self.onARoll(standings, clubDays: clubDays)
-        wall = Self.wall(entries, standings: standings)
-        recentWall = Self.wall(Self.latestWeeks(of: entries), standings: standings)
-        progress = lineUp.map { lineUp in
-            SeasonProgress(
-                current: .init(year: season, points: Self.cumulativeMemberKm(ordered)),
-                previous: .init(year: lineUp.year, points: Self.cumulativeMemberKm(previousRuns)),
-                previousAtLatest: Self.memberKm(lineUp.sameDate)
-            )
+        wall = Self.wall(entries, standings: standings, rosters: rosters)
+        recentWall = Self.wall(Self.latestWeeks(of: entries), standings: standings, rosters: rosters)
+        progress = lineUp.flatMap { lineUp in
+            season.map { season in
+                SeasonProgress(
+                    current: .init(year: season, points: Self.cumulativeMemberKm(ordered)),
+                    previous: .init(year: lineUp.year, points: Self.cumulativeMemberKm(previousRuns)),
+                    previousAtLatest: Self.memberKm(lineUp.sameDate)
+                )
+            }
         }
         let byRuns = standings.map(\.entry)
         leaderboard = Leaderboard(
@@ -104,7 +174,7 @@ public struct DashboardModel: Hashable, Sendable {
                 $0.memberKm != $1.memberKm ? $0.memberKm > $1.memberKm : codeUnitPrecedes($0.name, $1.name)
             }
         )
-        milestones = priors.map { MilestoneBoard.shortlist(priors: $0, season: ordered) } ?? []
+        self.milestones = milestones ?? priors.map { MilestoneBoard.shortlist(priors: $0, season: ordered) } ?? []
         runners = Dictionary(uniqueKeysWithValues: standings.map { standing in
             (standing.entry.name, Self.runner(standing, among: byRuns, clubDays: clubDays, priors: priors))
         })
@@ -210,11 +280,15 @@ public struct DashboardModel: Hashable, Sendable {
     ///   Aaron, current streak 14 from Wed 26 Aug 2026
     ///   ... Mon 24 Aug  Wed 26 Aug  ...  Sat 5 Sep (Pub Run)  ...  Fri 25 Sep
     ///        ran          streak           ran (special column)      streak
-    private static func wall(_ columns: [DashboardRun], standings: [Standing]) -> Wall {
+    private static func wall(_ columns: [DashboardRun], standings: [Standing], rosters: [Int: Set<String>]?) -> Wall {
         let rows = standings.map { standing in
             let name = standing.entry.name
             let cells = columns.map { column -> WallMark in
-                guard column.run.attendees.contains(name) else { return .missed }
+                guard column.run.attendees.contains(name) else {
+                    // All time: no column for them on that season's sheet.
+                    if let roster = rosters?[column.run.season], !roster.contains(name) { return .notOnRoster }
+                    return .missed
+                }
                 // Every club day from currentFrom on is one the member made, so each
                 // club-day run they ran from then on belongs to the current streak.
                 if !column.isSpecial, let from = standing.record.currentFrom, column.run.date >= from {
@@ -268,7 +342,7 @@ public struct DashboardModel: Hashable, Sendable {
             calendar: clubDays.days.map { day in
                 let made = day.attendees.contains(entry.name)
                 let inStreak = made && streakFrom.map { day.date >= $0 } == true
-                return RunnerDay(date: day.date, made: made, inStreak: inStreak)
+                return RunnerDay(date: day.date, season: day.season, made: made, inStreak: inStreak)
             },
             allTime: priors?.allTime(for: entry.name, seasonRuns: entry.runs)
         )

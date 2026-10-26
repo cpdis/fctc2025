@@ -145,6 +145,7 @@ struct HeadlineCard: View {
     let headline: Headline
     let recentRuns: [DashboardRun]
     let unsyncedCount: Int
+    let period: DashboardPeriod
     let accent: Color
 
     enum Metric: String, CaseIterable, Identifiable {
@@ -231,9 +232,11 @@ struct HeadlineCard: View {
     }
 
     private var caption: String {
-        switch metric {
-        case .runs: "Runs this season"
-        case .km: "Km together this season"
+        switch (metric, period) {
+        case (.runs, .allTime): "Runs, all time"
+        case (.km, .allTime): "Km together, all time"
+        case (.runs, .season): "Runs this season"
+        case (.km, .season): "Km together this season"
         }
     }
 
@@ -274,6 +277,7 @@ private struct RunnersSparkline: View {
 /// Member-km this season ("km together"), against last season by this date.
 struct TogetherCard: View {
     let headline: Headline
+    let period: DashboardPeriod
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -301,7 +305,9 @@ struct TogetherCard: View {
     }
 
     private var detail: String {
-        guard let vs = headline.vsPrevious else { return "Member-km this season" }
+        guard let vs = headline.vsPrevious else {
+            return period == .allTime ? "Member-km, all time" : "Member-km this season"
+        }
         return "\(DashboardFormat.signed(Int(vs.memberKmDelta.rounded()))) on \(String(vs.year))"
     }
 }
