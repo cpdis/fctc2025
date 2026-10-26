@@ -100,6 +100,24 @@ struct HomeRefreshBindingTests {
         #expect(home.lastSyncedAt == sentAt)
     }
 
+    @Test("Runs reads on its own only once the last sync is 5 minutes old")
+    func freshness() async throws {
+        let client = ControlledHomeSyncClient()
+        let home = HomeViewModel(engine: client)
+        #expect(home.needsRefresh(), "Never synced")
+        let refresh = Task { await home.refresh() }
+        await client.waitForRequests(1)
+        await client.complete(1, with: .success(state("sheet", season: 26)))
+        await refresh.value
+        let syncedAt = try #require(home.lastSyncedAt)
+        // Colin's case: back on Runs 5 s after a read.
+        #expect(!home.needsRefresh(now: syncedAt.addingTimeInterval(5)))
+        #expect(!home.needsRefresh(now: syncedAt.addingTimeInterval(HomeViewModel.freshFor - 1)))
+        #expect(home.needsRefresh(now: syncedAt.addingTimeInterval(HomeViewModel.freshFor)))
+        home.replaceEngine(ControlledHomeSyncClient())
+        #expect(home.needsRefresh(), "A new sheet connection has no fresh sync")
+    }
+
     @Test("Any engine read of the sheet moves the sync time, not only Runs' refresh")
     func engineReadTime() async {
         let client = ControlledHomeSyncClient()

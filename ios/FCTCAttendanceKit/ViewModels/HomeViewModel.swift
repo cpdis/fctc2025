@@ -49,9 +49,9 @@ public final class HomeViewModel {
     /// then ends on its own time, not on the last read from minutes before.
     public private(set) var lastSyncedAt: Date?
 
-    /// A send outranks a read: returning to Runs after Confirm starts a read
-    /// that runs alongside the send, and the change just made is the news.
-    /// A drain with nothing to send is not worth a word.
+    /// A send outranks a read: a read (pull, Sync, a stale return to Runs) can
+    /// run alongside a send, and the change just made is the news. A drain
+    /// with nothing to send is not worth a word.
     public var syncStatus: SyncStatus {
         if isSyncing && unsyncedCount > 0 { return .sending(unsyncedCount) }
         if isRefreshing { return .checking }
@@ -61,6 +61,19 @@ public final class HomeViewModel {
     /// True when the banner reports a problem from the last refresh or send.
     /// Runs' sync pill then skips its "Updated" tick and lets the banner speak.
     public var syncFailed: Bool { syncBanner?.isProblem ?? false }
+
+    /// How long a good sync stays fresh. Each read is a full Apps Script call,
+    /// so a return to Runs 5 s after a read no longer reads again (Colin's
+    /// review of build 12).
+    public static let freshFor: TimeInterval = 5 * 60
+
+    /// True when Runs should read the sheet on its own, on a return to Runs or
+    /// to the app: no good sync with this engine yet, or the last one is older
+    /// than `freshFor`. Pull-to-refresh and Sync read regardless.
+    public func needsRefresh(now: Date = .now) -> Bool {
+        guard let lastSyncedAt else { return true }
+        return now.timeIntervalSince(lastSyncedAt) >= Self.freshFor
+    }
 
     /// True when the banner shows a failed refresh (not a failed send), so the
     /// app refreshes again when it becomes active.

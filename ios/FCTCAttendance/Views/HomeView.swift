@@ -50,9 +50,12 @@ struct HomeView: View {
     /// Flips once per launch so the header cards stagger in on first sight only.
     @State private var hasEntered = false
     /// Bumped to restart the refresh task: the Sync button, an activation
-    /// after a failed refresh, or an engine swap. The task also runs on
-    /// every appear.
+    /// after a failed or stale refresh, or an engine swap. The task also runs
+    /// on every appear.
     @State private var refreshRequest = 0
+    /// The `refreshRequest` whose read finished. A newer value is a request
+    /// still owed a read; a plain appear reads only stale data.
+    @State private var servedRequest = 0
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -226,10 +229,15 @@ struct HomeView: View {
             .refreshable { await refresh() }
             .onAppear { hasEntered = true }
             // One refresh at a time: a new request cancels the one in flight,
-            // and leaving Home cancels it too.
+            // and leaving Home cancels it too. A request always reads; a plain
+            // return to Runs reads only when the last sync is stale (5 min).
             .task(id: refreshRequest) {
                 updateFromCache()
+                guard refreshRequest != servedRequest || viewModel.needsRefresh() else { return }
                 await refresh()
+                // A cancelled read (Runs left mid-request) leaves the request
+                // owed, so the next appear reads.
+                if !Task.isCancelled { servedRequest = refreshRequest }
             }
             .onChange(of: viewModel.activeState) { _, state in
                 runtime.activeState = state
@@ -241,10 +249,12 @@ struct HomeView: View {
             .onChange(of: cacheFingerprint) { _, _ in
                 updateFromCache()
             }
-            // A refresh that failed (a dropped connection, the sheet waking up)
-            // tries again when the app comes back, so its banner clears itself.
+            // Coming back to the app reads again after a failed refresh (a
+            // dropped connection, the sheet waking up), so its banner clears
+            // itself, or when the last sync is stale. A read in flight stays.
             .onReceive(NotificationCenter.default.publisher(for: .fctcAppDidActivate)) { _ in
-                if viewModel.refreshFailed { refreshRequest += 1 }
+                guard !viewModel.isRefreshing else { return }
+                if viewModel.refreshFailed || viewModel.needsRefresh() { refreshRequest += 1 }
             }
             // RootTabView resets the path on a swap; the model follows the new
             // engine here, next to the refresh it drives.

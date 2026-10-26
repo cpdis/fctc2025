@@ -128,6 +128,27 @@ final class TabNavigationUITests: XCTestCase {
         XCTAssertTrue(pill.waitForNonExistence(timeout: 5), "The pill never hid")
     }
 
+    /// A return to Runs within 5 minutes of a good sync does not read the
+    /// sheet again (Colin's review of build 12: it read 5 s after a read).
+    /// Sync still reads at once.
+    func testReturningToRunsSoonAfterASyncDoesNotReadAgain() {
+        launch(["-ui-slow-sheet"])
+        let pill = app.descendants(matching: .any)["home-sync-status"]
+        XCTAssertTrue(pill.waitForNonExistence(timeout: 10), "The launch pill never hid")
+
+        app.buttons["home-all-runs"].tap()
+        XCTAssertTrue(app.buttons["run-row-43"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+        XCTAssertFalse(
+            waitFor("home-sync-status", labelContaining: "Checking the sheet", timeout: 2),
+            "Runs read the sheet again on return"
+        )
+
+        app.buttons["home-sync"].tap()
+        XCTAssertTrue(waitFor("home-sync-status", labelContaining: "Checking the sheet", timeout: 2), "Sync did not read")
+    }
+
     /// The "Updated" tick holds 2 s. A cancelled hide timer once cut it to
     /// 0.2 s, because one sync moves the sync time twice. One `exists` read
     /// 0.5 s on: a short `waitForExistence` can give up before its snapshot.
