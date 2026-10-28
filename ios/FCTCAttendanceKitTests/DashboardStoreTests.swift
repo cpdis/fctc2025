@@ -325,6 +325,47 @@ struct DashboardStoreTests {
         #expect(store.model?.period == .season(2026))
     }
 
+    @Test("A debut is a first run ever: on the live season, an earlier season and All time")
+    func debuts() async throws {
+        // Dee's lifetime 1 is her 2026 run; Col's 2 are his 2025 and 2026 runs.
+        let runs = [("2026-09-16", ["Aaron"]), ("2026-09-23", ["Aaron", "Col", "Dee"])].map { iso, names in
+            ClubRun(id: iso, date: ClubDate(iso: iso)!, season: 2026, run: "Lakes Loop", meet: "Filament",
+                    actualKm: 10, attendees: names, plusOnes: 0)
+        }
+        let totals = [MemberTotal(name: "Aaron", runs: 150), MemberTotal(name: "Col", runs: 2), MemberTotal(name: "Dee", runs: 1)]
+        let live = DashboardInputs(season: 2026, runs: runs, priors: LifetimePriors(lifetimeTotals: totals, payload: runs),
+                                   unsyncedCount: 0, listedSeasons: [2025, 2026])
+        // 2025: Aaron alone, then Col's first run a week later.
+        let col2025 = SheetState(
+            runs: [RunRecord(rowIndex: 2, date: "Wed, 10-Sep", meet: "Filament", run: "Lakes Loop",
+                             actualKm: 10, attendees: ["Aaron"]),
+                   RunRecord(rowIndex: 3, date: "Wed, 17-Sep", meet: "Filament", run: "Lakes Loop",
+                             actualKm: 10, attendees: ["Aaron", "Col"])],
+            seasonYear: 2025
+        )
+        let client = LastSeasonClient(answers: [.success(nil)], seasonAnswers: [.success(col2025), .success(col2025)])
+        let store = DashboardStore(engine: client)
+        store.update(fingerprint: "a") { live }
+
+        // 2026: only Dee had never run before.
+        #expect(store.model?.runners["Dee"]?.debut?.iso == "2026-09-23")
+        #expect(store.model?.runners["Col"]?.debut == nil)
+        #expect(store.model?.runners["Aaron"]?.debut == nil)
+
+        // 2025: Col's run is his first, though he ran again in 2026.
+        await store.select(season: 2025)
+        #expect(store.model?.runners["Col"]?.debut?.iso == "2025-09-17")
+        #expect(store.model?.runners["Aaron"]?.debut == nil)
+
+        // All time: Col made 2 of the 3 club days from his first run on.
+        await store.select(.allTime)
+        let col = try #require(store.model?.runners["Col"])
+        #expect(col.debut?.iso == "2025-09-17")
+        #expect(col.sinceDebut?.made == 2)
+        #expect(col.sinceDebut?.clubDays == 3)
+        #expect(store.model?.runners["Dee"]?.debut?.iso == "2026-09-23")
+    }
+
     @Test("All time with a season it cannot download says so, and load() fetches only that one")
     func allTimeOffline() async {
         let client = LastSeasonClient(answers: [], seasonAnswers: [

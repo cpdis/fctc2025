@@ -19,7 +19,12 @@
 //
 //  `-ui-dashboard-full` is the profiling size: a real season's shape, 118 club
 //  days and 30 runners (the four above plus 26 whose attendance thins from
-//  about 85% to 5%). Instruments runs use it; no test pins its numbers.
+//  about 85% to 5%). Instruments runs use it. Two of its runners join part way
+//  through, so a runner screen has a debut: Alex B in last season's final ten
+//  rows, Laura E at this season's club day 70. Their lifetime totals are
+//  exactly those runs, so nothing came before. `testLateJoinersShowSinceFirstRun`
+//  pins Laura E's numbers only: last season ran no Mondays, so anything that
+//  counts its club days moves with the weekday the window starts on.
 //
 
 #if DEBUG
@@ -40,6 +45,12 @@ enum UITestDashboardFixture {
         "Ming", "Joe", "Deano", "Liam", "Chartt", "Claire", "Rhys", "Jack", "René", "Rohan", "Tarquin", "Alex Kr", "Laura E",
     ]
 
+    /// The profiling size's late joiners (see the header).
+    private static let joinedLastSeason = "Alex B"
+    private static let joinedThisSeason = "Laura E"
+    private static let lastSeasonRows = 10
+    private static let thisSeasonJoinDay = 70
+
     /// The season's roster: the pinned four, plus the extras at profiling size.
     static var roster: [String] { isFull ? pinned + extras : pinned }
 
@@ -49,7 +60,17 @@ enum UITestDashboardFixture {
             MemberTotal(name: "Aaron", runs: 147), MemberTotal(name: "Col", runs: 60),
             MemberTotal(name: "Dan", runs: 40), MemberTotal(name: "Dan B", runs: 12),
         ]
-        return isFull ? base + extras.enumerated().map { MemberTotal(name: $1, runs: 180 - $0 * 7) } : base
+        return isFull ? base + extras.enumerated().map { index, name in
+            MemberTotal(name: name, runs: joinedRuns(name, index: index) ?? 180 - index * 7)
+        } : base
+    }
+
+    /// A late joiner's every run: this season's, plus Alex B's last-season
+    /// rows. Nil for everyone else.
+    private static func joinedRuns(_ name: String, index: Int) -> Int? {
+        guard name == joinedLastSeason || name == joinedThisSeason else { return nil }
+        let thisSeason = (0..<clubDays - 1).count(where: { makes(name, index: index, day: $0) })
+        return thisSeason + (name == joinedLastSeason ? lastSeasonRows : 0)
     }
 
     /// This season's runs (season sheet 26) and last season's (25).
@@ -69,7 +90,9 @@ enum UITestDashboardFixture {
         let previous = dates.enumerated().compactMap { index, date -> RunRecord? in
             let lastYear = perth.date(byAdding: .day, value: -364, to: date)!
             guard perth.component(.year, from: lastYear) == seasonYear - 1 else { return nil }
-            return record(row: 100 + index, date: lastYear, attendees: index.isMultiple(of: 2) ? ["Aaron", "Col", "Dan"] : ["Aaron", "Col"],
+            var names = index.isMultiple(of: 2) ? ["Aaron", "Col", "Dan"] : ["Aaron", "Col"]
+            if isFull && index >= clubDays - lastSeasonRows { names.append(joinedLastSeason) }
+            return record(row: 100 + index, date: lastYear, attendees: names,
                           special: false, season: 25, seasonYear: seasonYear - 1, id: "abababab-abab-4bab-8bab-%012d", index: index)
         }
         return (current, previous)
@@ -84,11 +107,18 @@ enum UITestDashboardFixture {
         if day % 3 != 2 { names.append("Dan") }
         if day < 6 { names.append("Dan B") }
         guard isFull else { return names }
-        // A fixed scatter: runner i makes about (85 - 3i)% of club days.
-        for (index, name) in extras.enumerated() where (day * 37 + index * 11) % 100 < 85 - index * 3 {
+        for (index, name) in extras.enumerated() where makes(name, index: index, day: day) {
             names.append(name)
         }
         return names
+    }
+
+    /// A fixed scatter: runner i makes about (85 - 3i)% of club days. Laura E
+    /// makes about 60% from her first club day on, and none before it.
+    private static func makes(_ name: String, index: Int, day: Int) -> Bool {
+        let roll = (day * 37 + index * 11) % 100
+        guard name == joinedThisSeason else { return roll < 85 - index * 3 }
+        return day >= thisSeasonJoinDay && roll < 60
     }
 
     /// The last `clubDays` Mondays, Wednesdays and Fridays before today, Perth.

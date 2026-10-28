@@ -14,6 +14,9 @@
 //  `rebuild()` is the only place that fetches and decodes the season cache, so
 //  a render never does.
 //
+//  A milestone row opens that runner's Dashboard screen, read from the
+//  Dashboard store that RootTabView owns and feeds.
+//
 
 import FCTCAttendanceKit
 import SwiftData
@@ -22,6 +25,8 @@ import UIKit
 
 struct EventsView: View {
     let runtime: AppRuntime
+    /// The Dashboard's model, for the runner screen a milestone row opens.
+    let dashboard: DashboardStore
     /// The Events tab's stack, owned by RootTabView so an engine swap can reset it.
     @Binding var path: NavigationPath
 
@@ -42,8 +47,9 @@ struct EventsView: View {
     /// Nil until the first build, so no section flashes its empty state.
     @State private var board: EventsBoard?
 
-    init(runtime: AppRuntime, path: Binding<NavigationPath>) {
+    init(runtime: AppRuntime, dashboard: DashboardStore, path: Binding<NavigationPath>) {
         self.runtime = runtime
+        self.dashboard = dashboard
         _path = path
         _now = State(initialValue: runtime.now())
     }
@@ -58,7 +64,8 @@ struct EventsView: View {
                 if let board {
                     ThisWeekSection(runs: board.thisWeek)
                     SpecialsSection(specials: board.specials)
-                    MilestonesSection(candidates: board.milestones, emptyPhrase: runtime.milestoneEmptyPhrase)
+                    MilestonesSection(candidates: board.milestones, emptyPhrase: runtime.milestoneEmptyPhrase,
+                                      linked: dashboard.model.map { Set($0.runners.keys) } ?? [])
                     BirthdaysSection(birthdays: board.birthdays)
                 }
             }
@@ -67,6 +74,12 @@ struct EventsView: View {
             // The header row is the title bar (TabHeader), as on Runs.
             .navigationTitle("Events")
             .toolbar(.hidden, for: .navigationBar)
+            // Events pushes only a runner (a milestone row).
+            .navigationDestination(for: DashboardRoute.self) { route in
+                if case .runner(let name) = route {
+                    RunnerView(name: name, store: dashboard, accent: runtime.accent.color)
+                }
+            }
         }
         .onChange(of: boardFingerprint, initial: true) { _, _ in rebuild() }
         .onChange(of: now) { _, _ in rebuild() }

@@ -133,6 +133,17 @@ ASC API, installed locally). The ASC API key `NJDJN4V5L3` (Downloads and
 4. Install that same build on the phones.
 5. The distribution certificate expires 2027-08-14; renew via the ASC API
    (certificates endpoint) with a fresh CSR and recreate both profiles.
+6. Read the testers' feedback (screenshot reports and crash reports), newest
+   first. The same API key reads it:
+
+   ```bash
+   python3 ios/Tools/testflight-feedback.py             # every build
+   python3 ios/Tools/testflight-feedback.py --build 14  # one build
+   ```
+
+   Screenshots and crash logs go to the gitignored `review/testflight-feedback/`.
+   Keep them out of git: this repo is public and the screenshots show member
+   names. Apple's screenshot links expire about a week after each fetch.
 
 ## 5. Protect the real sheet before deployment
 

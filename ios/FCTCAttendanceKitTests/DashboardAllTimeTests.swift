@@ -113,6 +113,32 @@ struct DashboardAllTimeTests {
         #expect(calendars.map { $0.days.map(\.date.iso) } == [["2026-01-02", "2026-01-05"], ["2025-12-26", "2025-12-31"]])
     }
 
+    @Test("A debut is the first club day made with no run before the view")
+    func debut() throws {
+        // Nothing before 2025: Aaron starts on Fri 26 Dec, René on Mon 5 Jan.
+        let none = LifetimePriors(lifetimeTotals: [], payload: [])
+        let allTime = DashboardModel(allTime: newYear, rosters: [:], priors: none)
+        let aaron = try #require(allTime.runners["Aaron"])
+        #expect(aaron.debut?.iso == "2025-12-26")
+        // The view's first club day: "since" would repeat the whole view.
+        #expect(aaron.sinceDebut == nil)
+        let rene = try #require(allTime.runners["René"])
+        #expect(rene.debut?.iso == "2026-01-05")
+        #expect(rene.sinceDebut?.made == 1)
+        #expect(rene.sinceDebut?.clubDays == 1)
+
+        // 2026 alone: Aaron ran before it, René did not.
+        let runs2026 = newYear.filter { $0.season == 2026 }
+        let before = LifetimePriors(lifetimeTotals: [MemberTotal(name: "Aaron", runs: 3)], payload: [])
+        let season = DashboardModel(season: 2026, runs: runs2026, before: before)
+        #expect(season.runners["Aaron"]?.debut == nil)
+        #expect(season.runners["René"]?.debut?.iso == "2026-01-05")
+
+        // Without runs before the view, nobody has a debut.
+        #expect(DashboardModel(season: 2026, runs: runs2026).runners["René"]?.debut == nil)
+        #expect(DashboardModel(allTime: newYear, rosters: [:]).runners["René"]?.sinceDebut == nil)
+    }
+
     @Test("A given milestone shortlist wins over one built from the view")
     func milestonesFromOutside() {
         // 40 before plus 5 in view: 5 to go to 50.

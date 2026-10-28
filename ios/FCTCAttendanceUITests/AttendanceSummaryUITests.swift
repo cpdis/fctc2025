@@ -255,6 +255,35 @@ final class AttendanceSummaryUITests: XCTestCase {
         XCTAssertTrue(updated.label.contains("2 runs to 150"), updated.label)
     }
 
+    /// A milestone name opens the runner's Dashboard screen (TestFlight
+    /// feedback on build 14). The Dashboard tab is never opened first, so
+    /// the screen proves RootTabView feeds the shared store on its own.
+    func testEventsMilestoneOpensRunnerScreen() {
+        launch(fixture: ["-ui-shared-guests", "-ui-dashboard"])
+        openEvents()
+        tap(app.buttons["milestone-row-Aaron"])
+
+        let bar = app.navigationBars["Aaron"]
+        XCTAssertTrue(bar.waitForExistence(timeout: 5))
+        XCTAssertTrue(element("runner-summary").label.hasPrefix("#1 on runs"), element("runner-summary").label)
+        capture("events-milestone-runner")
+        let allTime = element("runner-all-time")
+        scrollTo(allTime)
+        XCTAssertTrue(allTime.label.contains("3 runs to 150"), allTime.label)
+
+        bar.buttons.firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["events-title"].waitForExistence(timeout: 5))
+    }
+
+    /// Here Aaron's 147 runs are all from earlier seasons, so the Dashboard has
+    /// no runner screen for him: his row stays plain, not a link to an empty one.
+    func testEventsMilestoneWithoutSeasonRunsIsNotALink() {
+        launch(fixture: ["-ui-shared-guests", "-ui-birthdays", "-ui-events"])
+        openEvents()
+        XCTAssertTrue(element("milestone-row-Aaron").waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["milestone-row-Aaron"].exists)
+    }
+
     func testEventsSaysWhenNothingIsAhead() {
         // The legacy fake's two runs are both in the past.
         launch(fixture: [])

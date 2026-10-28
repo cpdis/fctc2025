@@ -2,9 +2,11 @@
 //  RunnerView.swift
 //  FCTCAttendance
 //
-//  One runner's season (R25): runs, km and current streak; a club-day calendar
-//  with the streak marked; club days made per weekday; and the all-time total
-//  with the next milestone. `DashboardModel` built every value; this only draws:
+//  One runner's season (R25): runs, km and current streak; for a runner who
+//  joined part way through, club days made since their first run; a club-day
+//  calendar with the streak marked; club days made per weekday; and the
+//  all-time total with the next milestone. `DashboardModel` built every value;
+//  this only draws:
 //
 //    Season    Jan  Feb  ...  Sep       one column per week, one row per club
 //      M       ■ ■ ▢ ■ ■ ...  ■ ■ ■     weekday (2025: W and F only). Accent
@@ -30,6 +32,16 @@ struct RunnerView: View {
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
+    /// The runner's screen as the Dashboard store shows it now: the season or
+    /// All time picked in the Dashboard's menu. Dashboard and Events push it.
+    init(name: String, store: DashboardStore, accent: Color) {
+        self.name = name
+        detail = store.model?.runners[name]
+        seasonRuns = store.model?.runs.count ?? 0
+        period = store.model?.period
+        self.accent = accent
+    }
+
     var body: some View {
         Group {
             if let detail {
@@ -41,6 +53,9 @@ struct RunnerView: View {
                             .padding(.horizontal, 4)
                             .accessibilityIdentifier("runner-summary")
                         stats(detail)
+                        if let debut = detail.debut, let since = detail.sinceDebut {
+                            DebutCard(day: debutDay(debut), made: since.made, clubDays: since.clubDays, accent: accent)
+                        }
                         calendars(detail)
                         ByDayCard(record: detail.record)
                         AllTimeCard(detail: detail, accent: accent)
@@ -84,6 +99,13 @@ struct RunnerView: View {
                                caption: "\(streak) Best this season: \(record.best).", accent: accent)
                 .accessibilityIdentifier("runner-calendar")
         }
+    }
+
+    /// The debut day, with its year in All time, where seasons mix.
+    private func debutDay(_ date: ClubDate) -> String {
+        period == .allTime
+            ? date.formatted(Date.FormatStyle.perth.weekday(.abbreviated).day().month(.abbreviated).year())
+            : DashboardFormat.day(date)
     }
 
     private func stats(_ detail: RunnerDetail) -> some View {
@@ -280,6 +302,32 @@ private struct ByDayCard: View {
 
     private var summary: String {
         "By day: " + record.byWeekday.map { "\($0.weekday.shortName) \($0.made) of \($0.clubDays)" }.joined(separator: ", ")
+    }
+}
+
+/// Club days made since the runner's first run, for someone who joined part
+/// way through the view (Grant's build 14 feedback): the fair rate beside the
+/// calendars, which count from the view's first club day.
+private struct DebutCard: View {
+    let day: String
+    let made: Int
+    let clubDays: Int
+    let accent: Color
+
+    var body: some View {
+        // "62%".
+        let rate = (Double(made) / Double(max(clubDays, 1))).formatted(.percent.precision(.fractionLength(0)))
+        DashboardCard("Since first run", summary: "Since first run on \(day): made \(made) of \(clubDays) club days, \(rate)") {
+            Text(rate)
+        } content: {
+            ProgressView(value: Double(made), total: Double(max(clubDays, 1)))
+                .tint(accent)
+                .accessibilityHidden(true)
+            Text("Made \(made) of \(clubDays) club days since \(day).")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityIdentifier("runner-debut")
     }
 }
 
