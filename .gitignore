@@ -70,7 +70,8 @@ ios/.ddata/
 # Local simulator screenshots and visual comparison pages.
 review/
 
-# Bytecode from the Python release tools (asc-api.py, testflight-notes.py).
+# Bytecode from the Python release tools (asc-api.py, testflight-notes.py,
+# testflight-feedback.py).
 ios/Tools/__pycache__/
 
 # SQLite may create local journals when inspecting the installed-schema fixture.
