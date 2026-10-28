@@ -3,11 +3,11 @@
 //  FCTCAttendance
 //
 //  The Dashboard tab (R23–R27): a season at a glance, drawn natively from the
-//  offline cache. The view only watches its SwiftData inputs; the kit's
-//  `DashboardStore` decides when to rebuild the one model every card reads:
+//  offline cache. Every card reads the one model in the kit's `DashboardStore`.
+//  RootTabView owns the store and feeds it on each data change and engine swap,
+//  because Events reads it too (a milestone opens its runner screen here):
 //
-//    @Query rows ─> ActiveSeason.fingerprint ─> store.update ─changed─> DashboardModel
-//    engine ──────────────────────────────────> store.load ───> picked season, Vs last year
+//    RootTabView ─> store.update, store.load ─> DashboardModel ─> every card
 //
 //  The header's season menu (All time, then the live season and each listed
 //  one before it) calls `store.select(_:)`. An earlier season shows from its
@@ -20,7 +20,6 @@
 //
 
 import FCTCAttendanceKit
-import SwiftData
 import SwiftUI
 
 /// The screens the Dashboard pushes. A runner is named, a run is its id.
@@ -36,25 +35,14 @@ struct DashboardView: View {
     /// Runs' model, owned by RootTabView: the Dashboard reuses its first-load
     /// and failure states instead of running a second refresh.
     let home: HomeViewModel
+    /// The cards' model, owned and fed by RootTabView (Events shares it).
+    let store: DashboardStore
     /// The Dashboard tab's stack, owned by RootTabView so an engine swap can reset it.
     @Binding var path: NavigationPath
 
-    @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
-    @Query(sort: \Member.name) private var cachedMembers: [Member]
-    /// Every outbox row, finished ones included (KTD11).
-    @Query(sort: \PendingSubmission.createdAt) private var cachedSubmissions: [PendingSubmission]
-    @Query private var sheetCaches: [SharedSheetCache]
-    @State private var store: DashboardStore
     /// Flips once, so the top cards stagger in on first sight only.
     @State private var hasEntered = false
     @Environment(\.dynamicTypeSize) private var typeSize
-
-    init(runtime: AppRuntime, home: HomeViewModel, path: Binding<NavigationPath>) {
-        self.runtime = runtime
-        self.home = home
-        _path = path
-        _store = State(initialValue: DashboardStore(engine: runtime.engine))
-    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -74,12 +62,6 @@ struct DashboardView: View {
             .navigationTitle("Dashboard")
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: DashboardRoute.self) { destination(for: $0) }
-        }
-        .onChange(of: fingerprint, initial: true) { _, fingerprint in refresh(fingerprint) }
-        // RootTabView pops the stack on a swap; the store follows the new engine.
-        .onChange(of: runtime.generation) { _, _ in
-            store.replaceEngine(runtime.engine)
-            refresh(fingerprint)
         }
     }
 
@@ -203,8 +185,7 @@ struct DashboardView: View {
         case .wall:
             WallView(wall: store.model?.wall, period: store.model?.period, accent: accent, open: openRunner)
         case .runner(let name):
-            RunnerView(name: name, detail: store.model?.runners[name],
-                       seasonRuns: store.model?.runs.count ?? 0, period: store.model?.period, accent: accent)
+            RunnerView(name: name, store: store, accent: accent)
         case .runLog:
             RunLogView(runs: store.model?.runs ?? [])
         case .run(let id):
@@ -218,27 +199,5 @@ struct DashboardView: View {
     /// Chart taps have no NavigationLink, so they push through the path.
     private func openRunner(_ name: String) {
         path.append(DashboardRoute.runner(name))
-    }
-
-    private var fingerprint: String {
-        ActiveSeason.fingerprint(runtime: runtime, runs: cachedRuns, members: cachedMembers,
-                                 submissions: cachedSubmissions, caches: sheetCaches)
-    }
-
-    /// Hands the store this change. The inputs closure runs only when the
-    /// fingerprint moved, so the cache is read once per data change.
-    private func refresh(_ fingerprint: String) {
-        store.update(fingerprint: fingerprint) {
-            let season = ActiveSeason(runtime: runtime, runs: cachedRuns, members: cachedMembers,
-                                      submissions: cachedSubmissions)
-            let runs = season.effective.clubRuns
-            guard let year = runs.map(\.season).max() ?? season.state?.seasonYear, year > 0 else { return nil }
-            return DashboardInputs(season: year, runs: runs, priors: season.priors,
-                                   unsyncedCount: season.effective.unsyncedCount,
-                                   listedSeasons: season.state?.supportedSeasons?.map(\.seasonYear) ?? [],
-                                   // The sheet's columns; the cached members stand in before a refresh.
-                                   roster: season.state?.roster.map(\.name) ?? cachedMembers.map(\.name))
-        }
-        Task { await store.load() }
     }
 }

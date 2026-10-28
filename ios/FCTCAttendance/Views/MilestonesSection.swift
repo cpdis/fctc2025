@@ -4,8 +4,10 @@
 //
 //  Who is near a landmark run, shown on the Events tab.
 //
-//  Passive by design: no tap target, no notification, no Settings control. The
-//  weekly email is the active nudge; this is the place to glance at.
+//  Passive by design: no notification, no Settings control. The weekly email
+//  is the active nudge; this is the place to glance at. A row opens the
+//  runner's Dashboard screen, as a name on the Dashboard does, when the
+//  Dashboard has one: a runner with no run in its view stays a plain row.
 //
 
 import FCTCAttendanceKit
@@ -16,6 +18,8 @@ struct MilestonesSection: View {
     let candidates: [MilestoneCandidate]
     /// This launch's empty-state line, held by the runtime.
     let emptyPhrase: String
+    /// The names the Dashboard has a runner screen for.
+    let linked: Set<String>
 
     var body: some View {
         Section {
@@ -27,8 +31,16 @@ struct MilestonesSection: View {
                     .accessibilityIdentifier("milestone-empty")
             } else {
                 ForEach(candidates) { candidate in
-                    MilestoneRow(candidate: candidate)
-                        .accessibilityIdentifier("milestone-row-\(candidate.name)")
+                    Group {
+                        if linked.contains(candidate.name) {
+                            NavigationLink(value: DashboardRoute.runner(candidate.name)) {
+                                MilestoneRow(candidate: candidate)
+                            }
+                        } else {
+                            MilestoneRow(candidate: candidate)
+                        }
+                    }
+                    .accessibilityIdentifier("milestone-row-\(candidate.name)")
                 }
             }
         } header: {

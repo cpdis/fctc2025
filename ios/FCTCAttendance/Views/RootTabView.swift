@@ -16,6 +16,14 @@
 //  connection's runs: a deferred reminder must not open a look-alike run (same
 //  row, date and name) in the new connection's sheet.
 //
+//  It also owns the Dashboard store and feeds it, because two tabs read it: the
+//  Dashboard draws its cards, and Events pushes a milestone's runner screen. A
+//  tab that has never been shown does not run its modifiers, so only this view
+//  can keep the store current and move it to a new engine:
+//
+//    @Query rows ─> ActiveSeason.fingerprint ─> store.update ─changed─> DashboardModel
+//    engine swap ─> store.replaceEngine ──────> store.update, store.load
+//
 
 import FCTCAttendanceKit
 import SwiftData
@@ -33,6 +41,9 @@ struct RootTabView: View {
     let pendingRoutes: PendingRouteStore
 
     @Query(sort: \ScheduledRun.rowIndex) private var cachedRuns: [ScheduledRun]
+    @Query(sort: \Member.name) private var cachedMembers: [Member]
+    /// Every outbox row, finished ones included (KTD11).
+    @Query(sort: \PendingSubmission.createdAt) private var cachedSubmissions: [PendingSubmission]
     @Query private var sheetCaches: [SharedSheetCache]
     /// The runs a reminder route can name: the active season's cache. Resolving
     /// them fetches and decodes the season cache, so they are stored once per
@@ -42,6 +53,8 @@ struct RootTabView: View {
     /// Runs hero shows, and the Dashboard shares its first-load state. HomeView
     /// still drives its refreshes.
     @State private var runsModel: HomeViewModel
+    /// The Dashboard's model, shared with Events for runner screens.
+    @State private var dashboardStore: DashboardStore
     @State private var selection: AppTab = .runs
     @State private var runsPath: [HomeRoute] = []
     @State private var eventsPath = NavigationPath()
@@ -57,6 +70,7 @@ struct RootTabView: View {
         self.runtime = runtime
         self.pendingRoutes = pendingRoutes
         _runsModel = State(initialValue: HomeViewModel(engine: runtime.engine))
+        _dashboardStore = State(initialValue: DashboardStore(engine: runtime.engine))
     }
 
     var body: some View {
@@ -67,12 +81,12 @@ struct RootTabView: View {
             .accessibilityIdentifier("tab-runs")
 
             Tab("Events", systemImage: "calendar", value: AppTab.events) {
-                EventsView(runtime: runtime, path: $eventsPath)
+                EventsView(runtime: runtime, dashboard: dashboardStore, path: $eventsPath)
             }
             .accessibilityIdentifier("tab-events")
 
             Tab("Dashboard", systemImage: "chart.bar", value: AppTab.dashboard) {
-                DashboardView(runtime: runtime, home: runsModel, path: $dashboardPath)
+                DashboardView(runtime: runtime, home: runsModel, store: dashboardStore, path: $dashboardPath)
             }
             .accessibilityIdentifier("tab-dashboard")
         }
@@ -90,6 +104,7 @@ struct RootTabView: View {
         .onChange(of: runtime.activeRunsFingerprint(runs: cachedRuns, caches: sheetCaches), initial: true) { _, _ in
             routeTargets = runtime.activeRuns(in: cachedRuns).map(RunSnapshot.init)
         }
+        .onChange(of: seasonFingerprint, initial: true) { _, fingerprint in refreshDashboard(fingerprint) }
         // A reminder names one specific run, which can arrive with any sync.
         .onChange(of: routeTargets) { _, _ in handlePendingRoute() }
         .onChange(of: runtime.generation) { _, _ in resetForEngineSwap() }
@@ -159,13 +174,37 @@ struct RootTabView: View {
         showingSharedScreenshotOffer = true
     }
 
-    /// A new connection: every tab back to its root, and the waiting route
-    /// dropped, since it named a run in the old connection's sheet. The
-    /// selected tab stays where it is.
+    /// A new connection: every tab back to its root, the waiting route
+    /// dropped, since it named a run in the old connection's sheet, and the
+    /// Dashboard store on the new engine. The selected tab stays where it is.
     private func resetForEngineSwap() {
         runsPath = []
         eventsPath = NavigationPath()
         dashboardPath = NavigationPath()
         deferredRoute = nil
+        dashboardStore.replaceEngine(runtime.engine)
+        refreshDashboard(seasonFingerprint)
+    }
+
+    private var seasonFingerprint: String {
+        ActiveSeason.fingerprint(runtime: runtime, runs: cachedRuns, members: cachedMembers,
+                                 submissions: cachedSubmissions, caches: sheetCaches)
+    }
+
+    /// Hands the Dashboard store this change. The inputs closure runs only when
+    /// the fingerprint moved, so the cache is read once per data change.
+    private func refreshDashboard(_ fingerprint: String) {
+        dashboardStore.update(fingerprint: fingerprint) {
+            let season = ActiveSeason(runtime: runtime, runs: cachedRuns, members: cachedMembers,
+                                      submissions: cachedSubmissions)
+            let runs = season.effective.clubRuns
+            guard let year = runs.map(\.season).max() ?? season.state?.seasonYear, year > 0 else { return nil }
+            return DashboardInputs(season: year, runs: runs, priors: season.priors,
+                                   unsyncedCount: season.effective.unsyncedCount,
+                                   listedSeasons: season.state?.supportedSeasons?.map(\.seasonYear) ?? [],
+                                   // The sheet's columns; the cached members stand in before a refresh.
+                                   roster: season.state?.roster.map(\.name) ?? cachedMembers.map(\.name))
+        }
+        Task { await dashboardStore.load() }
     }
 }

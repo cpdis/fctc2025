@@ -30,6 +30,16 @@ struct RunnerView: View {
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
+    /// The runner's screen as the Dashboard store shows it now: the season or
+    /// All time picked in the Dashboard's menu. Dashboard and Events push it.
+    init(name: String, store: DashboardStore, accent: Color) {
+        self.name = name
+        detail = store.model?.runners[name]
+        seasonRuns = store.model?.runs.count ?? 0
+        period = store.model?.period
+        self.accent = accent
+    }
+
     var body: some View {
         Group {
             if let detail {
