@@ -359,7 +359,7 @@ public final class DashboardStore {
         case nil:
             shown = .season(inputs.season)
             model = DashboardModel(season: inputs.season, runs: inputs.runs, previous: previousRuns,
-                                   priors: inputs.priors, milestones: milestones)
+                                   priors: inputs.priors, before: inputs.priors, milestones: milestones)
             unsyncedCount = inputs.unsyncedCount
         case .season(let year)?:
             shown = .season(year)
@@ -368,8 +368,12 @@ public final class DashboardStore {
                 model = nil
                 return
             }
+            // Before this season: the live priors less this season. A season
+            // between the two still counts as before, so it can hide a debut
+            // but never invent one.
             model = DashboardModel(season: year, runs: runs, previous: previousRuns,
                                    priors: inputs.priors?.rebased(live: inputs.runs, onto: runs),
+                                   before: inputs.priors?.rebased(live: [], onto: runs),
                                    milestones: milestones)
         case .allTime?:
             shown = .allTime

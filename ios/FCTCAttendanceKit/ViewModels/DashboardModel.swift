@@ -90,6 +90,9 @@ public struct DashboardModel: Hashable, Sendable {
     ///     whose season is not before `season` are ignored.
     ///   - priors: lifetime runs before this season (KTD12), or nil when the
     ///     server sent no lifetime totals; all-time numbers are then absent.
+    ///   - before: runs before this season, to find each runner's debut; nil
+    ///     shows none. An earlier season's `priors` hold later seasons' runs
+    ///     too, so the store passes this separately.
     ///   - milestones: the shortlist to show, or nil to build it from `priors`
     ///     and `runs`. The store passes the live season's, so every view names
     ///     the same people (the web's rule).
@@ -98,10 +101,11 @@ public struct DashboardModel: Hashable, Sendable {
         runs: [ClubRun],
         previous: [ClubRun]? = nil,
         priors: LifetimePriors? = nil,
+        before: LifetimePriors? = nil,
         milestones: [MilestoneCandidate]? = nil
     ) {
         self.init(period: .season(season), runs: runs, previous: previous, priors: priors,
-                  rosters: nil, milestones: milestones)
+                  before: before, rosters: nil, milestones: milestones)
     }
 
     /// Build every card for All time: every season's runs together.
@@ -111,7 +115,8 @@ public struct DashboardModel: Hashable, Sendable {
     ///   - rosters: each season's sheet columns by season year, so a Wall cell
     ///     on a season the runner was not on reads `notOnRoster`. A season
     ///     missing here marks nobody.
-    ///   - priors: lifetime runs before the earliest season shown.
+    ///   - priors: lifetime runs before the earliest season shown, which also
+    ///     find each runner's debut.
     ///   - milestones: as for one season.
     public init(
         allTime runs: [ClubRun],
@@ -120,7 +125,7 @@ public struct DashboardModel: Hashable, Sendable {
         milestones: [MilestoneCandidate]? = nil
     ) {
         self.init(period: .allTime, runs: runs, previous: nil, priors: priors,
-                  rosters: rosters, milestones: milestones)
+                  before: priors, rosters: rosters, milestones: milestones)
     }
 
     private init(
@@ -128,6 +133,7 @@ public struct DashboardModel: Hashable, Sendable {
         runs: [ClubRun],
         previous: [ClubRun]?,
         priors: LifetimePriors?,
+        before: LifetimePriors?,
         rosters: [Int: Set<String>]?,
         milestones: [MilestoneCandidate]?
     ) {
@@ -176,7 +182,7 @@ public struct DashboardModel: Hashable, Sendable {
         )
         self.milestones = milestones ?? priors.map { MilestoneBoard.shortlist(priors: $0, season: ordered) } ?? []
         runners = Dictionary(uniqueKeysWithValues: standings.map { standing in
-            (standing.entry.name, Self.runner(standing, among: byRuns, clubDays: clubDays, priors: priors))
+            (standing.entry.name, Self.runner(standing, among: byRuns, clubDays: clubDays, priors: priors, before: before))
         })
     }
 
@@ -328,10 +334,16 @@ public struct DashboardModel: Hashable, Sendable {
         _ standing: Standing,
         among entries: [LeaderboardEntry],
         clubDays: ClubDays,
-        priors: LifetimePriors?
+        priors: LifetimePriors?,
+        before: LifetimePriors?
     ) -> RunnerDetail {
         let entry = standing.entry
         let streakFrom = standing.record.currentFrom
+        // A first run ever falls in this view only when nothing came before it.
+        let debut = before.flatMap { before in
+            before.allTime(for: entry.name, seasonRuns: 0) > 0
+                ? nil : clubDays.days.first { $0.attendees.contains(entry.name) }?.date
+        }
         return RunnerDetail(
             name: entry.name,
             runs: entry.runs,
@@ -344,7 +356,8 @@ public struct DashboardModel: Hashable, Sendable {
                 let inStreak = made && streakFrom.map { day.date >= $0 } == true
                 return RunnerDay(date: day.date, season: day.season, made: made, inStreak: inStreak)
             },
-            allTime: priors?.allTime(for: entry.name, seasonRuns: entry.runs)
+            allTime: priors?.allTime(for: entry.name, seasonRuns: entry.runs),
+            debut: debut
         )
     }
 }

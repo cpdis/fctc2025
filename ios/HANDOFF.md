@@ -1,5 +1,22 @@
 # iOS handoff
 
+## Unreleased: Grant's build 14 feedback (28 October 2026)
+
+- `ios/Tools/testflight-feedback.py` reads TestFlight feedback with the release API key
+  (`betaFeedbackScreenshotSubmissions`, `betaFeedbackCrashSubmissions`); runbook step 4.6.
+  Grant sent the three reports so far (one on build 1, two on build 14); no crashes.
+- "Can we click on the milestone names here and link to their profile?" Events milestone rows
+  open the Dashboard runner screen. `RootTabView` now owns and feeds the one `DashboardStore`
+  (update, load, engine swap); Dashboard and Events only read it. A row links only when the
+  store has a runner screen for the name, so a runner with no run in the view stays plain.
+- "Is there a way to capture run ratio from their first appearance?" `RunnerDetail.debut` is
+  the first club day made with nothing before the view; `sinceDebut` counts club days from it.
+  The runner screen shows a "Since first run" card (Colin picked it over a caption and a summary
+  line). Exact on the live season and All time; on an earlier season the store passes the live
+  priors less that season, which can hide a debut but never invent one.
+- `-ui-dashboard-full` gained two late joiners (Alex B, Laura E) for
+  `testLateJoinersShowSinceFirstRun`.
+
 ## TestFlight build 14: Dashboard All time (26 October 2026)
 
 - Version 0.1.0 build 14 from `claude/ios-dashboard-all-time` (`7581eb8`): build 13 plus All

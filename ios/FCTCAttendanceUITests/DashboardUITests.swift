@@ -66,6 +66,7 @@ final class DashboardUITests: XCTestCase {
         XCTAssertEqual(element("runner-streak").value as? String, "14")
         XCTAssertEqual(element("runner-runs").value as? String, "29")
         XCTAssertTrue(element("runner-summary").label.hasPrefix("#1 on runs"), element("runner-summary").label)
+        XCTAssertFalse(element("runner-debut").exists, "Aaron ran before this season")
         settle()
         capture("u17-runner")
 
@@ -73,6 +74,37 @@ final class DashboardUITests: XCTestCase {
         let allTime = element("runner-all-time")
         scrollTo(allTime)
         XCTAssertTrue(allTime.label.contains("3 runs to 150"), allTime.label)
+    }
+
+    /// A runner who joined part way through shows club days made since their
+    /// first run (Grant's build 14 feedback). In the profiling season, Laura E
+    /// joined at club day 70. Alex B joined late last season, so only All time
+    /// shows his; his numbers move with the weekdays, so they are not pinned.
+    func testLateJoinersShowSinceFirstRun() {
+        launch(["-ui-shared-guests", "-ui-dashboard-full"])
+        openDashboard()
+        openWallRunner("Laura E")
+        let since = element("runner-debut")
+        XCTAssertTrue(since.waitForExistence(timeout: 5))
+        XCTAssertTrue(since.label.contains("made 27 of 46 club days, 59%"), since.label)
+        settle()
+        capture("runner-since-first-run")
+        app.navigationBars["Laura E"].buttons.firstMatch.tap()
+        app.navigationBars.buttons.firstMatch.tap()
+
+        openWallRunner("Alex B")
+        XCTAssertFalse(element("runner-debut").exists, "Alex B ran last season")
+        app.navigationBars["Alex B"].buttons.firstMatch.tap()
+        app.navigationBars.buttons.firstMatch.tap()
+
+        let menu = element("dashboard-season")
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        menu.tap()
+        app.buttons["All time"].tap()
+        XCTAssertTrue(menu.waitForValue("All time"), "The menu did not switch to All time")
+        openWallRunner("Alex B")
+        XCTAssertTrue(element("runner-debut").waitForExistence(timeout: 5))
+        XCTAssertTrue(element("runner-debut").label.contains("club days"), element("runner-debut").label)
     }
 
     /// The header's season menu lists this season and last, shows last season
@@ -237,6 +269,13 @@ final class DashboardUITests: XCTestCase {
     private func openDashboard() {
         app.tab(.dashboard).tap()
         XCTAssertTrue(app.staticTexts["dashboard-title"].waitForExistence(timeout: 5))
+    }
+
+    /// Opens the full Wall, then one runner's screen from its name.
+    private func openWallRunner(_ name: String) {
+        tap(element("wall-open"))
+        tap(element("wall-runner-\(name)"))
+        XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: 5))
     }
 
     /// Any element by identifier: cards and combined rows are not always the
