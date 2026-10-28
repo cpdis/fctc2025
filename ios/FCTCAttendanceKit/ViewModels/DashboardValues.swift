@@ -219,20 +219,8 @@ public struct RunnerDetail: Hashable, Sendable, Identifiable {
     public let calendar: [RunnerDay]
     /// Prior seasons plus this one; nil when the server sent no lifetime totals.
     public let allTime: Int?
-    /// The first club day the runner ever made, when it is in this view. Nil
-    /// when they ran before the view, or the view cannot tell.
-    public let debut: ClubDate?
 
     public var id: String { name }
-
-    /// Club days from the debut on, and how many of them the runner made: the
-    /// fair rate for someone who joined part way through. Nil without a debut,
-    /// or when the debut is the view's first club day (the view says it all).
-    public var sinceDebut: (made: Int, clubDays: Int)? {
-        guard let debut, debut > calendar.first?.date ?? debut else { return nil }
-        let days = calendar.filter { $0.date >= debut }
-        return (days.count(where: \.made), days.count)
-    }
 
     /// The calendar split by season, newest first: one entry for a season,
     /// one per season for All time (stacked on the runner screen).

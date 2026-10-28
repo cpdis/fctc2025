@@ -20,9 +20,9 @@
 //  `-ui-dashboard-full` is the profiling size: a real season's shape, 118 club
 //  days and 30 runners (the four above plus 26 whose attendance thins from
 //  about 85% to 5%). Instruments runs use it. Two of its runners join part way
-//  through, so a runner screen has a debut: Alex B in last season's final ten
-//  rows, Laura E at this season's club day 70. Their lifetime totals are
-//  exactly those runs, so nothing came before. `testLateJoinersShowSinceFirstRun`
+//  through, so their first run is in the data: Alex B in last season's final
+//  ten rows, Laura E at this season's club day 70. Their lifetime totals are
+//  exactly those runs, so nothing came before. `testSinceFirstRunCountsEverySeason`
 //  pins Laura E's numbers only: last season ran no Mondays, so anything that
 //  counts its club days moves with the weekday the window starts on.
 //

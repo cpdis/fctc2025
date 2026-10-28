@@ -1,5 +1,22 @@
 # iOS handoff
 
+## Unreleased: Since first run counts every season (28 October 2026)
+
+- Colin's build 15 report: the "Since first run" card was missing for nearly everyone. It was
+  per view, so the default 2026 view showed it only for runners whose first run was in 2026
+  (Dan B, Deano, René, over the real parity data); All time showed it for 30 of 34. Colin's
+  call: the runner screen shows the all-time rate since the first run, whatever view is shown.
+- `FirstRuns.build` (kit) counts club days from each runner's first club day over every season
+  the app has; a runner with runs before the earliest season gets none. `DashboardStore`
+  holds `firstRuns`: the live season alone at first, every season once `loadFirstRuns()` has
+  fetched each earlier listed season (the engine's per-session snapshot cache, shared with Vs
+  last year and the season menu, so no extra request with two seasons). A failed fetch keeps
+  the live-season counts until the next call; an engine swap or a new live season starts over.
+  `RootTabView` calls it after `load()`.
+- The per-view `RunnerDetail.debut`/`sinceDebut` and `DashboardModel`'s `before` are gone.
+  The card (`runner-first-run`) now shows for day-one runners too, as their all-time rate.
+- Real data now: Alex B 39 of 131 since Wed 5 Nov 2025 (30%) on every view.
+
 ## TestFlight build 15: Grant's build 14 feedback (28 October 2026)
 
 - Version 0.1.0 build 15 from `release/testflight-build-15` (`44b220b`): main at `b12a4af`
