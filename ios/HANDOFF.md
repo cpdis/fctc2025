@@ -3,12 +3,10 @@
 ## TestFlight build 16: Since first run counts every season (28 October 2026)
 
 - Version 0.1.0 build 16 from `claude/since-first-run-all-time` (`dffc8a2`): build 15 plus
-  `e762617`. Build `f9c19099-3cf7-45d8-9e6b-1560fc6ab41b` is VALID. FCTC Internal only (Colin),
-  internal `IN_BETA_TESTING`; not attached to FCTC Friends, external `READY_FOR_BETA_SUBMISSION`.
-  Notes match `ios/testflight-build-16.txt` (read back, en-AU), written for every tester.
-  FCTC Friends on Colin's word:
-  `testflight-notes.py --build 16 --file ios/testflight-build-16.txt --group "FCTC Friends"`,
-  then submit beta review and check the external state.
+  `e762617`. Build `f9c19099-3cf7-45d8-9e6b-1560fc6ab41b` is VALID. Uploaded to FCTC Internal
+  first; Colin then released it: FCTC Friends attached, beta app review APPROVED at once,
+  internal and external `IN_BETA_TESTING`, automatic notification on. Notes match
+  `ios/testflight-build-16.txt` (read back, en-AU), written for every tester.
 - Colin's build 15 report: the "Since first run" card was missing for nearly everyone. It was
   per view, so the default 2026 view showed it only for runners whose first run was in 2026
   (Dan B, Deano, René, over the real parity data); All time showed it for 30 of 34. Colin's
