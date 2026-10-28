@@ -1,7 +1,13 @@
 # iOS handoff
 
-## Unreleased: Grant's build 14 feedback (28 October 2026)
+## TestFlight build 15: Grant's build 14 feedback (28 October 2026)
 
+- Version 0.1.0 build 15 from `release/testflight-build-15` (`44b220b`): main at `b12a4af`
+  (PR #19) plus the version bump. Build `91943124-2ba9-4418-a4e9-ca51cfe99d5c` is VALID.
+  FCTC Internal only (Colin), internal `IN_BETA_TESTING`; not attached to FCTC Friends, external
+  `READY_FOR_BETA_SUBMISSION`. Notes match `ios/testflight-build-15.txt` (read back, en-AU),
+  written for every tester. Colin tests first; FCTC Friends (Grant, Aaron) on his word:
+  `testflight-notes.py --build 15 --file ios/testflight-build-15.txt --group "FCTC Friends"`.
 - `ios/Tools/testflight-feedback.py` reads TestFlight feedback with the release API key
   (`betaFeedbackScreenshotSubmissions`, `betaFeedbackCrashSubmissions`); runbook step 4.6.
   Grant sent the three reports so far (one on build 1, two on build 14); no crashes.
