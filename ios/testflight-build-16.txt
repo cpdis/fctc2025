@@ -1,0 +1,19 @@
+Pick 2026 or All time, as you please,
+Each runner's first-run card now counts it with ease:
+From the day that they started, whatever the year,
+Every club day they made since is counted right here.
+
+Filament Coffee Track Club: Since first run on every runner screen
+
+Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone. Nothing to set up again.
+
+New since build 15:
+• Every runner's screen now has the "Since first run" card, whatever season the Dashboard shows. It counts the club days they made since their very first run in any season, so someone who started last November is measured from last November, on the 2026 view too.
+• Runners who were there from the first club day see their all-time rate since then.
+• Right after the app opens, the card can take a moment to appear while last season loads.
+
+Please check:
+• On the Dashboard, keep 2026 and open any runner. The "Since first run" card should sit under their stats.
+• Switch the season menu to All time and open the same runner. The card should show the same numbers.
+
+Share feedback through TestFlight.
