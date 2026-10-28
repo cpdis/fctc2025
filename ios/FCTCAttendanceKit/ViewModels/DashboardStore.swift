@@ -47,6 +47,14 @@
 //
 //  Every view shows the live season's milestone shortlist, as the web does.
 //
+//  The runner screen's "Since first run" counts from each runner's first run in
+//  any season, whatever view is shown (`FirstRuns`). `loadFirstRuns()` fetches
+//  every earlier listed season once, through the same engine cache as the menu:
+//
+//    update ──────────> firstRuns over the live season (until the rest load)
+//    loadFirstRuns() ─> seasonSnapshot(each earlier year) ─all ok─> firstRuns over every season
+//                                                          └─throws─> live season only; call again
+//
 
 import Foundation
 import Observation
@@ -124,6 +132,10 @@ public final class DashboardStore {
     /// The menu's seasons, newest first: the live season and each listed season
     /// before it. Fewer than two means there is nothing to pick.
     public private(set) var seasons: [Int] = []
+    /// Each runner's club days since their first run, by name, whatever view
+    /// is shown. The live season alone until every earlier listed season has
+    /// loaded (`loadFirstRuns()`), since a missing season would drop club days.
+    public private(set) var firstRuns: [String: FirstRun] = [:]
 
     /// The season shown; nil for All time or before the live season loads.
     public var shownSeason: Int? {
@@ -170,6 +182,13 @@ public final class DashboardStore {
     /// Moves with every engine swap and live-season change, so an answer to
     /// an older question is dropped.
     @ObservationIgnored private var generation = 0
+    /// Earlier listed seasons' runs for `firstRuns`, by year. A season the
+    /// live state no longer lists is loaded as no runs.
+    @ObservationIgnored private var history: [Int: [ClubRun]] = [:]
+    @ObservationIgnored private var isLoadingHistory = false
+    /// Moves with every engine swap and live-season change only: picking a
+    /// view does not touch first runs.
+    @ObservationIgnored private var historyGeneration = 0
 
     public init(engine: any SyncEngineClient) {
         self.engine = engine
@@ -182,6 +201,7 @@ public final class DashboardStore {
         fingerprint = nil
         forgetPicked()
         forgetLastSeason()
+        forgetHistory()
     }
 
     /// Rebuilds the model when `fingerprint` differs from the last one. `inputs`
@@ -197,10 +217,12 @@ public final class DashboardStore {
         if let live = self.inputs?.season, let liveBefore, live != liveBefore {
             forgetPicked()
             forgetLastSeason()
+            forgetHistory()
         } else if picked == nil, let season = self.inputs?.season, let answeredSeason, season != answeredSeason {
             forgetLastSeason()
         }
         rebuild()
+        rebuildFirstRuns()
     }
 
     /// Shows `period`: the live season, an earlier listed one from its
@@ -327,6 +349,55 @@ public final class DashboardStore {
         }
     }
 
+    /// Fetches every earlier listed season `firstRuns` still needs, one at a
+    /// time; each comes from the engine's cache after its first fetch in a
+    /// session. Call it after each `update`: it costs nothing once all are in,
+    /// and a failure keeps the live-season counts until the next call.
+    public func loadFirstRuns() async {
+        guard let inputs, !isLoadingHistory else { return }
+        let missing = earlierSeasons(inputs).filter { history[$0] == nil }
+        guard !missing.isEmpty else { return }
+        isLoadingHistory = true
+        let generation = historyGeneration
+        for year in missing {
+            let state: SheetState?
+            do {
+                state = try await engine.seasonSnapshot(year: year)
+            } catch {
+                // A swap or a new live season started over; it owns the flag.
+                guard generation == historyGeneration else { return }
+                isLoadingHistory = false
+                return
+            }
+            guard generation == historyGeneration else { return }
+            history[year] = state.map { state in state.runs.compactMap { ClubRun($0, season: state.seasonYear) } } ?? []
+        }
+        isLoadingHistory = false
+        rebuildFirstRuns()
+    }
+
+    /// First runs over every season once each earlier one has loaded, else
+    /// over the live season alone. Runs before them are the lifetime totals
+    /// less every run counted here.
+    private func rebuildFirstRuns() {
+        guard let inputs else {
+            firstRuns = [:]
+            return
+        }
+        let earlier = earlierSeasons(inputs)
+        let runs = earlier.allSatisfy({ history[$0] != nil })
+            ? inputs.runs + earlier.flatMap { history[$0] ?? [] }
+            : inputs.runs
+        firstRuns = FirstRuns.build(runs: runs, before: inputs.priors?.rebased(live: inputs.runs, onto: runs))
+    }
+
+    /// Drops the earlier seasons and any fetch still in flight.
+    private func forgetHistory() {
+        historyGeneration += 1
+        history = [:]
+        isLoadingHistory = false
+    }
+
     /// Back to the live season.
     private func forgetPicked() {
         picked = nil
@@ -359,7 +430,7 @@ public final class DashboardStore {
         case nil:
             shown = .season(inputs.season)
             model = DashboardModel(season: inputs.season, runs: inputs.runs, previous: previousRuns,
-                                   priors: inputs.priors, before: inputs.priors, milestones: milestones)
+                                   priors: inputs.priors, milestones: milestones)
             unsyncedCount = inputs.unsyncedCount
         case .season(let year)?:
             shown = .season(year)
@@ -368,12 +439,8 @@ public final class DashboardStore {
                 model = nil
                 return
             }
-            // Before this season: the live priors less this season. A season
-            // between the two still counts as before, so it can hide a debut
-            // but never invent one.
             model = DashboardModel(season: year, runs: runs, previous: previousRuns,
                                    priors: inputs.priors?.rebased(live: inputs.runs, onto: runs),
-                                   before: inputs.priors?.rebased(live: [], onto: runs),
                                    milestones: milestones)
         case .allTime?:
             shown = .allTime

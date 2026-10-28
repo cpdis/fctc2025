@@ -1,7 +1,46 @@
 # iOS handoff
 
-## Unreleased: Grant's build 14 feedback (28 October 2026)
+## TestFlight build 16: Since first run counts every season (28 October 2026)
 
+- Version 0.1.0 build 16 from `claude/since-first-run-all-time` (`dffc8a2`): build 15 plus
+  `e762617`. Build `f9c19099-3cf7-45d8-9e6b-1560fc6ab41b` is VALID. Uploaded to FCTC Internal
+  first; Colin then released it: FCTC Friends attached, beta app review APPROVED at once,
+  internal and external `IN_BETA_TESTING`, automatic notification on. Notes match
+  `ios/testflight-build-16.txt` (read back, en-AU), written for every tester.
+- Colin's build 15 report: the "Since first run" card was missing for nearly everyone. It was
+  per view, so the default 2026 view showed it only for runners whose first run was in 2026
+  (Dan B, Deano, René, over the real parity data); All time showed it for 30 of 34. Colin's
+  call: the runner screen shows the all-time rate since the first run, whatever view is shown.
+- `FirstRuns.build` (kit) counts club days from each runner's first club day over every season
+  the app has; a runner with runs before the earliest season gets none. `DashboardStore`
+  holds `firstRuns`: the live season alone at first, every season once `loadFirstRuns()` has
+  fetched each earlier listed season (the engine's per-session snapshot cache, shared with Vs
+  last year and the season menu, so no extra request with two seasons). A failed fetch keeps
+  the live-season counts until the next call; an engine swap or a new live season starts over.
+  `RootTabView` calls it after `load()`.
+- The per-view `RunnerDetail.debut`/`sinceDebut` and `DashboardModel`'s `before` are gone.
+  The card (`runner-first-run`) now shows for day-one runners too, as their all-time rate.
+- Real data now: Alex B 39 of 131 since Wed 5 Nov 2025 (30%) on every view.
+
+## TestFlight build 15: Grant's build 14 feedback (28 October 2026)
+
+- Version 0.1.0 build 15 from `release/testflight-build-15` (`44b220b`): main at `b12a4af`
+  (PR #19) plus the version bump. Build `91943124-2ba9-4418-a4e9-ca51cfe99d5c` is VALID.
+  Colin tested it first through FCTC Internal, then released it: FCTC Friends (Grant, Aaron)
+  attached, beta app review APPROVED at once, internal and external `IN_BETA_TESTING`, automatic
+  notification on. Notes match `ios/testflight-build-15.txt` (read back, en-AU), written for
+  every tester.
+- Known issue, left for later (Colin's call): on Colin's iPhone 17 Pro (iOS 27.2, 24B119), a
+  pull down on the Dashboard bounces back to rest 53 pt below the top, holds there about
+  0.15 s, then jumps to the top in one frame. Measured from his screen recording (title offset
+  per 60 fps frame): peak 130 pt at 1.05 s, smooth settle to 53 pt by 1.55 s, jump at 1.72 s;
+  the second pull repeats it exactly. Not a hitch or a re-render (the Wall is identical before
+  and after), and not a refresh (no spinner; the Dashboard has no `.refreshable`). It does not
+  reproduce on the iOS 26.5 or 27.0 simulators (same pull, settles smoothly to 0), so it needs
+  an iOS 27.2 runtime or the phone. Suspect: the root's hidden navigation bar
+  (`.navigationTitle` plus `.toolbar(.hidden, for: .navigationBar)`); 53 pt is about an iOS
+  26+ bar's height. Open questions: do Events and Runs (Lists, same hidden bar) jump too, and
+  does a pushed runner screen (bar visible)?
 - `ios/Tools/testflight-feedback.py` reads TestFlight feedback with the release API key
   (`betaFeedbackScreenshotSubmissions`, `betaFeedbackCrashSubmissions`); runbook step 4.6.
   Grant sent the three reports so far (one on build 1, two on build 14); no crashes.
