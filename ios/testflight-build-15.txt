@@ -1,0 +1,20 @@
+Tap a name under Milestones and there you will be,
+On that runner's own page, with their stats all to see.
+And for those who joined later, a new card has begun:
+It counts every club day since their very first run.
+
+Filament Coffee Track Club: milestone names open runner screens, and a fair rate for late joiners
+
+Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone. Nothing to set up again.
+
+New since build 14:
+• On Events, tap a name under Milestones to open that runner's screen, the same one the Dashboard opens. Back returns to Events. A name stays plain if that runner has no run in the season the Dashboard shows.
+• A runner who joined part way through has a "Since first run" card under their stats: the club days they made since their first run, and the rate. In All time it counts across seasons, so someone who started last October is measured from last October.
+• Both ideas came from Grant's TestFlight feedback. Thanks, Grant.
+
+Please check:
+• Open Events and tap a name under Milestones. Their runner screen should open, and Back should return to Events.
+• Open the Dashboard, pick All time, and open someone who joined after the start of 2025. The "Since first run" card should show their first run and their rate.
+• Open someone who has run since the very start. They should have no "Since first run" card.
+
+Share feedback through TestFlight.
