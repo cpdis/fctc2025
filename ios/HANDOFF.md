@@ -4,10 +4,21 @@
 
 - Version 0.1.0 build 15 from `release/testflight-build-15` (`44b220b`): main at `b12a4af`
   (PR #19) plus the version bump. Build `91943124-2ba9-4418-a4e9-ca51cfe99d5c` is VALID.
-  FCTC Internal only (Colin), internal `IN_BETA_TESTING`; not attached to FCTC Friends, external
-  `READY_FOR_BETA_SUBMISSION`. Notes match `ios/testflight-build-15.txt` (read back, en-AU),
-  written for every tester. Colin tests first; FCTC Friends (Grant, Aaron) on his word:
-  `testflight-notes.py --build 15 --file ios/testflight-build-15.txt --group "FCTC Friends"`.
+  Colin tested it first through FCTC Internal, then released it: FCTC Friends (Grant, Aaron)
+  attached, beta app review APPROVED at once, internal and external `IN_BETA_TESTING`, automatic
+  notification on. Notes match `ios/testflight-build-15.txt` (read back, en-AU), written for
+  every tester.
+- Known issue, left for later (Colin's call): on Colin's iPhone 17 Pro (iOS 27.2, 24B119), a
+  pull down on the Dashboard bounces back to rest 53 pt below the top, holds there about
+  0.15 s, then jumps to the top in one frame. Measured from his screen recording (title offset
+  per 60 fps frame): peak 130 pt at 1.05 s, smooth settle to 53 pt by 1.55 s, jump at 1.72 s;
+  the second pull repeats it exactly. Not a hitch or a re-render (the Wall is identical before
+  and after), and not a refresh (no spinner; the Dashboard has no `.refreshable`). It does not
+  reproduce on the iOS 26.5 or 27.0 simulators (same pull, settles smoothly to 0), so it needs
+  an iOS 27.2 runtime or the phone. Suspect: the root's hidden navigation bar
+  (`.navigationTitle` plus `.toolbar(.hidden, for: .navigationBar)`); 53 pt is about an iOS
+  26+ bar's height. Open questions: do Events and Runs (Lists, same hidden bar) jump too, and
+  does a pushed runner screen (bar visible)?
 - `ios/Tools/testflight-feedback.py` reads TestFlight feedback with the release API key
   (`betaFeedbackScreenshotSubmissions`, `betaFeedbackCrashSubmissions`); runbook step 4.6.
   Grant sent the three reports so far (one on build 1, two on build 14); no crashes.
