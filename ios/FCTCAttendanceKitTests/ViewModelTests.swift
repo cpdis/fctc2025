@@ -280,6 +280,36 @@ struct ViewModelTests {
         #expect(viewModel.canConfirm)
     }
 
+    /// Grant's build 16 report: fixing the distance on a recorded run asked
+    /// Merge or Overwrite, and both buttons read "add 0, remove 0".
+    @Test("A distance-only edit on a recorded run needs no merge choice")
+    func distanceOnlyEditSkipsRecordedChoice() async throws {
+        let baseline = run(row: 42, dayOffset: 0, actualKm: 7.1, attendees: ["Col"])
+        let viewModel = ChecklistViewModel(run: baseline, roster: ["Aaron", "Col"], engine: ViewModelSyncClient())
+        #expect(baseline.hasRecordedAttendance)
+
+        viewModel.actualKmText = "10.48"
+
+        #expect(viewModel.canConfirm)
+        #expect(!viewModel.attendanceDiffersFromSheet)
+        #expect(!viewModel.requiresRecordedChoice)
+        try await viewModel.confirm(mode: .merge)
+    }
+
+    @Test("An attendee change on a recorded run still needs the merge choice")
+    func attendeeChangeKeepsRecordedChoice() {
+        let baseline = run(row: 42, dayOffset: 0, actualKm: 7.1, attendees: ["Col"])
+        let viewModel = ChecklistViewModel(run: baseline, roster: ["Aaron", "Col"], engine: ViewModelSyncClient())
+
+        viewModel.actualKmText = "10.48"
+        viewModel.toggleMember("Aaron")
+        #expect(viewModel.requiresRecordedChoice)
+
+        // Undoing the attendee change leaves a distance-only edit again.
+        viewModel.toggleMember("Aaron")
+        #expect(!viewModel.requiresRecordedChoice)
+    }
+
     @Test("Checklist diff summaries distinguish merge and overwrite")
     func checklistDiffSummary() {
         let baseline = run(
