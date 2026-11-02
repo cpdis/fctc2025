@@ -66,7 +66,7 @@ final class DashboardUITests: XCTestCase {
         XCTAssertEqual(element("runner-streak").value as? String, "14")
         XCTAssertEqual(element("runner-runs").value as? String, "29")
         XCTAssertTrue(element("runner-summary").label.hasPrefix("#1 on runs"), element("runner-summary").label)
-        XCTAssertFalse(element("runner-debut").exists, "Aaron ran before this season")
+        XCTAssertFalse(element("runner-first-run").exists, "Aaron ran before the earliest season")
         settle()
         capture("u17-runner")
 
@@ -76,24 +76,30 @@ final class DashboardUITests: XCTestCase {
         XCTAssertTrue(allTime.label.contains("3 runs to 150"), allTime.label)
     }
 
-    /// A runner who joined part way through shows club days made since their
-    /// first run (Grant's build 14 feedback). In the profiling season, Laura E
-    /// joined at club day 70. Alex B joined late last season, so only All time
-    /// shows his; his numbers move with the weekdays, so they are not pinned.
-    func testLateJoinersShowSinceFirstRun() {
+    /// Every runner screen shows club days made since the runner's first run in
+    /// any season (Grant's build 14 feedback), whatever season is shown. In the
+    /// profiling fixture, Laura E joined at this season's club day 70 and Alex B
+    /// late last season. His numbers move with the weekdays, so they are not
+    /// pinned, but this season and All time must show the same card.
+    func testSinceFirstRunCountsEverySeason() {
         launch(["-ui-shared-guests", "-ui-dashboard-full"])
         openDashboard()
         openWallRunner("Laura E")
-        let since = element("runner-debut")
-        XCTAssertTrue(since.waitForExistence(timeout: 5))
-        XCTAssertTrue(since.label.contains("made 27 of 46 club days, 59%"), since.label)
+        let firstRun = element("runner-first-run")
+        XCTAssertTrue(firstRun.waitForExistence(timeout: 5))
+        XCTAssertTrue(firstRun.label.contains("59%"), firstRun.label)
+        XCTAssertTrue(firstRun.label.contains("Made 27 of 46 club days"), firstRun.label)
         settle()
         capture("runner-since-first-run")
         app.navigationBars["Laura E"].buttons.firstMatch.tap()
         app.navigationBars.buttons.firstMatch.tap()
 
+        // This season: Alex B's first run is last season's, and still counts.
         openWallRunner("Alex B")
-        XCTAssertFalse(element("runner-debut").exists, "Alex B ran last season")
+        XCTAssertTrue(firstRun.waitForExistence(timeout: 5), "Alex B's first run was last season")
+        let thisSeason = firstRun.label
+        settle()
+        capture("runner-since-first-run-last-season")
         app.navigationBars["Alex B"].buttons.firstMatch.tap()
         app.navigationBars.buttons.firstMatch.tap()
 
@@ -103,8 +109,8 @@ final class DashboardUITests: XCTestCase {
         app.buttons["All time"].tap()
         XCTAssertTrue(menu.waitForValue("All time"), "The menu did not switch to All time")
         openWallRunner("Alex B")
-        XCTAssertTrue(element("runner-debut").waitForExistence(timeout: 5))
-        XCTAssertTrue(element("runner-debut").label.contains("club days"), element("runner-debut").label)
+        XCTAssertTrue(firstRun.waitForExistence(timeout: 5))
+        XCTAssertEqual(firstRun.label, thisSeason, "The card should not depend on the season shown")
     }
 
     /// The header's season menu lists this season and last, shows last season

@@ -22,7 +22,7 @@
 //  can keep the store current and move it to a new engine:
 //
 //    @Query rows ─> ActiveSeason.fingerprint ─> store.update ─changed─> DashboardModel
-//    engine swap ─> store.replaceEngine ──────> store.update, store.load
+//    engine swap ─> store.replaceEngine ──────> store.update, store.load, store.loadFirstRuns
 //
 
 import FCTCAttendanceKit
@@ -205,6 +205,10 @@ struct RootTabView: View {
                                    // The sheet's columns; the cached members stand in before a refresh.
                                    roster: season.state?.roster.map(\.name) ?? cachedMembers.map(\.name))
         }
-        Task { await dashboardStore.load() }
+        Task {
+            await dashboardStore.load()
+            // Every earlier season, for each runner screen's "Since first run".
+            await dashboardStore.loadFirstRuns()
+        }
     }
 }
