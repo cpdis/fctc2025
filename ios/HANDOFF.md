@@ -1,5 +1,22 @@
 # iOS handoff
 
+## TestFlight build 17: distance-only edit skips Merge/Overwrite (2 November 2026)
+
+- Version 0.1.0 build 17 from `claude/nervous-bhaskara-e3b2c9` (`22b1a61`, cpdis/fctc2025#22):
+  main at `57442f2` (build 16 code, PR #21) plus `8b88185`. Build
+  `3c300d67-f21e-4030-bfda-eac0fe5955bf` is VALID. Colin asked for it to go to everyone: FCTC
+  Internal and FCTC Friends attached, beta app review APPROVED at once, internal and external
+  `IN_BETA_TESTING`, automatic notification on. FCTC External has 0 testers and was left off.
+  Notes match `ios/testflight-build-17.txt` (read back, en-AU), written for every tester.
+- Grant's build 16 report: a distance-only fix on a recorded run asked "Attendance is already
+  recorded" with both buttons reading "add 0, remove 0". `requiresRecordedChoice` now needs an
+  attendance change (`attendanceDiffersFromSheet`: members, named guests, plus-ones) on a
+  recorded run; a distance-only edit saves as `.merge`. `requiresGuestOverwrite` is unchanged.
+- The first `testflight-notes.py` run hit an App Store Connect 500 on the build lookup before it
+  changed anything; the rerun worked.
+- Verification on the merged tree: iOS kit 522, iOS UI 79 run (1 skipped screen tour), web 511,
+  Apps Script 279, 0 failed.
+
 ## TestFlight build 16: Since first run counts every season (28 October 2026)
 
 - Version 0.1.0 build 16 from `claude/since-first-run-all-time` (`dffc8a2`): build 15 plus

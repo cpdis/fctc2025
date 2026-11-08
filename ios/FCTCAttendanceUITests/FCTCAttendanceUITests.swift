@@ -68,6 +68,44 @@ final class FCTCAttendanceUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
     }
 
+    /// Grant's build 16 report: fixing only the distance on a recorded run asked
+    /// Merge or Overwrite with nothing to choose. Both modes write the distance
+    /// the same way, so Confirm now saves it at once.
+    func testRecordedRunDistanceOnlyEditSkipsMergeChoice() {
+        configureApp()
+        launch()
+        openRun(row: 42)
+
+        let field = app.textFields["actual-km"]
+        XCTAssertTrue(field.waitForExistence(timeout: 3))
+        // The text is trailing-aligned: tap its end so the deletes clear it.
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        let existing = (field.value as? String) ?? ""
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
+        field.typeText("10.48")
+        app.buttons["confirm-attendance"].tap()
+
+        // The catch-up prompt for row 43 shows only after a save, so it proves
+        // Confirm skipped the dialog.
+        let done = app.buttons["catchup-done"].firstMatch
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH 'Merge:'")
+        ).firstMatch.exists)
+        done.tap()
+
+        // Wait for the drain to land the write in the fake sheet, then read it back.
+        XCTAssertTrue(app.staticTexts["home-title"].waitForExistence(timeout: 5))
+        let drained = expectation(
+            for: NSPredicate(format: "label == 'Unsynced, 0 submissions'"),
+            evaluatedWith: app.buttons["home-unsynced"]
+        )
+        wait(for: [drained], timeout: 10)
+        openRun(row: 42)
+        XCTAssertTrue(field.waitForExistence(timeout: 3))
+        XCTAssertEqual(field.value as? String, "10.48")
+    }
+
     func testCatchUpPromptOpensTheOlderUnrecordedRun() {
         configureApp()
         launch()
