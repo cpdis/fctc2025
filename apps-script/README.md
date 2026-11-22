@@ -325,7 +325,8 @@ It excludes the auxiliary guest and operation tabs. A pending operation that sta
 fenced returns `pending_operation` with its `operationId` and journal `phase` (`null`
 without a journal); `busy` means only that the script lock timed out. A missing season
 returns `snapshot_invalid`. A pause in guest writes does
-not disable this read-only export.
+not disable the export. The export writes no attendance, but like every request it may
+first settle another operation's fence, which can write a `not_applied` receipt.
 
 Run `node scripts/sync-attendance-snapshot.js` from the repository root with
 `FCTC_ATTENDANCE_ENDPOINT` and `FCTC_ATTENDANCE_SECRET` in the environment. The client
