@@ -54,7 +54,11 @@ and `supportedSeasons: [{seasonSheetId, seasonYear}]` for explicit recovery sele
 Every writer checks the workbook fence while holding the script lock. A pending journal
 stores the canonical request, source revisions, exact targets, and receipt location
 before dispatch. The final batch includes its completed receipt. `getOperationStatus` verifies
-the saved targets before it clears an uncertain operation. A missing receipt after dispatch
+the saved targets before it clears an uncertain operation. Every request also runs that check
+on a fence that another operation left, before it decides, so a stopped phone cannot block
+the others: a verified completed write clears, and a reservation that never dispatched becomes
+`not_applied`. A write still preparing or uncertain after dispatch stays fenced. If the check
+throws, the fence stays and state reads still answer. A missing receipt after dispatch
 is not permission to repeat a batch. A bootstrap interruption before the ledger exists
 retains its fence for operator recovery, even if dispatch never started.
 
@@ -131,7 +135,8 @@ reasons**, not errors: `submitAttendance` answers
 `{ ok: true, conflict: { reason, message, state } }` with a fresh `getState` payload
 and writes nothing. Three operational codes round it out: `sheet_unreadable` (the
 `SEASON_SHEET_NAME` tab is missing or has no recognisable header row), `busy`
-(another writer held the script lock), `internal_error`.
+(another writer held the script lock), `internal_error`. The export adds
+`pending_operation` (see [Consistent attendance export](#consistent-attendance-export)).
 
 ## Files
 
@@ -316,8 +321,10 @@ Duplicate guest/run imports return a completed no-op. Missing slots need review.
 `exportAttendanceSnapshot` requires the shared secret and holds the script lock
 while reading all supported seasons (currently 2025 and 2026). It returns displayed
 cell strings, workbook and sheet IDs, `capturedAt`, and a SHA-256 `snapshotRevision`.
-It excludes the auxiliary guest and operation tabs. A pending operation returns
-`busy`; a missing season returns `snapshot_invalid`. A pause in guest writes does
+It excludes the auxiliary guest and operation tabs. A pending operation that stays
+fenced returns `pending_operation` with its `operationId` and journal `phase` (`null`
+without a journal); `busy` means only that the script lock timed out. A missing season
+returns `snapshot_invalid`. A pause in guest writes does
 not disable this read-only export.
 
 Run `node scripts/sync-attendance-snapshot.js` from the repository root with
@@ -326,5 +333,8 @@ validates the entire snapshot before replacing any supported-year CSV. Unchanged
 CSV files leave `last-updated.json` unchanged. Configure the endpoint and secret in
 private deployment settings; never put them in a URL or a public artifact.
 The client retries transient network errors, HTTP 429/5xx, and `busy` at most four
-times. Authentication and invalid snapshots fail without retry. Local replacement
+times. Authentication, invalid snapshots and `pending_operation` fail without retry; the
+last prints only the validated operation ID and phase. Local replacement
 failure restores the previous files; a failed restoration requires local recovery.
+Each failure line ends with the [runbook](../docs/operators/weekly-data-sync.md) path, and
+inside GitHub Actions it is an error annotation.
