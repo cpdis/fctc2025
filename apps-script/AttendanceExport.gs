@@ -3,9 +3,21 @@ var ATTENDANCE_EXPORT_YEARS = [2025, 2026];
 var ATTENDANCE_EXPORT_MAX_CELLS = 250000;
 var ATTENDANCE_EXPORT_MAX_CHARACTERS = 1200000;
 
+/**
+ * A write whose outcome is still uncertain fences the export. Name that write and its
+ * journal phase, so the sync can tell this apart from the script lock's busy code.
+ * The phase is null when no journal phase exists.
+ */
+function guestExportPending_(operationId) {
+  var phase = scriptProperty_(GUEST_JOURNAL_PREFIX + 'PHASE');
+  return Object.assign(errorResult('pending_operation', 'A saved change is waiting for verification.'),
+    { operationId: operationId, phase: phase || null });
+}
+
 /** Called only by the authenticated route under its script lock and write fence. */
 function guestExportSnapshot_(book) {
-  if (scriptProperty_(GUEST_FENCE_PROPERTY)) return errorResult('busy', 'A saved change is waiting for verification.');
+  var fence = scriptProperty_(GUEST_FENCE_PROPERTY);
+  if (fence) return guestExportPending_(fence);
   var seasons = [], cellCount = 0;
   for (var i = 0; i < ATTENDANCE_EXPORT_YEARS.length; i++) {
     var year = ATTENDANCE_EXPORT_YEARS[i], sheet = book.getSheetByName(String(year));

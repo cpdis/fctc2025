@@ -39,9 +39,15 @@ test('export captures only allowlisted seasons as displayed cell strings under o
 });
 
 test('a pending write or lock refusal prevents an inconsistent export', () => {
-  const env = environment();
-  env.properties.FCTC_PENDING_OPERATION = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-  assert.equal(env.post({ action: 'exportAttendanceSnapshot' }).error, 'busy');
+  const env = environment(), operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  // A fence with no journal or receipt cannot be verified, so it stays.
+  env.properties.FCTC_PENDING_OPERATION = operationId;
+  const pending = env.post({ action: 'exportAttendanceSnapshot' });
+  assert.deepEqual([pending.error, pending.operationId, pending.phase, pending.seasons],
+    ['pending_operation', operationId, null, undefined], JSON.stringify(pending));
+  // This fixture has no guest ledger, so read state on the paused path.
+  env.properties.SHARED_GUESTS_ENABLED = 'false';
+  assert.equal(env.post({ action: 'getState', apiVersion: 2 }).pendingOperationId, operationId);
   const locked = createEnvironment({ grid: grid(), lockHeld: true });
   assert.equal(locked.post({ action: 'exportAttendanceSnapshot' }).error, 'busy');
 });

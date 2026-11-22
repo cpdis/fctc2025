@@ -129,26 +129,49 @@ test('same-name creation needs an explicit choice and forged digests cannot writ
   assert.equal(env.post({ action: 'getState', apiVersion: 2 }).guests.length, 2);
 });
 
-test('lost applied response survives restart, fences writers, and verifies one receipt', () => {
-  const env = environment(); setup(env);
+// The export reads both allowlisted seasons. Setup still covers only 2026.
+function exportable() {
+  return createEnvironment({ grid: fixture(), sheetName: '2026', extraSheets: [{ name: '2025', sheetId: 25, grid: fixture() }],
+    properties: { SHARED_GUESTS_SETUP_ALLOWED: 'true' } });
+}
+// The export's pending-write refusal, reduced to the fields a test compares.
+function pendingExport(env) {
+  const result = env.post({ action: 'exportAttendanceSnapshot' });
+  return [result.error, result.operationId, result.phase, result.seasons];
+}
+
+// The 22 Nov 2026 sync failure: the owning phone stopped, so it never polled its own fence.
+test('another client settles a lost applied response; the owner still reads one verified receipt', () => {
+  const env = exportable(); setup(env);
   const rene = guest(env), request = attendance(env, [rene.guestId]);
   failMutationBatch(env, 'after');
   assert.equal(env.post(request).conflict.reason, 'pending_verification');
-  assert.equal(env.post({ action: 'getState', apiVersion: 2 }).pendingOperationId, request.operationId);
-  assert.equal(env.post({ action: 'addRun', date: 'Fri, 20-Feb', run: 'Soft Sand' }).conflict.reason, 'pending_verification');
-  assert.equal(env.post({ action: 'exportAttendanceSnapshot' }).error, 'busy');
   const restarted = env.restart();
+  const snapshot = restarted.post({ action: 'exportAttendanceSnapshot' });
+  assert.equal(snapshot.ok, true, JSON.stringify(snapshot));
+  assert.equal(restarted.post({ action: 'getState', apiVersion: 2 }).pendingOperationId, null);
   const receipt = restarted.post({ action: 'getOperationStatus', operationId: request.operationId }).operation;
   assert.equal(receipt.status, 'completed');
   assert.deepEqual(restarted.post(request), receipt.response);
-  const state = restarted.post({ action: 'getState', apiVersion: 2 });
-  assert.equal(state.pendingOperationId, null);
-  assert.equal(state.guests[0].confirmedRuns, 1);
+  assert.equal(restarted.post({ action: 'getState', apiVersion: 2 }).guests[0].confirmedRuns, 1);
   const journalText = JSON.stringify(restarted.allSheets.find(s => s.name === '_FCTC_Operations').values);
   assert.equal(journalText.includes('test-secret'), false, 'The canonical operation must omit credentials');
 });
 
-test('an absent receipt after dispatch stays fenced after restart; no structural replay', () => {
+test('another client settles a reservation that never dispatched as not_applied, with no replay', () => {
+  const env = exportable(); setup(env);
+  const request = mutation('createGuest', { guestId: uuid(), displayName: 'Rene', confirmDistinct: false });
+  const api = env.context.Sheets.Spreadsheets, original = api.batchUpdate;
+  api.batchUpdate = (batch, id) => { original(batch, id); throw new Error('Execution stopped after reservation'); };
+  assert.equal(env.post(request).conflict.reason, 'pending_verification');
+  const restarted = env.restart();
+  const snapshot = restarted.post({ action: 'exportAttendanceSnapshot' });
+  assert.equal(snapshot.ok, true, JSON.stringify(snapshot));
+  assert.equal(restarted.post({ action: 'getOperationStatus', operationId: request.operationId }).operation.status, 'not_applied');
+  assert.equal(restarted.post({ action: 'getState', apiVersion: 2 }).guests.length, 0);
+});
+
+test('an absent receipt after dispatch keeps writes and the export fenced after restart; no structural replay', () => {
   const env = environment(); setup(env);
   const state = env.post({ action: 'getState', apiVersion: 2 });
   const request = mutation('addMember', { name: 'Sam', baseRevision: state.sheetRevision });
@@ -157,6 +180,7 @@ test('an absent receipt after dispatch stays fenced after restart; no structural
   assert.equal(env.post(request).conflict.reason, 'pending_verification');
   assert.deepEqual(env.grid(), before);
   const restarted = env.restart();
+  assert.deepEqual(pendingExport(restarted), ['pending_operation', request.operationId, 'dispatching', undefined]);
   assert.equal(restarted.post({ action: 'getOperationStatus', operationId: request.operationId }).operation.status, 'pending');
   assert.equal(restarted.post(request).conflict.reason, 'pending_verification');
   assert.equal(restarted.post(mutation('createGuest', { guestId: uuid(), displayName: 'Sam', confirmDistinct: false })).conflict.reason, 'pending_verification');
@@ -174,6 +198,38 @@ test('a terminated reservation before dispatch is not_applied, never automatical
   assert.equal(restarted.post(request).error, 'not_applied');
   assert.equal(restarted.post({ action: 'getState', apiVersion: 2 }).guests.length, 0);
   assert.equal(guest(restarted).displayName, 'Rene');
+});
+
+test('a reservation stopped while preparing keeps its fence and names the phase to the export', () => {
+  const env = environment(); setup(env);
+  const request = mutation('createGuest', { guestId: uuid(), displayName: 'Rene', confirmDistinct: false });
+  const store = env.context.PropertiesService.getScriptProperties();
+  // Execution stops after the fence and phase are set, before any journal chunk exists.
+  env.context.PropertiesService.getScriptProperties = () => ({ ...store,
+    setProperties: () => { throw new Error('Execution stopped while preparing'); } });
+  env.post(request);
+  const restarted = env.restart();
+  assert.deepEqual(pendingExport(restarted), ['pending_operation', request.operationId, 'preparing', undefined]);
+  assert.equal(restarted.properties.FCTC_PENDING_OPERATION, request.operationId);
+});
+
+test('a fence check that throws keeps the fence and still answers state reads', () => {
+  const env = environment(); setup(env);
+  const rene = guest(env), request = attendance(env, [rene.guestId]);
+  failMutationBatch(env, 'before');
+  assert.equal(env.post(request).conflict.reason, 'pending_verification');
+  // A duplicated pending receipt makes the receipt lookup throw while settling.
+  const ledger = env.allSheets.find(s => s.name === '_FCTC_Operations');
+  ledger.values.push(ledger.values.find(row => row[0] === request.operationId).slice());
+  const warnings = [];
+  env.context.console = { warn: (...parts) => warnings.push(parts.join(' ')) };
+  const state = env.post({ action: 'getState', apiVersion: 2 });
+  assert.equal(state.ok, true, JSON.stringify(state));
+  assert.equal(state.conflict, undefined);
+  assert.equal(state.pendingOperationId, request.operationId);
+  assert.deepEqual(pendingExport(env), ['pending_operation', request.operationId, 'dispatching', undefined]);
+  assert.equal(warnings.length, 2);
+  assert.ok(warnings.every(line => line.includes(request.operationId) && !line.includes('Duplicate') && !line.includes('test-secret')));
 });
 
 test('row insertion keeps metadata identity and stale coordinates resolve to the moved run', () => {

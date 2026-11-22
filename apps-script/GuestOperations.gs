@@ -175,6 +175,23 @@ function guestReconcile_(book, operationId) {
   }
   return journal || receipt || { operationId: operationId, requestDigest: '', status: 'pending', response: null };
 }
+/**
+ * Settle a fence that another client's write left. Only the owning phone polls its
+ * own operation, so without this a stopped phone blocks every other request.
+ * Reconcile verifies saved targets and never replays a batch.
+ * @return {string} The fence that remains, or '' when it cleared.
+ */
+function guestSettleFence_(book, fence) {
+  try {
+    guestReconcile_(book, fence);
+    return scriptProperty_(GUEST_FENCE_PROPERTY);
+  } catch (error) {
+    // Fail closed: keep the fence, so a receipt fault pauses writes but never breaks
+    // state reads. Log only a validated ID. Error text can carry remote messages.
+    console.warn('Pending operation ' + (guestIsUUID(fence) ? fence : 'unknown') + ' could not be verified. Writes stay paused.');
+    return fence;
+  }
+}
 /** Reserve recovery material, then atomically apply data and its completed receipt. */
 function guestExecutePlan_(book, request, canonicalRequest, plan, receiptLocation) {
   if (plan.requests.length > 500 || JSON.stringify(plan.requests).length > 180000) guestFail_('operation_too_large', 'This change needs a smaller verified batch.');

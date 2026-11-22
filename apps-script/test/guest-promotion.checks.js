@@ -242,7 +242,8 @@ test('lost promotion response, restart and a second organiser cannot repeat a tr
   let calls = 0;
   api.batchUpdate = (batch, id) => { if (++calls === 2) env.failNextBatch('after'); return original(batch, id); };
   assert.equal(env.post(request).conflict.reason, 'pending_verification');
-  assert.equal(env.post(other).conflict.reason, 'pending_verification');
+  // The second commit settles the verified fence first, then finds the guest already promoted.
+  assert.equal(env.post(other).conflict.reason, 'guest_promoted');
   const restarted = env.restart();
   assert.equal(restarted.post({ action: 'getOperationStatus', operationId: request.operationId }).operation.status, 'completed');
   assert.equal(restarted.post(request).status, 'completed');
