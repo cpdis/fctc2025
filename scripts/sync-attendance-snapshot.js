@@ -13,6 +13,9 @@ const MAX_CELLS = 250_000
 const MAX_CHARACTERS = 1_200_000
 const MAX_ATTEMPTS = 4
 const FILE_OPERATIONS = { mkdir, mkdtemp, writeFile, rename, rm }
+const RUNBOOK = 'docs/operators/weekly-data-sync.md'
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const JOURNAL_PHASES = ['preparing', 'reserved', 'dispatching']
 
 // Only a classified transport failure or temporary server condition can retry.
 // Parsing, authentication and snapshot validation remain terminal failures.
@@ -115,12 +118,39 @@ async function requestSnapshot(url, secret, fetchImpl) {
   try { snapshot = JSON.parse(body) } catch { throw new Error('Attendance endpoint did not return JSON. Check deployment and permissions.') }
   if (snapshot?.ok === false) {
     // Do not echo remote messages, request bodies, or credentials into CI logs.
+    // A pending phone write clears only when the server can verify it, never
+    // within the retry window, so it is terminal.
+    if (snapshot.error === 'pending_operation') throw new Error(pendingWriteMessage(snapshot))
     const reason = ['busy', 'bad_secret', 'snapshot_invalid', 'snapshot_too_large', 'shared_guests_disabled'].includes(snapshot.error)
       ? snapshot.error : 'service_error'
     const ErrorType = reason === 'busy' ? TransientSnapshotError : Error
     throw new ErrorType(`Attendance snapshot unavailable (${reason}). No data changed.`)
   }
   return snapshot
+}
+
+/**
+ * Name the fenced write from validated fields only. The server sends a UUID and
+ * a journal phase; a null phase means the fence has no journal. Any other value
+ * prints as "unknown", so a remote string never reaches the CI log.
+ */
+function pendingWriteMessage({ operationId, phase }) {
+  const write = typeof operationId === 'string' && UUID.test(operationId) ? operationId : 'unknown'
+  const stage = phase === null ? 'none' : JOURNAL_PHASES.includes(phase) ? phase : 'unknown'
+  return `Attendance snapshot unavailable (pending_operation): write ${write} awaits verification (phase ${stage}). ` +
+    'Phone writes are paused too. No data changed.'
+}
+
+/**
+ * One failure line that points to the runbook. Inside GitHub Actions it becomes
+ * an error annotation, so the run page shows the cause, not only an exit code.
+ * Workflow commands need %, CR and LF escaped.
+ */
+export function failureLine(message, env = process.env) {
+  const line = `${message} Runbook: ${RUNBOOK}`
+  if (env.GITHUB_ACTIONS !== 'true') return line
+  return '::error title=Attendance sync failed::' +
+    line.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A')
 }
 
 /** Retry the read only; never enter file replacement until one capture validates. */
@@ -159,5 +189,5 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   syncAttendanceSnapshot({ endpoint: process.env.FCTC_ATTENDANCE_ENDPOINT, secret: process.env.FCTC_ATTENDANCE_SECRET })
     .then(result => console.log(result.changedYears.length
       ? `Updated attendance seasons: ${result.changedYears.join(', ')}` : 'Attendance is unchanged; no timestamp update.'))
-    .catch(error => { console.error(error.message); process.exitCode = 1 })
+    .catch(error => { console.error(failureLine(error.message)); process.exitCode = 1 })
 }
