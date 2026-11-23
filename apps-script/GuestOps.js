@@ -19,6 +19,8 @@ var guestOperationFields = {
   commitPromotion: ['guestId', 'memberName', 'targetMode', 'previewToken'],
   addMember: ['name', 'baseRevision', 'seasonSheetId'],
   addRun: ['date', 'meet', 'run', 'approxKm', 'spreadsheetId', 'seasonSheetId', 'baseRevision'],
+  // No baseRevision: a cancel checks only its own run, under the lock (run cancelled plan, KTD3).
+  setRunCancelled: ['spreadsheetId', 'seasonSheetId', 'runId', 'rowIndex', 'expectedDate', 'expectedRun', 'cancelled'],
   setupSharedGuests: ['spreadsheetId', 'seasonSheetIds']
 };
 

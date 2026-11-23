@@ -2,7 +2,8 @@
 function guestRoute_(request) {
   var action = SheetOps.cellText(request.action);
   var shared = ['setupSharedGuests', 'createGuest', 'renameGuest', 'getGuestHistory', 'getOperationStatus',
-    'importGuestHistory', 'previewGuestImport', 'previewPromotion', 'commitPromotion', 'exportAttendanceSnapshot'].indexOf(action) >= 0;
+    'importGuestHistory', 'previewGuestImport', 'previewPromotion', 'commitPromotion', 'exportAttendanceSnapshot',
+    'setRunCancelled'].indexOf(action) >= 0;
   var writes = ['submitAttendance', 'addMember', 'addRun'].indexOf(action) >= 0;
   if (!shared && !writes && action !== 'getState') return null;
   return withLock_(function () {
@@ -80,7 +81,7 @@ function guestRoute_(request) {
     } catch (error) {
       if (!error.guestConflict) throw error;
       var conflict = error.guestConflict;
-      if (store && ['submitAttendance', 'renameGuest', 'importGuestHistory', 'commitPromotion'].indexOf(action) >= 0) {
+      if (store && ['submitAttendance', 'renameGuest', 'importGuestHistory', 'commitPromotion', 'setRunCancelled'].indexOf(action) >= 0) {
         try { conflict.state = guestState_(store, request.seasonSheetId); } catch (ignored) { /* Keep the original actionable conflict. */ }
       }
       return okResult({ conflict: conflict });
@@ -96,6 +97,7 @@ function guestActionPlan_(store, request) {
   if (request.action === 'commitPromotion' && typeof guestPromotionPlan_ === 'function') return guestPromotionPlan_(store, request);
   if (request.action === 'importGuestHistory' && typeof guestImportPlan_ === 'function') return guestImportPlan_(store, request);
   if (request.action === 'submitAttendance') return guestAttendancePlan_(store, request, plan);
+  if (request.action === 'setRunCancelled') return guestCancellationPlan_(store, request, plan);
   if (request.action !== 'addMember' && request.action !== 'addRun') guestFail_('unsupported_action', 'This shared guest action is not available yet.');
   var ctx = guestSeason_(store, request.seasonSheetId);
   var revision = guestSheetRevision_(ctx, store.guestRevision);
@@ -160,6 +162,7 @@ function guestAttendancePlan_(store, request, plan) {
   var run = guestRequire_(GuestOps.resolveRun(store.runs, request)).run;
   var ctx = guestSeason_(store, run.seasonSheetId), revision = guestSheetRevision_(ctx, store.guestRevision);
   if (!SheetOps.sameRunIdentity(run.date, run.run, request.expectedDate, request.expectedRun)) guestFail_('row_mismatch', 'The selected run date or label changed. Refresh this run.');
+  if (SheetOps.isCancelledRun(run)) guestFail_(ERR_RUN_CANCELLED, RUN_CANCELLED_MESSAGE);
   if (!isStringArray_(request.attendees) || ['merge', 'overwrite'].indexOf(request.mode) < 0) guestFail_('invalid_attendance', 'Choose attendance and an explicit save mode.');
   if (request.actualKm !== null && (typeof request.actualKm !== 'number' || !Number.isFinite(request.actualKm) || request.actualKm < 0)) guestFail_('invalid_attendance', 'Enter a valid distance or leave it blank.');
   // Validate identities before the revision check so a stale phone receives the member mapping.
@@ -199,5 +202,35 @@ function guestAttendancePlan_(store, request, plan) {
   var guestRevision = guestRevision_(store.guests, attendance);
   plan.sourceRevisions.sheetRevision = revision;
   plan.response = { written: plan.targetState.cells.length, sheetRevision: guestSheetRevision_(predicted, guestRevision), guestRevision: guestRevision };
+  return plan;
+}
+/**
+ * Cancel a run or restore it (run cancelled plan, KTD3). The only write is the
+ * run's Run cell: the marker is added or removed, and every other cell stays as
+ * it is. A run with attendance cannot be cancelled. A request that matches the
+ * current state is a completed no-op, so two phones cancelling at once agree.
+ */
+function guestCancellationPlan_(store, request, plan) {
+  if (typeof request.cancelled !== 'boolean') guestFail_('invalid_operation', 'Say whether to cancel or restore the run.');
+  var run = guestRequire_(GuestOps.resolveRun(store.runs, request)).run;
+  var ctx = guestSeason_(store, run.seasonSheetId);
+  if (!SheetOps.sameRunIdentity(run.date, run.run, request.expectedDate, request.expectedRun)) guestFail_('row_mismatch', 'The selected run date or label changed. Refresh this run.');
+  if (request.cancelled && (run.attendees.length > 0 || run.plusOnes > 0)) {
+    guestFail_('run_has_attendance', 'This run has attendance, so it cannot be cancelled. Refresh to see who ran.');
+  }
+  var parts = SheetOps.runCancellation(run.run), col = ctx.bounds.runCol;
+  plan.sourceRevisions.sheetRevision = guestSheetRevision_(ctx, store.guestRevision);
+  var predicted = Object.assign({}, ctx, { grid: ctx.grid.map(function (r) { return r.slice(); }) });
+  if (parts.marked !== request.cancelled) {
+    // A Run cell is plain text in the club's sheet. A formula there is unexpected,
+    // and the date chain shows how far a broken formula can reach, so never replace one.
+    if (ctx.sheet.getRange(run.rowIndex, col, 1, 1).getFormulas()[0][0]) {
+      guestFail_('unsafe_formula', 'The Run cell contains a formula. Review the sheet before cancelling this run.');
+    }
+    var value = request.cancelled ? SheetOps.cancelledRunLabel(parts.label) : parts.label;
+    guestPlanCell_(plan, ctx.sheetId, run.rowIndex, col, [value]);
+    predicted.grid[run.rowIndex - 1][col - 1] = value;
+  }
+  plan.response = { written: plan.targetState.cells.length, sheetRevision: guestSheetRevision_(predicted, store.guestRevision) };
   return plan;
 }

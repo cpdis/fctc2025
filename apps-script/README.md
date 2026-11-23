@@ -86,7 +86,34 @@ Use the Google copy for formula verification: XLSX exports expand open ranges.
 New member summaries copy recognised formulas. Direct earlier-season references are
 relocated by member identity when columns move. Unrecognised historical formulas stop
 the operation before mutation. This permits no arbitrary changes to unrelated tabs.
+`setRunCancelled` may also write the Run cell of an existing run row, only to add
+or remove the `(cancelled)` marker, and never over a formula.
 Hidden tabs organise data; workbook sharing and publication settings control access.
+
+### Run cancellation (v2)
+
+A cancelled run carries `(cancelled)` at the end of its Run cell, for example
+`River Loop (cancelled)`. The rule accepts any case, `(canceled)`, and no space
+before the parenthesis, so people can type it by hand. A marked row with an `x`
+or a `+1` is a normal run under its label: a hand-typed marker never removes
+credit. The shared cases are `fixtures/attendance/run-cancellation.json`;
+`SheetOps.runCancellation`, `src/utils/runLabels.js` and `RunLabel.swift` read them.
+
+`setRunCancelled` is a v2 operation with fields `spreadsheetId`, `seasonSheetId`,
+`runId`, `rowIndex`, `expectedDate`, `expectedRun` and `cancelled` (`true` cancels,
+`false` restores). It has no `baseRevision`; it checks its own run under the lock.
+Its only write is that run's Run cell. A request that matches the current state is
+a completed no-op (`written: 0`). `getState` advertises `capabilities.runCancellation`
+while shared guests are enabled, and keeps sending the Run cell as typed.
+
+| Conflict | When |
+|---|---|
+| `run_has_attendance` | A cancel for a run with an `x` or a `+1`. The conflict carries fresh state. |
+| `run_cancelled` | Any attendance save, v2 or legacy, to a cancelled run. Restore the run first. |
+| `unsafe_formula` | The Run cell holds a formula. |
+
+Run identity ignores the marker, so a save queued before a cancel reaches the
+cancelled run and receives `run_cancelled`, not `row_mismatch`.
 
 Focused contract checks: `node --test apps-script/test/guestops.checks.js`.
 The legacy contract below remains the compatibility baseline; v2 responses keep its readable fields.
@@ -130,8 +157,8 @@ real column, `runs[].rowIndex` the real row — what you see in the Sheets UI, a
 ### Error codes
 
 `bad_secret`, `unknown_action`, `duplicate_member`, `bad_payload` come back as
-`{ ok: false, error, message }`. `row_mismatch` and `stale_revision` are **conflict
-reasons**, not errors: `submitAttendance` answers
+`{ ok: false, error, message }`. `row_mismatch`, `stale_revision` and `run_cancelled`
+are **conflict reasons**, not errors: `submitAttendance` answers
 `{ ok: true, conflict: { reason, message, state } }` with a fresh `getState` payload
 and writes nothing. Three operational codes round it out: `sheet_unreadable` (the
 `SEASON_SHEET_NAME` tab is missing or has no recognisable header row), `busy`
