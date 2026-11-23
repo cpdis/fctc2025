@@ -121,13 +121,22 @@ public final class ChecklistViewModel {
         // The prefilled distance (the sheet's actual, else its approx) is not a
         // change on its own. A typed distance that differs from it is.
         let prefilled = run.actualKm ?? run.approxKm
-        return Set(draft.attendees) != Set(run.attendees)
-            || Set(draft.namedGuestIds) != Set(run.namedGuestIds)
-            || draft.plusOnes != run.plusOnes
-            || (draft.actualKm ?? prefilled) != prefilled
+        return attendanceDiffersFromSheet || (draft.actualKm ?? prefilled) != prefilled
     }
 
-    public var requiresRecordedChoice: Bool { run.hasRecordedAttendance || requiresGuestOverwrite }
+    /// Members, named guests or the guest count differ from the sheet. The
+    /// distance is left out: both modes write it as an absolute value.
+    public var attendanceDiffersFromSheet: Bool {
+        Set(draft.attendees) != Set(run.attendees)
+            || Set(draft.namedGuestIds) != Set(run.namedGuestIds)
+            || draft.plusOnes != run.plusOnes
+    }
+
+    /// Merge and Overwrite differ only when the attendance changes. A
+    /// distance-only edit on a recorded run saves as a merge with no choice.
+    public var requiresRecordedChoice: Bool {
+        (run.hasRecordedAttendance && attendanceDiffersFromSheet) || requiresGuestOverwrite
+    }
 
     /// Merge cannot remove a saved named guest or consume a saved unnamed slot.
     /// Derive this from the final allocation so undoing an edit clears the guard.

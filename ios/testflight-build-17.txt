@@ -1,0 +1,18 @@
+Just fixing the distance? Then Confirm goes straight through,
+No Merge or Overwrite with nothing to do.
+Change who was there and it asks, as before:
+Merge with the sheet, or overwrite the score?
+
+Filament Coffee Track Club: a distance fix saves without a question
+
+Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone. Nothing to set up again.
+
+New since build 16:
+• Change only the actual kms on a run that already has attendance, and Confirm now saves it at once. The "Attendance is already recorded" question no longer appears for it: Merge and Overwrite would save the same thing.
+• Change a runner, a guest or the guest count on a recorded run, and the Merge or Overwrite question still appears, as before.
+
+Please check:
+• Grant's one: when a distance on a recorded run needs fixing, change only the actual kms and tap Confirm. It should save with no question, and the sheet should show the new distance.
+• On a recorded run, tick or untick a runner and tap Confirm. The Merge or Overwrite question should appear. Tap Cancel, then go back without saving.
+
+Share feedback through TestFlight.
