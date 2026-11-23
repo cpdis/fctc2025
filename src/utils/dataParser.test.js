@@ -535,3 +535,39 @@ describe('parseRunData - upcoming runs', () => {
     expect(combineYearData([later, early]).upcoming.map((row) => row.id)).toEqual(['2026-01-07-social'])
   })
 })
+
+// Run cancelled plan, U2: a cancelled row is not a run and not upcoming.
+describe('parseRunData - cancelled runs', () => {
+  const live = snapshotCsv(2026)
+  const cancel = (csv, row) => {
+    const marked = csv.replace(row, row.replace(/,([^,]+),(\d)/, ',$1 (cancelled),$2'))
+    expect(marked).not.toBe(csv)
+    return marked
+  }
+  const unmarked = parseRunData(live, 2026)
+
+  it('Fri 8 May marked cancelled yields no run and leaves every total unchanged (AE1)', () => {
+    const marked = parseRunData(cancel(live, '"Fri, 8-May",MSBB,River Loop,12.5'), 2026)
+    expect(marked.runs.some((r) => r.id.startsWith('2026-05-08'))).toBe(false)
+    expect(marked.upcoming.some((r) => r.id.startsWith('2026-05-08'))).toBe(false)
+    expect(marked.runs).toEqual(unmarked.runs)
+    expect(marked.memberTotals).toEqual(unmarked.memberTotals)
+    expect(marked.upcoming).toEqual(unmarked.upcoming)
+  })
+
+  it('a cancelled next run is not upcoming; the run after it is next', () => {
+    const marked = parseRunData(cancel(live, '"Mon, 28-Sep",Drift,Intervals,10.0'), 2026)
+    expect(marked.upcoming[0].id).toBe('2026-09-30-lakes-loop')
+    expect(marked.upcoming).toHaveLength(unmarked.upcoming.length - 1)
+    expect(marked.upcoming).toEqual(unmarked.upcoming.slice(1))
+  })
+
+  it('a marked row with a runner is a normal run under its label (AE4)', () => {
+    const csv = [
+      'Date,Meet,Run,Approx kms,Actual kms,Aaron,Col,+1\'s',
+      '"Fri, 8-May",MSBB,River Loop (cancelled),12.5,12.3,x,,0',
+    ].join('\n')
+    const [run] = parseRunData(csv, 2026).runs
+    expect(run).toMatchObject({ id: '2026-05-08-river-loop', type: 'River Loop', attendees: ['Aaron'] })
+  })
+})

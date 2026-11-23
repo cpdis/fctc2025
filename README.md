@@ -100,6 +100,12 @@ The parser applies these rules:
   `2026-09-25-river-loop`. The date carries the year, so ids stay unique in All time. A second
   row with the same date and label gets `-2`. Every dated row takes its id in sheet order,
   recorded or not, so recording an earlier row never moves a later run's id.
+- **Cancelled runs.** A Run cell that ends with `(cancelled)`, for example
+  `River Loop (cancelled)`, marks a run the club cancelled. A marked row with nobody on it
+  is not a run and not upcoming, so it never shows as the next run. A marked row with an
+  attendee or +1 is a normal run under its label. The marker never reaches the label, type or
+  run id. `runCancellation` in `src/utils/runLabels.js` holds the rule; Apps Script and the
+  app share its cases (`fixtures/attendance/run-cancellation.json`).
 - **Upcoming.** Dated rows after the season's latest run with nobody on them go into
   `upcoming`, in date order, each with the id it keeps once it is recorded. They never count as
   runs. The first one is the meta row's next run. A blank row before the latest run is an

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { normalizeLocation, parseRunLabel, runId, shortMonthName } from './runLabels'
+import { normalizeLocation, parseRunLabel, runCancellation, runId, shortMonthName } from './runLabels'
 import { parseRunData } from './dataParser'
 
 describe('parseRunLabel - races', () => {
@@ -165,5 +165,23 @@ describe('shortMonthName', () => {
       const date = new Date(2026, month, 15)
       expect(shortMonthName(date)).toBe(date.toLocaleString('default', { month: 'short' }))
     }
+  })
+})
+
+// The cancelled-run marker rule shared with Apps Script and Swift (run cancelled plan, R1).
+const cancellation = JSON.parse(
+  readFileSync(join(import.meta.dirname, '..', '..', 'fixtures', 'attendance', 'run-cancellation.json'), 'utf-8')
+)
+
+describe('parseRunLabel - cancelled marker', () => {
+  it.each(cancellation.cases)('reads "$raw" as marked: $marked', ({ raw, label, marked }) => {
+    expect(runCancellation(raw)).toEqual({ label, marked })
+    // The marker comes off first; the label then parses exactly as if typed alone.
+    expect(parseRunLabel(raw)).toEqual(parseRunLabel(label))
+  })
+
+  it('keeps the run id of the label, so cancelling never moves a link', () => {
+    const date = new Date(2026, 4, 8)
+    expect(runId(date, parseRunLabel('River Loop (cancelled)').label)).toBe('2026-05-08-river-loop')
   })
 })

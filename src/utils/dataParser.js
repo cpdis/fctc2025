@@ -1,5 +1,5 @@
 import Papa from 'papaparse'
-import { normalizeLocation, parseRunLabel, runId, shortMonthName } from './runLabels.js'
+import { normalizeLocation, parseRunLabel, runCancellation, runId, shortMonthName } from './runLabels.js'
 
 // Fixed columns that precede the dynamic member list in both the 2025 and 2026 sheets.
 const FIXED_LEADING_COLS = ['Date', 'Meet', 'Run', 'Approx kms', 'Actual kms']
@@ -165,6 +165,10 @@ export function parseRunData(csvText, year) {
     // A run needs someone on it (R2). A dated row with nobody is a future or
     // unrecorded run, even when a distance was typed in ahead of time.
     if (totalAttendance === 0) {
+      // A cancelled run ("River Loop (cancelled)", nobody on it) is neither:
+      // it never becomes the next run. It still took its id above, so no
+      // neighbour's id moves.
+      if (runCancellation(parsed[2]).marked) continue
       unrecorded.push({
         id,
         ...runDate,
