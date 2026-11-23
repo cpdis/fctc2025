@@ -154,6 +154,8 @@ public protocol SyncEngineClient: OutboxDraining {
     func discardGuestRename(id: UUID) async throws
     func previewPromotion(guestId: String, memberName: String, targetMode: PromotionTargetMode) async throws -> PromotionPreview
     func commitPromotion(_ preview: PromotionPreview) async throws -> UUID
+    /// Cancel (`true`) or restore (`false`) a shared run, online only. Returns the refreshed season.
+    func setRunCancelled(_ run: RunSnapshot, cancelled: Bool) async throws -> SheetState
     func recoveryCandidates(includeDismissed: Bool) async throws -> [GuestRecoverySnapshot]
     func updateRecoveryCandidate(id: String, guestId: String?, run: GuestImportEntry?, status: GuestRecoveryStatus) async throws
     func previewGuestImport(guestId: String, entries: [GuestImportEntry]) async throws -> GuestImportPreview

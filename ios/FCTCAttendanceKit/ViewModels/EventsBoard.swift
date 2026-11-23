@@ -92,7 +92,8 @@ public struct EventsBoard: Hashable, Sendable {
 
         // Components of a real instant always form a real day; nil never happens.
         if let today = ClubDate(now, calendar: ClubDate.calendar) {
-            let upcoming = season.filter { $0.run.date >= today }
+            // A cancelled run is not coming, so it leaves This week and Specials.
+            let upcoming = season.filter { $0.run.date >= today && !$0.snapshot.isCancelled }
             let weekEnd = Self.weekEnd(for: today)
             thisWeek = upcoming
                 .filter { !Self.isSpecial($0.run) && $0.run.date <= weekEnd }

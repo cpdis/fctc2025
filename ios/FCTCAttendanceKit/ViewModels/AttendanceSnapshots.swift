@@ -8,7 +8,7 @@
 
 import Foundation
 
-public struct RunSnapshot: Hashable, Sendable, Identifiable {
+public struct RunSnapshot: Hashable, Sendable, Identifiable, RunRowAttendance {
     public var id: String { runIdentity?.cacheKey ?? "legacy:\(rowIndex)" }
     public var rowIndex: Int
     public var date: String
@@ -80,15 +80,11 @@ public struct RunSnapshot: Hashable, Sendable, Identifiable {
             < (rhs.scheduledAt ?? .distantFuture, rhs.rowIndex)
     }
 
-    public var hasRecordedAttendance: Bool {
-        !attendees.isEmpty || plusOnes > 0
-    }
-
     public var detailLabel: String {
         let distance = approxKm.map {
             $0.formatted(.number.precision(.fractionLength(0...2)))
         }
-        return [meet, run, distance.map { "\($0) km" }]
+        return [meet, runName, distance.map { "\($0) km" }]
             .compactMap { $0 }
             .filter { !$0.isEmpty }
             .joined(separator: " · ")

@@ -22,6 +22,7 @@ public enum UserFacingError {
 
     public static func sync(_ error: any Error) -> String {
         if let conflict = error as? SharedGuestConflict { return conflict.message }
+        if let cancellation = error as? RunCancellationError { return cancellation.errorDescription ?? genericSync }
         guard let sheetError = error as? SheetAPIError else { return genericSync }
         switch sheetError {
         case .notConfigured:

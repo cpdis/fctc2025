@@ -13,6 +13,8 @@ import Testing
 
 enum StubTransportFailure: Error, Sendable {
     case offline
+    /// The transport proves the request never left (`HTTPTransportError.requestNotSent`).
+    case notSent
     case ambiguousTimeout
 }
 
@@ -36,6 +38,8 @@ actor StubTransport: HTTPTransport {
         switch steps.removeFirst() {
         case .response(let data):
             return data
+        case .failure(.notSent):
+            throw HTTPTransportError.requestNotSent("Connection refused")
         case .failure(let error):
             throw error
         }

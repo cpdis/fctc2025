@@ -198,6 +198,13 @@ private struct RunRow: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.subheadline)
                         .foregroundStyle(.green)
+                } else if run.isCancelled {
+                    Text("Cancelled")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(.secondary.opacity(0.15), in: .capsule)
                 } else if isDefault {
                     Text("Default")
                         .font(.caption.weight(.medium))
@@ -218,7 +225,7 @@ private struct RunRow: View {
     }
 
     private var accessibilityLabel: String {
-        [run.date, run.detailLabel, run.hasRecordedAttendance ? "Recorded" : nil]
+        [run.date, run.detailLabel, run.hasRecordedAttendance ? "Recorded" : run.isCancelled ? "Cancelled" : nil]
             .compactMap { $0 }
             .joined(separator: ", ")
     }

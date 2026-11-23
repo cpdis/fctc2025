@@ -325,8 +325,8 @@ struct HomeView: View {
     /// "94 of 163 runs recorded", or nil before the season has loaded.
     private var seasonProgress: String? {
         guard !activeRuns.isEmpty else { return nil }
-        let recorded = activeRuns.filter(\.hasRecordedAttendance).count
-        return "\(recorded) of \(DashboardFormat.runs(activeRuns.count)) recorded"
+        let progress = CatchUpPlanner.recordingProgress(of: activeRuns)
+        return "\(progress.recorded) of \(DashboardFormat.runs(progress.scheduled)) recorded"
     }
 
     /// Changes whenever a Runs input does: the season's runs, an outbox row or

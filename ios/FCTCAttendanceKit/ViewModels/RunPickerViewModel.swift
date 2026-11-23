@@ -127,14 +127,14 @@ public final class RunPickerViewModel {
     }
 
     /// R7: use the latest due run that is still blank. Only fall back to a recorded
-    /// run after every due row has attendance.
+    /// run after every due row has attendance. A cancelled run is never the default.
     public nonisolated static func defaultRun(
         from runs: [RunSnapshot],
         now: Date = .now,
         calendar: Calendar = .current
     ) -> RunSnapshot? {
-        let due = runs.filter { ($0.scheduledAt ?? .distantFuture) <= now }
-        let pending = due.filter { !$0.hasRecordedAttendance }
+        let due = runs.filter { ($0.scheduledAt ?? .distantFuture) <= now && !$0.isCancelled }
+        let pending = due.filter(\.needsAttendance)
         return (pending.isEmpty ? due : pending).max(by: RunSnapshot.chronological)
     }
 

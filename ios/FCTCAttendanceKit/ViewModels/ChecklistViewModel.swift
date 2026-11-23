@@ -18,6 +18,8 @@ public final class ChecklistViewModel {
     public var quickAddName = ""
     public private(set) var isSubmitting = false
     public private(set) var isAddingPerson = false
+    /// A cancel or restore is on its way to the sheet.
+    public private(set) var isChangingCancellation = false
     public private(set) var errorMessage: String?
     public private(set) var sharedGuests: [SharedGuest] = []
     public private(set) var unresolvedGuestNames: [String] = []
@@ -351,6 +353,33 @@ public final class ChecklistViewModel {
             )
             return id
         } catch {
+            errorMessage = UserFacingError.sync(error)
+            throw error
+        }
+    }
+
+    // MARK: Run cancelled (run cancelled plan, R3, R6)
+
+    /// Offer Run cancelled only for a blank shared run that nobody is recording:
+    /// nothing in the sheet, nothing in this draft, and no unsent or conflicted
+    /// save for it on this phone. The server must advertise the operation.
+    public func canCancelRun(serverSupports: Bool, submissions: [PendingSubmissionSnapshot]) -> Bool {
+        serverSupports && supportsSharedGuests && run.needsAttendance
+            && draft.attendees.isEmpty && draft.plusOnes == 0 && draft.guests.isEmpty
+            && !submissions.contains { $0.isOutstanding && EffectiveRuns.writes($0, to: run) }
+    }
+
+    /// Cancel (`true`) or restore (`false`) this run, then adopt the saved run.
+    /// A refusal shows the runners the server saw (AE2). Nothing is queued.
+    public func setCancelled(_ cancelled: Bool) async throws {
+        guard !isChangingCancellation else { throw CancellationError() }
+        isChangingCancellation = true
+        errorMessage = nil
+        defer { isChangingCancellation = false }
+        do {
+            acceptSavedState(try await engine.setRunCancelled(run, cancelled: cancelled))
+        } catch {
+            if let conflict = error as? SharedGuestConflict, let state = conflict.state { acceptSavedState(state) }
             errorMessage = UserFacingError.sync(error)
             throw error
         }

@@ -57,7 +57,8 @@ public struct RunLabel: Hashable, Sendable {
 
     /// Parse a raw "Run" cell. Nil and blank cells give the `Other` type.
     public init(_ raw: String?) {
-        let label = Self.stripFootnoteMarkers(raw)
+        // The cancelled marker never reaches the label, type or event.
+        let label = Self.stripFootnoteMarkers(Self.cancellation(raw).label)
         self.label = label
 
         // "Mara", "Half" or "10k", an optional-space hyphen, then the event name.
@@ -84,6 +85,25 @@ public struct RunLabel: Hashable, Sendable {
     public static func location(_ raw: String?) -> String {
         let location = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return locationAliases[location] ?? location
+    }
+
+    /// Split a raw "Run" cell into its label and the cancelled marker, the rule
+    /// Apps Script's `SheetOps.runCancellation` and the web's `runCancellation`
+    /// share (`fixtures/attendance/run-cancellation.json`). The cell is marked
+    /// when its trimmed text ends with "(cancelled)" or "(canceled)", any case,
+    /// optional space before the parenthesis:
+    ///
+    ///   "River Loop (cancelled)"  ->  ("River Loop", marked: true)
+    ///   "River Loop"              ->  ("River Loop", marked: false)
+    ///
+    /// Whether the run is cancelled also needs its attendance: see `RunRowAttendance`.
+    public static func cancellation(_ raw: String?) -> (label: String, marked: Bool) {
+        let text = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        // Built per call: `Regex` is not Sendable, so it cannot be a static.
+        guard let match = text.wholeMatch(of: /(.*?)\s*\((?:cancelled|canceled)\)/.ignoresCase()) else {
+            return (text, false)
+        }
+        return (String(match.1), true)
     }
 
     /// Drop sheet footnote markers ("**Cruise" on 5 Jan 2026) and outer whitespace.

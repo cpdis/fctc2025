@@ -36,6 +36,8 @@ public enum TodayRunStatus: Hashable, Sendable {
     case waiting
     /// The sheet holds today's attendance: members plus guests.
     case recorded(runners: Int)
+    /// Today's run is marked cancelled and has nobody on it.
+    case cancelled
 }
 
 @MainActor
@@ -134,11 +136,12 @@ public final class HomeViewModel {
         var earliestToday: RunSnapshot?
         for run in runs {
             guard let scheduledAt = run.scheduledAt else { continue }
-            if calendar.isDate(scheduledAt, equalTo: now, toGranularity: .weekOfYear) {
+            if calendar.isDate(scheduledAt, equalTo: now, toGranularity: .weekOfYear), !run.isCancelled {
                 weekCount += 1
             }
+            // A cancelled run shows today only when no other run is on today.
             if calendar.isDate(scheduledAt, inSameDayAs: now),
-               earliestToday.map({ RunSnapshot.chronological(run, $0) }) ?? true {
+               earliestToday.map({ Self.todayOrder(run, $0) }) ?? true {
                 earliestToday = run
             }
         }
@@ -158,7 +161,14 @@ public final class HomeViewModel {
             ($0.status == .queued || $0.status == .inFlight) && EffectiveRuns.writes($0, to: run)
         }
         if waiting { return .waiting }
+        if run.isCancelled { return .cancelled }
         return run.hasRecordedAttendance ? .recorded(runners: run.attendees.count + run.plusOnes) : .open
+    }
+
+    /// Today's card: a run that is not cancelled first, then sheet order.
+    private static func todayOrder(_ lhs: RunSnapshot, _ rhs: RunSnapshot) -> Bool {
+        if lhs.isCancelled != rhs.isCancelled { return !lhs.isCancelled }
+        return RunSnapshot.chronological(lhs, rhs)
     }
 
     public func refresh(hasCachedState: Bool = true) async {

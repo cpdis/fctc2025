@@ -156,8 +156,11 @@ struct RootTabView: View {
         case .todayDictation:
             runsModel.todayRun.map { .checklist($0, .dictation) }
         case .checklist(let rowIndex, let date, let run):
+            // A reminder saved before a cancel names "River Loop"; the cached cell
+            // may now read "River Loop (cancelled)". Match without the marker, so
+            // the tap opens the cancelled run rather than nothing.
             routeTargets
-                .first { $0.rowIndex == rowIndex && $0.date == date && $0.run == run }
+                .first { $0.rowIndex == rowIndex && $0.date == date && $0.runName == RunLabel.cancellation(run).label }
                 .map { .checklist($0, .standard) }
         }
     }
