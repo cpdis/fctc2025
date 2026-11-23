@@ -5,7 +5,9 @@ import { rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createHash } from 'node:crypto'
-import { validateSnapshot, serializeCSV, syncAttendanceSnapshot } from './sync-attendance-snapshot.js'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { validateSnapshot, serializeCSV, syncAttendanceSnapshot, failureLine } from './sync-attendance-snapshot.js'
 
 function snapshot() {
   const value = { ok: true, apiVersion: 2, spreadsheetId: 'test-workbook', capturedAt: '2026-09-16T08:00:00.000Z',
@@ -141,6 +143,48 @@ describe('consistent attendance snapshot sync', () => {
     expect(requests).toBe(1)
     expect(delays).toEqual([])
     expectOriginals(root)
+  })
+
+  // A pending phone write cannot clear within the retry window, so it fails at
+  // once. The line names the write so nobody has to infer it from timing.
+  const pendingId = '3f1c2a4b-5d6e-4f70-8a91-b2c3d4e5f607'
+  it('fails a pending write at once and names its operation and phase', async () => {
+    const root = directory(), delays = []; let requests = 0
+    const error = await syncAttendanceSnapshot({ ...options(root), sleep: async ms => { delays.push(ms) },
+      fetchImpl: async () => { requests++; return response({ ok: false, error: 'pending_operation',
+        operationId: pendingId, phase: 'dispatching', message: 'private-test-secret' }) } }).catch(error => error)
+    expect(error).toBeInstanceOf(Error)
+    expect(requests).toBe(1)
+    expect(delays).toEqual([])
+    expect(error.message).toContain('pending_operation')
+    expect(error.message).toContain(pendingId)
+    expect(error.message).toContain('phase dispatching')
+    expect(error.message).not.toContain('private-test-secret')
+    expectOriginals(root)
+  })
+
+  it.each([
+    ['untrusted fields', { operationId: 'private-test-secret', phase: 'private-test-secret' }, 'write unknown', 'phase unknown'],
+    ['a fence with no journal', { operationId: pendingId, phase: null }, `write ${pendingId}`, 'phase none'],
+  ])('prints only validated pending-write fields for %s', async (label, fields, write, phase) => {
+    const error = await syncAttendanceSnapshot({ ...options(directory()),
+      fetchImpl: async () => response({ ok: false, error: 'pending_operation', ...fields }) }).catch(error => error)
+    expect(error.message).toContain(write)
+    expect(error.message).toContain(phase)
+    expect(error.message).not.toContain('private-test-secret')
+  })
+
+  it('formats a failure as a GitHub annotation only inside Actions', () => {
+    expect(failureLine('Sync failed.', {})).toBe('Sync failed. Runbook: docs/operators/weekly-data-sync.md')
+    expect(failureLine('50% done\r\nnext', { GITHUB_ACTIONS: 'true' })).toBe(
+      '::error title=Attendance sync failed::50%25 done%0D%0Anext Runbook: docs/operators/weekly-data-sync.md')
+  })
+
+  it('reports a CLI failure as an annotation in Actions and exits 1', () => {
+    const run = spawnSync(process.execPath, [fileURLToPath(new URL('./sync-attendance-snapshot.js', import.meta.url))],
+      { env: { GITHUB_ACTIONS: 'true' }, encoding: 'utf8' })
+    expect(run.status).toBe(1)
+    expect(run.stderr).toMatch(/^::error title=Attendance sync failed::Set FCTC_ATTENDANCE_ENDPOINT .* Runbook: docs\/operators\/weekly-data-sync\.md\n$/)
   })
 
   it('rejects endpoint and secret configuration before any request or retry', async () => {

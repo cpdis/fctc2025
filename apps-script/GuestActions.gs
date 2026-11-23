@@ -10,6 +10,10 @@ function guestRoute_(request) {
     // A request may wait behind setup or a mutation. These decisions must use
     // values read after acquiring the lock, never the request's arrival state.
     var enabled = sharedGuestsEnabled_(), fence = scriptProperty_(GUEST_FENCE_PROPERTY);
+    // Settle another client's fence before any decision below reads it. A write that
+    // is verified, or was never dispatched, then stops blocking this request. An
+    // uncertain write keeps its fence. The owner's own ID reconciles further down.
+    if (fence && fence !== request.operationId) fence = guestSettleFence_(book, fence);
     // Setup commits the schema marker with the ledger. Disabling the feature is a
     // write pause, never a rollback to clients that cannot preserve named guests.
     var sharedFormat = book.getSheetByName(GUEST_TABLES.guests) !== null;
@@ -28,7 +32,7 @@ function guestRoute_(request) {
         store = guestReadStore_();
         return okResult(guestState_(store, request.seasonSheetId));
       }
-      if (action === 'exportAttendanceSnapshot' && fence) return errorResult('busy', 'A saved change is waiting for verification.');
+      if (action === 'exportAttendanceSnapshot' && fence) return guestExportPending_(fence);
       if (writes && request.apiVersion !== 2) {
         if (fence) return guestPending_(fence);
         if (enabled || sharedFormat) return errorResult('update_required', 'This workbook uses shared guests. Update the app before recording attendance.');

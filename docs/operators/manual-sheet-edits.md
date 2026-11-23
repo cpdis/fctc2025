@@ -50,6 +50,7 @@ targets and keep the fence; do not clear it or issue another operation. If recei
 verification returns `completed`, check the targets before reporting success. A
 verified `not_applied` result needs a newly reviewed request with a new operation ID.
 Never reuse an ID with a terminal receipt for a different request.
+A fence that stays also fails the weekly sync with `pending_operation`; see [Weekly Data Sync failures](weekly-data-sync.md).
 
 ## 25 September 2026 incident
 
