@@ -5,6 +5,25 @@ Adding or removing member columns does not itself shift app writes onto another 
 Refresh the app after an edit. A pending save that names a removed member needs review.
 Deleting a member column also removes its visible attendance; retain the history you need.
 
+## Cancel a run instead of deleting it
+
+Never delete a run row on a season tab. Each date in the Date column is a formula on the row
+above (`=A70+3`). On the 2026 tab the chain runs unbroken from Mon 11 May to Fri 11 Dec, so
+deleting one row turns every later date into `#REF!`. The app, the guest records and the weekly
+sync then lose every run after it.
+
+Cancel the run in the app instead: open it and choose **Mark Run Cancelled**. To cancel by hand,
+type ` (cancelled)` after the label in its Run cell, for example `River Loop (cancelled)`. Any
+case and `(canceled)` also work. Leave the other cells alone. The Actual kms cell feeds the km
+totals (`=AL*E`), so it must stay a number. To restore the run, delete the marker or choose
+**Restore Run**.
+
+A cancelled row with nobody on it is not a run anywhere: not in the app's prompts, the dashboard
+or the milestone inputs. If someone later types an `x` or a +1 on a marked row, it counts as a
+normal run and the marker is ignored, so nobody loses credit.
+
+Fri 8 May 2026 River Loop (row 70) was cancelled this way on 23 Nov 2026.
+
 ## Promote a guest through the app
 
 Open the shared guest and choose **Add as member**. Select **Create new member**

@@ -514,6 +514,18 @@ Settings, and SF Pro. Dashboard numbers use SF Pro Rounded bold. The web's Poste
 on the web. Settings also has a **Siri and Shortcuts** row that opens the app's shortcuts, and
 its accent swatches are 44 pt targets.
 
+### Cancelled runs
+
+A run that did not happen can be marked cancelled from Review & Confirm. **Mark Run Cancelled**
+sits below the roster on a blank shared run, once the server supports it
+(`capabilities.runCancellation`). It needs a connection and is never queued. The server writes
+`(cancelled)` after the run's label in the sheet, for example `River Loop (cancelled)`. A cancelled
+run leaves catch-up, the default run, reminders, the Events tab, This Week and "N of M recorded",
+and Home and the run list say **Cancelled**. **Restore Run** removes the marker. Nobody can cancel a
+run with marks, +1s or a save on its way, and the server refuses attendance on a cancelled run
+until it is restored. The plan is `docs/plans/2026-11-23-1050-feat-run-cancelled-plan.md`; to
+cancel by hand, see `docs/operators/manual-sheet-edits.md`.
+
 ### Events tab
 
 Events reads the offline cache, so it works without a network. The kit's `EventsBoard` builds
