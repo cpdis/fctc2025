@@ -1,5 +1,36 @@
 # iOS handoff
 
+## Run cancelled (23 November 2026, for build 21 or later)
+
+- Aaron's ask: mark a run nobody came to as cancelled, so the app stops asking for its
+  attendance. Plan: `docs/plans/2026-11-23-1050-feat-run-cancelled-plan.md`. Branch
+  `claude/quizzical-greider-7e5bd7`. Not in a TestFlight build yet; the bump and the upload wait
+  for Colin's word.
+- The sheet mark is a `(cancelled)` suffix in the Run cell (`River Loop (cancelled)`). A marked
+  row with nobody on it is cancelled. With an `x` or a +1 it is a normal run, so a hand-typed
+  mark never removes credit. Fri 8 May 2026 (2026 tab, row 70) was marked by hand on 23 Nov with
+  Colin's go. Never delete a run row: the Date column is a formula chain (see
+  `docs/operators/manual-sheet-edits.md`).
+- Review & Confirm: **Mark Run Cancelled** below the roster, on a blank shared run with nothing
+  ticked or queued. Colin picked this footer row over a More menu and a third capture tile
+  (simulator screenshots in `review/run-cancelled/`). A cancelled run shows one status block and
+  **Restore Run**. It leaves catch-up, the default run, reminders, Events, This Week and
+  "N of M recorded", and Home and the run list say Cancelled.
+- Kit: `RunRowAttendance` gives the cached run, its snapshot and the server record one
+  recorded / cancelled / needs-attendance rule. `SyncEngine.setRunCancelled` is online only: a
+  cancel that is not sent, refused or in conflict is closed as superseded and thrown, never
+  sent later.
+- Server: new v2 operation `setRunCancelled`, `capabilities.runCancellation`, and the conflicts
+  `run_has_attendance` and `run_cancelled`. The live Apps Script is version 6, so the app hides
+  the button until a deploy. Either can ship first. Diff the live version against `main` before
+  the deploy; it waits for Colin.
+- Gates on the branch rebased on `b0aa018`, after the code review's fixes: Apps Script 295, web
+  532, iOS kit 557, run-cancelled UI 3, 0 failed. Code review (`ce-code-review`, eight reviewers):
+  "Ready with fixes"; all six confirmed findings fixed. The full UI target before the rebase: 82 run, 1 skipped, 1 failure in
+  `testTabTitlesShareOneHeight` on the iPhone 17 Pro Max simulator. Unmodified `origin/main`
+  fails the same way on that device (Dashboard title at 16 pt, not 20), so the failure is not
+  from this change.
+
 ## TestFlight build 20: Been a while… (23 November 2026)
 
 - Version 0.1.0 build 20 from `release/testflight-build-20`: main at `719da1c` (PR #26, the
