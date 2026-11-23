@@ -103,7 +103,7 @@ struct TodayRunHero: View {
         // corners. The container's shape keeps the outline on the fill's edge.
         .overlay {
             ContainerRelativeShape()
-                .strokeBorder(Color.accentColor.opacity(isRecorded ? 0.35 : 0), lineWidth: 1.5)
+                .strokeBorder(Color.accentColor.opacity(isRecorded ? 0.7 : 0), lineWidth: 1.5)
         }
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
