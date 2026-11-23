@@ -1,5 +1,28 @@
 # iOS handoff
 
+## Dashboard: Been a while… (23 November 2026, not on TestFlight)
+
+- Grant's ask: members who ran in the last 12 weeks but not the last 4, so organisers can nudge
+  them. iOS only, not mirrored on the web: the site is public and this card names people
+  (Colin's call). Plan: `docs/plans/2026-11-23-1037-feat-been-a-while-card-plan.md`.
+- Rule (`BeenAWhile`, kit): days back from today in Perth. A run 28 days back is recent, 29 is
+  a while; 84 days back is in the window, 85 is not. Any run counts, specials included.
+  Members only; the live roster drops anyone off the sheet. Order: latest last run, then name.
+- `DashboardStore.beenAWhile` uses the live season plus every earlier season `loadFirstRuns()`
+  has loaded, so in January the window reaches into December once last season is in. The
+  store takes the app clock (`AppRuntime.now`, pinned by `-ui-events`); `advanceDay()`
+  rebuilds only when the Perth day moved, and the Dashboard calls it once a minute while active.
+- Card (`BeenAWhileCard`): Colin picked the 12-week strip (filled cells in The Wall's "Ran"
+  colour) over a dated list and name chips. It sits after The Wall, on the live season only,
+  and is hidden when empty. Rows open the runner screen; VoiceOver reads the last run date.
+- Real data on Mon 23 Nov 2026: Liam (Fri 23 Oct), Laura E and Rhys (Sat 5 Sep), Jack (Wed 2 Sep).
+- Fixtures: the small `-ui-dashboard` Pub Run no longer has Dan B, so his last run is 8 weeks
+  back and he is the one row on any weekday. `-ui-dashboard-full` gains drop-outs Liam (4
+  weeks), Rhys (5 or 6) and Jack (9).
+- Verification on the rebased tree (main `87a6cb7`): iOS kit 536, iOS UI 81 run (1 skipped screen
+  tour), 0 failed. Web and Apps Script unchanged. A TestFlight build of this is build 20 or
+  later; ask Colin first.
+
 ## TestFlight build 19: the Recorded card's outline fits its corners (23 November 2026)
 
 - Version 0.1.0 build 19 from `release/testflight-build-18`: build 18 plus `a8fea02` and

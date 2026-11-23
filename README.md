@@ -569,6 +569,11 @@ top to bottom:
   is one SwiftUI `Canvas` (`WallGrid`), not Swift Charts: one `RectangleMark` per cell cost
   about 550 ms of main thread per open or sort at a full season. The names column carries each
   runner for VoiceOver; the grid reads as one summary.
+- **Been a while…** (live season only, hidden when empty): members who ran in the last 12 weeks
+  but not the last 4, counted in days back from today in Perth, so organisers can nudge them.
+  Any run counts, specials included; guests are not listed. Each row shows a 12-week strip
+  and weeks away, and opens the runner screen. In January the window reaches into last
+  season once it has loaded. iOS only: the web dashboard is public, and this names people.
 - **Vs last year**: cumulative member-km against last season, on a Jan to Dec axis.
 - **Every run**: runners per run for the last 18 runs. Guests stack on top in a lighter shade.
 - **Leaderboard**: by runs or by km.
@@ -696,8 +701,8 @@ Every UI test launches with `-ui-testing`, which replaces the sheet with an in-m
 | `-ui-offline` | No automatic outbox drain, so a queued row stays queued until Retry. |
 | `-ui-slow-sheet` | Each read and attendance write of the legacy fake takes 3 s, so the Runs sync pill ("Checking the sheet…", "Sending 1 change…") stays on screen. |
 | `-ui-events` | Planned club runs from tomorrow to the Sunday after next, plus three Xmas races on one date. It pins today to Mon 21 Sep 2026, 18:00 Perth (`UITestSupport.now`), so the week has the same shape on any day. |
-| `-ui-dashboard` | A season of 30 club days with fixed streaks: Aaron 14, Col 10, Dan 2 (`UITestDashboardFixture.swift`). |
-| `-ui-dashboard-full` | The profiling size: 118 club days and 30 runners. No test pins its numbers. |
+| `-ui-dashboard` | A season of 30 club days with fixed streaks: Aaron 14, Col 10, Dan 2 (`UITestDashboardFixture.swift`). Dan B, last run 8 weeks back, is the one "Been a while…" row. |
+| `-ui-dashboard-full` | The profiling size: 118 club days and 30 runners. Tests pin only Laura E's first run and the "Been a while…" drop-outs (Liam, Rhys, Jack). |
 | `-ui-last-season-offline` | Last season's fetch fails, so Vs last year reads "Last season not downloaded". |
 
 `-ui-events`, `-ui-dashboard`, `-ui-dashboard-full` and `-ui-last-season-offline` need

@@ -70,7 +70,7 @@ struct RootTabView: View {
         self.runtime = runtime
         self.pendingRoutes = pendingRoutes
         _runsModel = State(initialValue: HomeViewModel(engine: runtime.engine))
-        _dashboardStore = State(initialValue: DashboardStore(engine: runtime.engine))
+        _dashboardStore = State(initialValue: DashboardStore(engine: runtime.engine, now: runtime.now))
     }
 
     var body: some View {

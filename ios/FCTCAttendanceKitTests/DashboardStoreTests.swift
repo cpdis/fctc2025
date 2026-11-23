@@ -444,6 +444,58 @@ struct DashboardStoreTests {
         await store.select(.allTime)
         #expect(store.model?.milestones == live)
     }
+
+    // MARK: - Been a while
+
+    /// A hand-moved clock for `beenAWhile`: midnight in Perth on `iso`.
+    private final class Clock {
+        var now: Date
+        init(_ iso: String) { now = Self.date(iso) }
+        func move(to iso: String) { now = Self.date(iso) }
+        private static func date(_ iso: String) -> Date {
+            ClubDate(iso: iso)!.startOfDay(in: ClubDate.calendar)!
+        }
+    }
+
+    @Test("Been a while reaches into the earlier seasons once they load")
+    func beenAWhileUsesHistory() async {
+        // Today Wed 20 Jan 2027. Col ran on Mon 18 Jan; Aaron last ran Fri 18 Dec 2026.
+        let december = SheetState(
+            runs: [RunRecord(rowIndex: 2, date: "Fri, 18-Dec", meet: "MSBB", run: "River Loop",
+                             actualKm: 12, attendees: ["Aaron", "Col"])],
+            seasonYear: 2026
+        )
+        let client = LastSeasonClient(answers: [], seasonAnswers: [.success(december)])
+        let clock = Clock("2027-01-20")
+        let store = DashboardStore(engine: client, now: { clock.now })
+        store.update(fingerprint: "a") {
+            let run = ClubRun(id: "2027-01-18", date: ClubDate(iso: "2027-01-18")!, season: 2027, run: "Intervals",
+                              meet: "Il Lido", actualKm: 8, attendees: ["Col"], plusOnes: 0)
+            return DashboardInputs(season: 2027, runs: [run], priors: nil, unsyncedCount: 0,
+                                   listedSeasons: [2026, 2027])
+        }
+        #expect(store.beenAWhile.isEmpty, "the live season alone has only Col's recent run")
+
+        await store.loadFirstRuns()
+        #expect(store.beenAWhile.map(\.name) == ["Aaron"])
+        #expect(store.beenAWhile.first?.lastRun.iso == "2026-12-18")
+    }
+
+    @Test("advanceDay rebuilds been a while only when the Perth day moved")
+    func beenAWhileAdvancesDay() {
+        // Everyone's last run is Wed 23 Sep 2026: 27 days before Tue 20 Oct.
+        let clock = Clock("2026-10-20")
+        let store = DashboardStore(engine: LastSeasonClient(answers: []), now: { clock.now })
+        store.update(fingerprint: "a") { firstRunInputs() }
+        #expect(store.beenAWhile.isEmpty)
+
+        // Thu 22 Oct is 29 days on. Nothing moves until the Dashboard asks.
+        clock.move(to: "2026-10-22")
+        #expect(store.beenAWhile.isEmpty)
+        store.advanceDay()
+        #expect(store.beenAWhile.map(\.name) == ["Aaron", "Col", "Dee"])
+        #expect(store.beenAWhile.map(\.weeksAway) == [4, 4, 4])
+    }
 }
 
 /// Answers `previousSeasonSnapshot(before:)` from a script and counts the

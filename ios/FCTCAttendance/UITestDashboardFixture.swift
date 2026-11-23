@@ -13,6 +13,9 @@
 //    Dan        two of every three ............... x             -> streak 2
 //    Dan B      days 0 to 5 only                                  -> streak 0
 //
+//  Dan B's last run is club day 5, 24 club days (8 weeks) before day 29, so the
+//  "Been a while…" card lists him alone on every weekday the suite runs.
+//
 //  Day 29 is a planned row nobody has recorded yet (row 130, the latest), so the
 //  season has 30 runs; recording Aaron on it offline lifts that to 31 and his
 //  streak to 15. Last season repeats the same weekdays 52 weeks earlier.
@@ -24,7 +27,9 @@
 //  ten rows, Laura E at this season's club day 70. Their lifetime totals are
 //  exactly those runs, so nothing came before. `testSinceFirstRunCountsEverySeason`
 //  pins Laura E's numbers only: last season ran no Mondays, so anything that
-//  counts its club days moves with the weekday the window starts on.
+//  counts its club days moves with the weekday the window starts on. Three
+//  stop part way (`dropOuts`), so "Been a while…" lists Liam (4 weeks), Rhys
+//  (5 or 6) and Jack (9) on every weekday.
 //
 
 #if DEBUG
@@ -50,6 +55,10 @@ enum UITestDashboardFixture {
     private static let joinedThisSeason = "Laura E"
     private static let lastSeasonRows = 10
     private static let thisSeasonJoinDay = 70
+
+    /// The profiling size's drop-outs: club days before the latest club weekday
+    /// they stop running. 13 is past 4 weeks and 28 short of 12 on any weekday.
+    private static let dropOuts = ["Liam": 13, "Rhys": 17, "Jack": 28]
 
     /// The season's roster: the pinned four, plus the extras at profiling size.
     static var roster: [String] { isFull ? pinned + extras : pinned }
@@ -84,7 +93,7 @@ enum UITestDashboardFixture {
         rows.append((special, nil))
         rows.sort { $0.date < $1.date }
         let current = rows.enumerated().map { index, row in
-            record(row: 100 + index, date: row.date, attendees: row.day.map(attendees) ?? ["Aaron", "Col", "Dan B"],
+            record(row: 100 + index, date: row.date, attendees: row.day.map(attendees) ?? ["Aaron", "Col"],
                    special: row.day == nil, season: 26, seasonYear: seasonYear, id: "ffffffff-ffff-4fff-8fff-%012d", index: index)
         }
         let previous = dates.enumerated().compactMap { index, date -> RunRecord? in
@@ -114,9 +123,11 @@ enum UITestDashboardFixture {
     }
 
     /// A fixed scatter: runner i makes about (85 - 3i)% of club days. Laura E
-    /// makes about 60% from her first club day on, and none before it.
+    /// makes about 60% from her first club day on, and none before it. A
+    /// drop-out makes none after their last.
     private static func makes(_ name: String, index: Int, day: Int) -> Bool {
         let roll = (day * 37 + index * 11) % 100
+        if let stop = dropOuts[name], day > clubDays - 1 - stop { return false }
         guard name == joinedThisSeason else { return roll < 85 - index * 3 }
         return day >= thisSeasonJoinDay && roll < 60
     }
