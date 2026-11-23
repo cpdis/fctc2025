@@ -1,0 +1,20 @@
+Who ran with us lately, but not for a while?
+The Dashboard now shows them, in Wall-looking style.
+Twelve weeks in a strip, with the gap at the end:
+A nudge is one message away. Go on, send!
+
+Filament Coffee Track Club: see who has not run for a while
+
+Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone. Nothing to set up again.
+
+New since build 19:
+• Grant's one: the Dashboard has a new card, "Been a while…", below The Wall. It lists members who ran at least once in the last 12 weeks but not in the last 4.
+• Each row shows the last 12 weeks as a strip, filled where they ran, and how many weeks since their last run. Tap a name to open their runs.
+• Any run counts, specials included. Guests are not listed.
+• The card shows on this season only. It hides when everyone has run in the last 4 weeks.
+
+Please check:
+• The names on the card should be people you have not seen for a while. Tell us if someone is missing or should not be there.
+• Tap a name: their runs should open.
+
+Share feedback through TestFlight.
