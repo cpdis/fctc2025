@@ -98,8 +98,11 @@ struct TodayRunHero: View {
         }
         .padding(18)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 18))
+        // A List gives a row's background its section's corner shape (iOS 26+),
+        // so a fixed 18-point outline ran outside the reshaped fill at the
+        // corners. The container's shape keeps the outline on the fill's edge.
         .overlay {
-            RoundedRectangle(cornerRadius: 18)
+            ContainerRelativeShape()
                 .strokeBorder(Color.accentColor.opacity(isRecorded ? 0.35 : 0), lineWidth: 1.5)
         }
         .contentShape(.rect)
