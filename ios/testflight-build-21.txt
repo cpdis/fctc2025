@@ -1,0 +1,20 @@
+A run that never happened? The rain or the cold?
+Now mark it as cancelled, and stop being told.
+No reminder will nag and no catch-up will call,
+And Restore Run returns it if it ran after all.
+
+Filament Coffee Track Club: mark a run that did not happen as cancelled
+
+Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone. Nothing to set up again.
+
+New since build 20:
+• Aaron's one: when the club calls a run off, or nobody comes, open that run and tap Mark Run Cancelled below the roster. It shows only on a run with nobody on it, and the app asks before it changes the sheet.
+• A cancelled run stops asking. No catch-up prompt, no reminder, and it leaves This Week, Events and "N of M recorded". Home and the run list say Cancelled.
+• Restore Run on a cancelled run undoes it. Then record attendance as usual.
+• Fri 8 May River Loop is already marked cancelled, so it no longer asks for attendance.
+
+Please check:
+• Past Runs and Catch Up no longer offer Fri 8 May.
+• Only cancel a run that really did not happen: every organiser and the dashboard see it.
+
+Share feedback through TestFlight.
