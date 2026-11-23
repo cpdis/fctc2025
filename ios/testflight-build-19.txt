@@ -1,17 +1,20 @@
-The Recorded card wore a border that wandered,
-Two corners, not one, while the run pages pondered.
-Now the line hugs the edge as a good line should do,
-And it's stronger and clearer, in your colour too.
+Today's run says Record, all bright and all bold,
+Till you've ticked who turned up and the tally's been told.
+Then it settles down quiet, a tick and a line:
+Recorded, how many, how far. Looking fine!
 
-Filament Coffee Track Club: a cleaner edge on the Recorded card
+Filament Coffee Track Club: today's run card shows when it's recorded
 
 Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone. Nothing to set up again.
 
-New since build 18:
-• Once today's run is recorded, the card's outline now follows its rounded corners. Build 18 showed a second, tighter corner outside the card.
-• The outline is a little stronger, in your accent colour.
+New since build 17:
+• The Today's Run card on Runs now changes once the run is recorded. Until then it looks as it always has: your colour and a Record button. After, it turns quiet, with a tick, "Recorded", the number of runners and the distance, an Edit button, and a thin line round its edge in your colour.
+• If your phone has saved today's attendance but not sent it yet, the card says "Waiting to sync" with an orange icon until it reaches the sheet.
+• The card's colour is still the accent you pick in Settings. It has no other meaning.
+• This morning's stuck sync is fixed on the sheet's side: a run saved without its confirmation no longer holds up everyone else's.
 
 Please check:
-• Once today's run is recorded, look at the card's corners on Runs. The coloured line should sit on the card's edge all the way round, with no grey gap at the corners.
+• Aaron's one: once today's run is recorded, the card on Runs should show "Recorded" with the runner count and the distance, and the coloured line should sit on the card's edge all the way round. Tap it to open the run.
+• On a day whose run is not recorded yet, the card should still say Record in your colour.
 
 Share feedback through TestFlight.
