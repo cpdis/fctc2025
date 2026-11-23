@@ -4,10 +4,11 @@
 
 - Version 0.1.0 build 20 from `release/testflight-build-20`: main at `719da1c` (PR #26, the
   Been a while card below) plus the version bump. Colin asked for it ("Merge it, then push to
-  TestFlight"). Build `59fb609b-bba1-4788-8430-afa3abc5dd3e` processed; internal
-  `IN_BETA_TESTING` for FCTC Internal only, external `READY_FOR_BETA_SUBMISSION`. FCTC Friends
-  waits for Colin's word. Notes match `ios/testflight-build-20.txt` (read back, en-AU), written
-  for every tester.
+  TestFlight"). Build `59fb609b-bba1-4788-8430-afa3abc5dd3e` is VALID. Colin then released it
+  to FCTC Friends ("It can go to friends now"): FCTC Friends attached, beta app review APPROVED
+  at once, internal and external `IN_BETA_TESTING`, automatic notification on. FCTC External
+  was left off. Notes match `ios/testflight-build-20.txt` (read back, en-AU), written for every
+  tester.
 - Gates on the release tree: Apps Script 282, web 516, 0 failed. iOS kit 536 and UI 81 run (1
   skipped) passed on the same tree before the bump; the bump changes only build numbers.
 
