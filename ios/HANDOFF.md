@@ -1,6 +1,17 @@
 # iOS handoff
 
-## Dashboard: Been a while… (23 November 2026, not on TestFlight)
+## TestFlight build 20: Been a while… (23 November 2026)
+
+- Version 0.1.0 build 20 from `release/testflight-build-20`: main at `719da1c` (PR #26, the
+  Been a while card below) plus the version bump. Colin asked for it ("Merge it, then push to
+  TestFlight"). Build `59fb609b-bba1-4788-8430-afa3abc5dd3e` processed; internal
+  `IN_BETA_TESTING` for FCTC Internal only, external `READY_FOR_BETA_SUBMISSION`. FCTC Friends
+  waits for Colin's word. Notes match `ios/testflight-build-20.txt` (read back, en-AU), written
+  for every tester.
+- Gates on the release tree: Apps Script 282, web 516, 0 failed. iOS kit 536 and UI 81 run (1
+  skipped) passed on the same tree before the bump; the bump changes only build numbers.
+
+## Dashboard: Been a while… (23 November 2026, TestFlight build 20)
 
 - Grant's ask: members who ran in the last 12 weeks but not the last 4, so organisers can nudge
   them. iOS only, not mirrored on the web: the site is public and this card names people
@@ -20,8 +31,7 @@
   back and he is the one row on any weekday. `-ui-dashboard-full` gains drop-outs Liam (4
   weeks), Rhys (5 or 6) and Jack (9).
 - Verification on the rebased tree (main `87a6cb7`): iOS kit 536, iOS UI 81 run (1 skipped screen
-  tour), 0 failed. Web and Apps Script unchanged. A TestFlight build of this is build 20 or
-  later; ask Colin first.
+  tour), 0 failed. Web and Apps Script unchanged. Shipped in TestFlight build 20.
 
 ## TestFlight build 19: the Recorded card's outline fits its corners (23 November 2026)
 
