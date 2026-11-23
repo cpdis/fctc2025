@@ -1,5 +1,25 @@
 # iOS handoff
 
+## TestFlight build 18: Today's Run shows when it is recorded (23 November 2026)
+
+- Version 0.1.0 build 18 from `release/testflight-build-18`: main at `493fe62` (PR #22 build 17
+  fix, PR #23 sync client, PR #24 today card) plus the version bump. Build
+  `db43f2a1-9fa3-496e-b6c8-775e30565563` is VALID. FCTC Internal only (internal
+  `IN_BETA_TESTING`, external `READY_FOR_BETA_SUBMISSION`); FCTC Friends waits for Colin's word.
+  Notes match `ios/testflight-build-18.txt` (read back, en-AU), Aaron's check first.
+- Build 17 shipped from PR #22 before it merged, so main stayed at build 16 without its fix.
+  Merging #22 first kept build 18 from undoing the distance-only edit fix.
+- Aaron's request: the Today's Run card looked the same before and after recording. Colin picked
+  option B of three simulator-rendered options: loud accent card while open; quiet card with a
+  check, headcount and distance once the sheet has it; orange "Waiting to sync" while this
+  phone's outbox holds it. `HomeViewModel.todayStatus` reads the sheet cache plus the outbox
+  (`EffectiveRuns.writes`). The card colour is each person's accent; it carries no meaning.
+- The first two uploads failed: `403 FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED`. Apple
+  issued an updated Program License Agreement on 30 Oct 2026; once Colin accepted it on
+  developer.apple.com, the API answered within minutes. The Paid Apps agreement ("Pending User
+  Info") does not block TestFlight for this free app.
+- Verification: iOS kit 523; UI tests for the today card, launch and the distance-only edit pass.
+
 ## TestFlight build 17: distance-only edit skips Merge/Overwrite (2 November 2026)
 
 - Version 0.1.0 build 17 from `claude/nervous-bhaskara-e3b2c9` (`22b1a61`, cpdis/fctc2025#22):
