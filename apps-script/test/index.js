@@ -29,3 +29,4 @@ require('./guest-import.checks.js');
 require('./export-snapshot.checks.js');
 require('./guest-read-performance.checks.js');
 require('./birthday-row.checks.js');
+require('./run-cancellation.checks.js');

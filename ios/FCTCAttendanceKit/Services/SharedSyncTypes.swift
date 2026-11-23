@@ -48,6 +48,7 @@ extension SyncEngineClient {
     public func discardGuestRename(id: UUID) async throws { throw SheetAPIError.notImplemented }
     public func previewPromotion(guestId: String, memberName: String, targetMode: PromotionTargetMode) async throws -> PromotionPreview { throw SheetAPIError.notImplemented }
     public func commitPromotion(_ preview: PromotionPreview) async throws -> UUID { throw SheetAPIError.notImplemented }
+    public func setRunCancelled(_ run: RunSnapshot, cancelled: Bool) async throws -> SheetState { throw SheetAPIError.notImplemented }
     public func recoveryCandidates(includeDismissed: Bool) async throws -> [GuestRecoverySnapshot] { [] }
     public func updateRecoveryCandidate(id: String, guestId: String?, run: GuestImportEntry?, status: GuestRecoveryStatus) async throws { throw SheetAPIError.notImplemented }
     public func previewGuestImport(guestId: String, entries: [GuestImportEntry]) async throws -> GuestImportPreview { throw SheetAPIError.notImplemented }

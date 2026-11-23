@@ -1,0 +1,27 @@
+{
+  "notes": [
+    "The run-cancelled marker rule (docs/plans/2026-11-23-1050-feat-run-cancelled-plan.md, R1 and R2).",
+    "A Run cell is marked when its trimmed text ends with (cancelled) or (canceled), in any case, with optional space before the parenthesis.",
+    "label is the text before the marker, trimmed. Footnote markers such as ** stay in label: the label parsers strip them in their next step.",
+    "A marked row is cancelled only when it has no attendance; a marked row with an x or a +1 is a normal run under its label.",
+    "Apps Script (SheetOps.js), the web (src/utils/runLabels.js) and Swift (RunLabel.swift) all read this file."
+  ],
+  "cases": [
+    { "raw": "River Loop (cancelled)", "label": "River Loop", "marked": true },
+    { "raw": "River Loop", "label": "River Loop", "marked": false },
+    { "raw": "River Loop(Cancelled)", "label": "River Loop", "marked": true },
+    { "raw": "  River Loop (CANCELLED)  ", "label": "River Loop", "marked": true },
+    { "raw": "River Loop (canceled)", "label": "River Loop", "marked": true },
+    { "raw": "Half - Xmas (cancelled)", "label": "Half - Xmas", "marked": true },
+    { "raw": "**Cruise (cancelled)", "label": "**Cruise", "marked": true },
+    { "raw": "(cancelled)", "label": "", "marked": true },
+    { "raw": "Cancelled River Loop", "label": "Cancelled River Loop", "marked": false },
+    { "raw": "River Loop (cancelled) again", "label": "River Loop (cancelled) again", "marked": false },
+    { "raw": "River Loop (cancel)", "label": "River Loop (cancel)", "marked": false },
+    { "raw": "", "label": "", "marked": false }
+  ],
+  "written": [
+    { "label": "River Loop", "cell": "River Loop (cancelled)" },
+    { "label": "", "cell": "(cancelled)" }
+  ]
+}

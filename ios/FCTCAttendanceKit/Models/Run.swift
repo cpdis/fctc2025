@@ -62,14 +62,41 @@ extension ScheduledRun {
     }
     public var cacheKey: String { identity?.cacheKey ?? "legacy:\(rowIndex)" }
 
-    public var hasRecordedAttendance: Bool {
-        !attendees.isEmpty || plusOnes > 0
-    }
-
     public var displayLabel: String {
-        "\(date) · \(run)"
+        "\(date) · \(runName)"
     }
 }
+
+/// A sheet row's attendance as every prompt reads it. The cached run, its
+/// snapshot and the server's record all share one rule, so Home, catch-up,
+/// the run picker and reminders can never disagree about a run.
+///
+///   attendees  +1s  Run cell                  recorded  cancelled  needs attendance
+///   []         0    "River Loop"              no        no         yes
+///   []         0    "River Loop (cancelled)"  no        yes        no
+///   ["Dan"]    0    "River Loop (cancelled)"  yes       no         no
+public protocol RunRowAttendance {
+    var run: String { get }
+    var attendees: [String] { get }
+    var plusOnes: Int { get }
+}
+
+extension RunRowAttendance {
+    /// A run is a row with at least one attendee or +1 (R2).
+    public var hasRecordedAttendance: Bool { !attendees.isEmpty || plusOnes > 0 }
+
+    /// Marked "(cancelled)" with nobody on it. A marked row with a runner is a
+    /// normal run, so a marker typed by hand never takes credit away.
+    public var isCancelled: Bool { !hasRecordedAttendance && RunLabel.cancellation(run).marked }
+
+    /// Blank and not cancelled: the rows catch-up, reminders and Home ask about.
+    public var needsAttendance: Bool { !hasRecordedAttendance && !isCancelled }
+
+    /// The Run cell for display, without a cancelled marker ("River Loop").
+    public var runName: String { RunLabel.cancellation(run).label }
+}
+
+extension ScheduledRun: RunRowAttendance {}
 
 /// Source compatibility for U1 clients. New code should use `ScheduledRun`.
 public typealias Run = ScheduledRun

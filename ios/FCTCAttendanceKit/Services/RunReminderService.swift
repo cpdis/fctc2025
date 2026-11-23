@@ -166,7 +166,7 @@ public actor RunReminderService: RunReminderManaging {
         }
 
         var scheduledCount = 0
-        for run in state.runs where !run.hasRecordedAttendance {
+        for run in state.runs where run.needsAttendance {
             guard let runDate = ClubDate(sheetDate: run.date, season: state.seasonYear)?.startOfDay(in: calendar),
                   let fireDate = fireDate(on: runDate),
                   fireDate > now
@@ -222,10 +222,6 @@ public actor RunReminderService: RunReminderManaging {
         guard let start = calendar.date(from: components) else { return nil }
         return calendar.date(byAdding: .minute, value: constants.postRunOffsetMinutes, to: start)
     }
-}
-
-private extension RunRecord {
-    var hasRecordedAttendance: Bool { !attendees.isEmpty || plusOnes > 0 }
 }
 
 public final class UserDefaultsRunReminderPreferences: RunReminderPreferenceStoring, @unchecked Sendable {

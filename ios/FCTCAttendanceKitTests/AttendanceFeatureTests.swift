@@ -72,6 +72,33 @@ struct RunReminderTests {
         #expect(calendar.component(.minute, from: request.fireDate) == 30)
     }
 
+    /// Run cancelled plan, R8: a cancelled run asks nobody for its attendance.
+    @Test("A cancelled future run gets no reminder")
+    func reminderSkipsCancelledRun() async throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 14, hour: 12)))
+        let center = FakeRunNotificationCenter(pending: [])
+        let reminders = RunReminderService(
+            center: center,
+            preferences: FakeReminderPreferences(enabled: true),
+            constants: RunReminderConstants(),
+            calendar: calendar
+        )
+        let state = SheetState(
+            runs: [
+                RunRecord(rowIndex: 8, date: "Sat, 15-Aug", meet: "Lake Monger", run: "Tempo (cancelled)"),
+                RunRecord(rowIndex: 9, date: "Sun, 16-Aug", meet: "City Beach", run: "Long Run"),
+            ],
+            seasonYear: 2026,
+            sheetRevision: "rev-2"
+        )
+
+        await reminders.reconcile(state: state, now: now)
+
+        #expect(await center.addedRequests.map(\.identifier) == ["fctc.run-reminder.9"])
+    }
+
     /// A loose date cell ("Sat 15-Aug", no comma) is a run on the Dashboard, so
     /// it gets its reminder like any other unrecorded run.
     @Test("A loose sheet date still gets its reminder")

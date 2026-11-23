@@ -100,6 +100,12 @@ The parser applies these rules:
   `2026-09-25-river-loop`. The date carries the year, so ids stay unique in All time. A second
   row with the same date and label gets `-2`. Every dated row takes its id in sheet order,
   recorded or not, so recording an earlier row never moves a later run's id.
+- **Cancelled runs.** A Run cell that ends with `(cancelled)`, for example
+  `River Loop (cancelled)`, marks a run the club cancelled. A marked row with nobody on it
+  is not a run and not upcoming, so it never shows as the next run. A marked row with an
+  attendee or +1 is a normal run under its label. The marker never reaches the label, type or
+  run id. `runCancellation` in `src/utils/runLabels.js` holds the rule; Apps Script and the
+  app share its cases (`fixtures/attendance/run-cancellation.json`).
 - **Upcoming.** Dated rows after the season's latest run with nobody on them go into
   `upcoming`, in date order, each with the id it keeps once it is recorded. They never count as
   runs. The first one is the meta row's next run. A blank row before the latest run is an
@@ -507,6 +513,18 @@ The app keeps its Reminders look on every tab: system colours, the accent the us
 Settings, and SF Pro. Dashboard numbers use SF Pro Rounded bold. The web's Poster brand stays
 on the web. Settings also has a **Siri and Shortcuts** row that opens the app's shortcuts, and
 its accent swatches are 44 pt targets.
+
+### Cancelled runs
+
+A run that did not happen can be marked cancelled from Review & Confirm. **Mark Run Cancelled**
+sits below the roster on a blank shared run, once the server supports it
+(`capabilities.runCancellation`). It needs a connection and is never queued. The server writes
+`(cancelled)` after the run's label in the sheet, for example `River Loop (cancelled)`. A cancelled
+run leaves catch-up, the default run, reminders, the Events tab, This Week and "N of M recorded",
+and Home and the run list say **Cancelled**. **Restore Run** removes the marker. Nobody can cancel a
+run with marks, +1s or a save on its way, and the server refuses attendance on a cancelled run
+until it is restored. The plan is `docs/plans/2026-11-23-1050-feat-run-cancelled-plan.md`; to
+cancel by hand, see `docs/operators/manual-sheet-edits.md`.
 
 ### Events tab
 

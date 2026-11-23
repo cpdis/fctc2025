@@ -46,6 +46,20 @@ struct EventsBoardTests {
         #expect(board.thisWeek.map(\.date.iso) == ["2026-09-23", "2026-09-25"])
     }
 
+    // MARK: Cancelled runs (run cancelled plan, R8)
+
+    @Test("A cancelled club run leaves This week, and cancelled Xmas races leave Specials")
+    func cancelledRuns() throws {
+        let cancelled = try season2026().map { run -> RunSnapshot in
+            var run = run
+            if run.date == "Wed, 30-Sep" || run.date.hasPrefix("Sun, 13-Dec") { run.run += " (cancelled)" }
+            return run
+        }
+        let board = EventsBoard(runs: cancelled, priors: nil, birthdays: nil, now: perth("2026-09-28"))
+        #expect(board.thisWeek.map(\.date.iso) == ["2026-09-28", "2026-10-02"])
+        #expect(board.specials.isEmpty)
+    }
+
     // MARK: Specials
 
     @Test("The three Sun 13 Dec runs fold into one Xmas row: Mara / Half / 10k")

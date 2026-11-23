@@ -157,7 +157,7 @@ struct RootTabView: View {
             runsModel.todayRun.map { .checklist($0, .dictation) }
         case .checklist(let rowIndex, let date, let run):
             routeTargets
-                .first { $0.rowIndex == rowIndex && $0.date == date && $0.run == run }
+                .first { $0.matches(rowIndex: rowIndex, date: date, run: run) }
                 .map { .checklist($0, .standard) }
         }
     }
@@ -166,7 +166,7 @@ struct RootTabView: View {
     /// Runs sits at its root, so the offer never interrupts a pushed screen.
     private func offerSharedScreenshots() {
         guard !showingSharedScreenshotOffer,
-              runsPath.isEmpty, runsModel.todayRun != nil,
+              runsPath.isEmpty, let todayRun = runsModel.todayRun, !todayRun.isCancelled,
               let count = try? runtime.sharedScreenshotInbox.list().count,
               count > 0
         else { return }

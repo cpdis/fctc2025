@@ -107,7 +107,8 @@ public struct SharedGuestOperation: Codable, Hashable, Sendable, Identifiable {
             "importGuestHistory": ["guestId", "baseGuestRevision", "entries", "baseRevision"],
             "commitPromotion": ["guestId", "memberName", "targetMode", "previewToken"],
             "addMember": ["name", "seasonSheetId", "baseRevision"],
-            "addRun": ["date", "meet", "run", "approxKm", "spreadsheetId", "seasonSheetId", "baseRevision"]
+            "addRun": ["date", "meet", "run", "approxKm", "spreadsheetId", "seasonSheetId", "baseRevision"],
+            "setRunCancelled": ["spreadsheetId", "seasonSheetId", "runId", "rowIndex", "expectedDate", "expectedRun", "cancelled"]
         ]
         guard let permitted = allowed[action], Set(fields.keys).isSubset(of: permitted) else {
             throw SheetAPIError.badPayload(message: "Unsupported operation fields.")

@@ -38,6 +38,11 @@ actor UITestSharedGuestAPI: SheetAPIClient {
                     runId: String(format: "dddddddd-dddd-4ddd-8ddd-%012d", index)), namedGuestIds: index < 6 ? [Self.rene, Self.toby, Self.wes] : [Self.rene, Self.toby], unnamedGuests: index < 6 ? 0 : 1, seasonYear: currentYear))
         }
         if ProcessInfo.processInfo.arguments.contains("-ui-events") { currentRuns += Self.plannedRuns(seasonYear: currentYear) }
+        // `-ui-today-cancelled`: today's run was cancelled, so nobody is on it.
+        if ProcessInfo.processInfo.arguments.contains("-ui-today-cancelled") {
+            currentRuns[0].run = "Soft Sand (cancelled)"; currentRuns[0].attendees = []; currentRuns[0].plusOnes = 0
+            currentRuns[0].namedGuestIds = []; currentRuns[0].unnamedGuests = 0; currentRuns[0].actualKm = nil
+        }
         if UITestDashboardFixture.isEnabled { (currentRuns, oldRuns) = UITestDashboardFixture.runs(seasonYear: currentYear) }
         seasons = [25: SheetState(roster: roster, runs: oldRuns, seasonYear: currentYear - 1, sheetRevision: "ui-1", apiVersion: 2,
                         capabilities: GuestCapabilities(), spreadsheetId: "ui-book", seasonSheetId: 25),
@@ -220,6 +225,18 @@ actor UITestSharedGuestAPI: SheetAPIClient {
                 seasons[entry.seasonSheetId]!.runs[index].unnamedGuests! -= 1
                 if let guestIndex = guests.firstIndex(where: { $0.guestId == id }) { guests[guestIndex].confirmedRuns = (guests[guestIndex].confirmedRuns ?? 0) + 1 }
             }
+        case "setRunCancelled":
+            // The server's rule (apps-script/GuestActions.gs): only the Run cell
+            // changes, and a run with attendance cannot be cancelled.
+            let season: Int = try request["seasonSheetId"]!.decoded()
+            let index = seasons[season]!.runs.firstIndex { $0.runId == request["runId"]?.string }!
+            let cancelled = request["cancelled"] == .bool(true)
+            if cancelled, seasons[season]!.runs[index].hasRecordedAttendance {
+                throw SharedGuestConflict(reason: "run_has_attendance",
+                    message: "This run has attendance, so it cannot be cancelled. Refresh to see who ran.", state: state(season))
+            }
+            let label = seasons[season]!.runs[index].runName
+            seasons[season]!.runs[index].run = cancelled ? "\(label) (cancelled)" : label
         default: throw SheetAPIError.notImplemented
         }
         revision += 1; response["sheetRevision"] = .string("ui-\(revision)")

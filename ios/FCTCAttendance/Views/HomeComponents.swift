@@ -21,6 +21,7 @@ struct TodayRunHero: View {
         case .open: open
         case .waiting: settled(title: "Waiting to sync", detail: "Saved on this phone", action: "View")
         case .recorded(let runners): settled(title: "Recorded", detail: recordedDetail(runners), action: "Edit")
+        case .cancelled: settled(title: "Cancelled", detail: "No attendance needed", action: "Open")
         }
     }
 
@@ -31,7 +32,7 @@ struct TodayRunHero: View {
                     .font(.caption.weight(.bold))
                     .tracking(0.8)
                     .foregroundStyle(secondary)
-                Text(run.run)
+                Text(run.runName)
                     .font(.title2.bold())
                     .foregroundStyle(primary)
             }
@@ -77,13 +78,13 @@ struct TodayRunHero: View {
     /// The quiet card: a check when the sheet has the run, the Unsynced tile's
     /// orange while this phone still holds it. Tapping opens the same checklist.
     private func settled(title: String, detail: String, action: String) -> some View {
-        let isRecorded = status != .waiting
+        let isRecorded = if case .recorded = status { true } else { false }
         return VStack(alignment: .leading, spacing: 14) {
             heading(primary: .primary, secondary: .secondary)
             HStack(spacing: 12) {
-                Image(systemName: isRecorded ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath.circle.fill")
+                Image(systemName: settledSymbol)
                     .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(isRecorded ? Color.accentColor : Color.orange)
+                    .foregroundStyle(settledColor)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.headline)
@@ -110,6 +111,24 @@ struct TodayRunHero: View {
         // Commas, not the visual "·", so VoiceOver pauses instead of saying "dot".
         .accessibilityLabel("Today's Run, \(run.detailLabel), \(run.date), \(title), "
             + "\(detail.replacingOccurrences(of: " · ", with: ", ")), \(action)")
+    }
+
+    /// A check once recorded, the Unsynced tile's arrows while waiting, a cross
+    /// for a cancelled run. Only a recorded run gets the accent outline.
+    private var settledSymbol: String {
+        switch status {
+        case .waiting: "arrow.triangle.2.circlepath.circle.fill"
+        case .cancelled: "xmark.circle.fill"
+        default: "checkmark.circle.fill"
+        }
+    }
+
+    private var settledColor: Color {
+        switch status {
+        case .waiting: .orange
+        case .cancelled: .secondary
+        default: .accentColor
+        }
     }
 
     /// "7 runners · 10.4 km": the sheet's headcount, and the distance once known.

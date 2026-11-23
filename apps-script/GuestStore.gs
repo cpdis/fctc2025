@@ -166,7 +166,8 @@ function guestState_(store, sheetId) {
 function guestCapabilities_() {
   var enabled = sharedGuestsEnabled_();
   return { apiVersion: 2, sharedGuests: enabled, stableRunIdentity: enabled, guestHistory: enabled,
-    guestPromotion: enabled && typeof guestPreviewPromotion_ === 'function', operationReceipts: enabled };
+    guestPromotion: enabled && typeof guestPreviewPromotion_ === 'function', operationReceipts: enabled,
+    runCancellation: enabled };
 }
 function guestHistory_(store, guestId) {
   var guest = store.guests.filter(function (g) { return g.guestId === guestId; })[0];

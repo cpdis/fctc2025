@@ -20,13 +20,20 @@ public struct GuestCapabilities: Codable, Hashable, Sendable {
     public var guestHistory: Bool
     public var guestPromotion: Bool
     public var operationReceipts: Bool
+    /// Optional because servers before the run cancelled release (deployment
+    /// version 6 and older) do not send it; a missing value means no support.
+    public var runCancellation: Bool?
     public init(apiVersion: Int = 2, sharedGuests: Bool = true, stableRunIdentity: Bool = true,
-                guestHistory: Bool = true, guestPromotion: Bool = true, operationReceipts: Bool = true) {
+                guestHistory: Bool = true, guestPromotion: Bool = true, operationReceipts: Bool = true,
+                runCancellation: Bool? = true) {
         self.apiVersion = apiVersion; self.sharedGuests = sharedGuests
         self.stableRunIdentity = stableRunIdentity; self.guestHistory = guestHistory
         self.guestPromotion = guestPromotion; self.operationReceipts = operationReceipts
+        self.runCancellation = runCancellation
     }
     public var canWrite: Bool { apiVersion == 2 && sharedGuests && stableRunIdentity && operationReceipts }
+    /// The server can cancel and restore runs (`setRunCancelled`).
+    public var canCancelRuns: Bool { canWrite && runCancellation == true }
 }
 
 public struct GuestLastAttendance: Codable, Hashable, Sendable {

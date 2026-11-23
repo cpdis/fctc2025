@@ -48,6 +48,9 @@ var ERR_BAD_SECRET = 'bad_secret';
 var ERR_UNKNOWN_ACTION = 'unknown_action';
 var ERR_ROW_MISMATCH = 'row_mismatch';
 var ERR_STALE_REVISION = 'stale_revision';
+/** A cancelled run takes no attendance until someone restores it. Both writers use it. */
+var ERR_RUN_CANCELLED = 'run_cancelled';
+var RUN_CANCELLED_MESSAGE = 'This run is cancelled. Restore it before recording attendance.';
 var ERR_DUPLICATE_MEMBER = 'duplicate_member';
 var ERR_BAD_PAYLOAD = 'bad_payload';
 /** The configured tab is missing or its header row/member band is unreadable. */
@@ -502,6 +505,9 @@ function submitAttendance_(ctx, request) {
         SheetOps.cellText(request.expectedRun) +
         '".'
     );
+  }
+  if (SheetOps.isCancelledRun(live)) {
+    return conflictResult_(ctx, ERR_RUN_CANCELLED, RUN_CANCELLED_MESSAGE);
   }
 
   var revision = SheetOps.revisionHash(ctx.grid, ctx.headerRow);

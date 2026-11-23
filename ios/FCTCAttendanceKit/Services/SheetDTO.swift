@@ -22,7 +22,7 @@ public struct RosterEntry: Codable, Hashable, Sendable {
     }
 }
 
-public struct RunRecord: Codable, Hashable, Sendable {
+public struct RunRecord: Codable, Hashable, Sendable, RunRowAttendance {
     /// A 1-based sheet row coordinate.
     public var rowIndex: Int
     public var date: String

@@ -8,7 +8,7 @@
 
 import Foundation
 
-public struct RunSnapshot: Hashable, Sendable, Identifiable {
+public struct RunSnapshot: Hashable, Sendable, Identifiable, RunRowAttendance {
     public var id: String { runIdentity?.cacheKey ?? "legacy:\(rowIndex)" }
     public var rowIndex: Int
     public var date: String
@@ -80,15 +80,17 @@ public struct RunSnapshot: Hashable, Sendable, Identifiable {
             < (rhs.scheduledAt ?? .distantFuture, rhs.rowIndex)
     }
 
-    public var hasRecordedAttendance: Bool {
-        !attendees.isEmpty || plusOnes > 0
+    /// A reminder or route that names this row. The label is compared without the
+    /// cancelled marker, so a reminder saved before a cancel still opens the run.
+    public func matches(rowIndex: Int, date: String, run label: String) -> Bool {
+        self.rowIndex == rowIndex && self.date == date && runName == RunLabel.cancellation(label).label
     }
 
     public var detailLabel: String {
         let distance = approxKm.map {
             $0.formatted(.number.precision(.fractionLength(0...2)))
         }
-        return [meet, run, distance.map { "\($0) km" }]
+        return [meet, runName, distance.map { "\($0) km" }]
             .compactMap { $0 }
             .filter { !$0.isEmpty }
             .joined(separator: " · ")

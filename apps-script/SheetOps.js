@@ -416,6 +416,55 @@ function isAttendedMark(value) {
   return cellText(value).toLowerCase() === ATTENDED_MARK;
 }
 
+/** The cancelled-run marker, in the form the server writes it. */
+var CANCELLED_MARKER = '(cancelled)';
+
+/**
+ * Split a Run cell into its label and the cancelled marker.
+ *
+ * A cell is marked when its trimmed text ends with "(cancelled)" or "(canceled)",
+ * in any case, with optional space before the parenthesis. People type the marker
+ * by hand too, so the rule is lenient about case and spacing:
+ *
+ *   "River Loop (cancelled)"  -> { label: "River Loop", marked: true }
+ *   "River Loop(Cancelled)"   -> { label: "River Loop", marked: true }
+ *   "River Loop"              -> { label: "River Loop", marked: false }
+ *
+ * The same rule lives in `src/utils/runLabels.js` and `RunLabel.swift`; the shared
+ * cases are `fixtures/attendance/run-cancellation.json`.
+ *
+ * @param {*} value Raw Run cell.
+ * @return {{label: string, marked: boolean}}
+ */
+function runCancellation(value) {
+  var text = cellText(value);
+  var match = /^(.*?)\s*\((?:cancelled|canceled)\)$/i.exec(text);
+  return match ? { label: match[1], marked: true } : { label: text, marked: false };
+}
+
+/**
+ * The Run cell for a cancelled run: its label plus the marker.
+ *
+ * @param {string} label The Run cell without a marker.
+ * @return {string}
+ */
+function cancelledRunLabel(label) {
+  var text = cellText(label);
+  return text ? text + ' ' + CANCELLED_MARKER : CANCELLED_MARKER;
+}
+
+/**
+ * Is this run cancelled? It is when its Run cell is marked and it has no
+ * attendance. A marked row that has an "x" or a +1 is a normal run under its
+ * label, so a marker typed by hand never takes credit away from anyone.
+ *
+ * @param {{run: string, attendees: !Array<string>, plusOnes: number}} run A `readRun` record.
+ * @return {boolean}
+ */
+function isCancelledRun(run) {
+  return runCancellation(run.run).marked && run.attendees.length === 0 && !(run.plusOnes > 0);
+}
+
 /**
  * Is this row below the header a real run row?
  *
@@ -550,7 +599,9 @@ function memberValuesAt(grid, headerRow, rowIndex) {
  *
  * Dates compare on their parsed (month, day) so "26-Jan" matches "Mon, 26-Jan";
  * run labels compare on normalized keys so "Half - Invasion Day" matches
- * "Half- Invasion Day" (the seasons punctuate them differently).
+ * "Half- Invasion Day" (the seasons punctuate them differently). The cancelled
+ * marker is not part of a run's identity: "River Loop (cancelled)" is still the
+ * River Loop, so a save queued before the cancel reaches it and is refused there.
  *
  * @param {*} dateA
  * @param {*} runA
@@ -566,7 +617,7 @@ function sameRunIdentity(dateA, runA, dateB, runB) {
   } else if (normalizeKey(dateCellText(dateA)) !== normalizeKey(dateCellText(dateB))) {
     return false;
   }
-  return normalizeKey(runA) === normalizeKey(runB);
+  return normalizeKey(runCancellation(runA).label) === normalizeKey(runCancellation(runB).label);
 }
 
 /**
@@ -949,6 +1000,9 @@ function sheetOpsHealth() {
       'dateOrdinal',
       'numberOrNull',
       'isAttendedMark',
+      'runCancellation',
+      'cancelledRunLabel',
+      'isCancelledRun',
       'isRunRow',
       'readRun',
       'listRuns',
@@ -999,6 +1053,9 @@ var SheetOps = {
   dateOrdinal: dateOrdinal,
   numberOrNull: numberOrNull,
   isAttendedMark: isAttendedMark,
+  runCancellation: runCancellation,
+  cancelledRunLabel: cancelledRunLabel,
+  isCancelledRun: isCancelledRun,
   isRunRow: isRunRow,
   readRun: readRun,
   listRuns: listRuns,

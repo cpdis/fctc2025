@@ -8,8 +8,9 @@
 import Foundation
 
 public enum CatchUpPlanner {
-    /// Return blank runs before today, newest first. This order lets a catch-up
-    /// session move backwards one run at a time without changing Home navigation.
+    /// Return blank runs before today, newest first, leaving out cancelled ones.
+    /// This order lets a catch-up session move backwards one run at a time
+    /// without changing Home navigation.
     public static func unrecordedPastRuns(
         among runs: [RunSnapshot],
         now: Date = .now,
@@ -19,7 +20,7 @@ public enum CatchUpPlanner {
         return runs
             .filter { run in
                 guard let date = run.scheduledAt else { return false }
-                return date < today && !run.hasRecordedAttendance
+                return date < today && run.needsAttendance
             }
             .sorted(by: descending)
     }
@@ -38,6 +39,12 @@ public enum CatchUpPlanner {
                 guard let candidateDate = candidate.scheduledAt else { return false }
                 return (candidateDate, candidate.rowIndex) < (currentDate, current.rowIndex)
             }
+    }
+
+    /// Home's "94 of 162 recorded": a cancelled run is in neither number.
+    public static func recordingProgress(of runs: [RunSnapshot]) -> (recorded: Int, scheduled: Int) {
+        let scheduled = runs.filter { !$0.isCancelled }
+        return (scheduled.filter(\.hasRecordedAttendance).count, scheduled.count)
     }
 
     private static func descending(_ lhs: RunSnapshot, _ rhs: RunSnapshot) -> Bool {

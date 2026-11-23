@@ -60,8 +60,30 @@ function stripFootnoteMarkers(label) {
   return (label ?? '').trim().replace(/^\*+|\*+$/g, '').trim()
 }
 
+// A Run cell that ends with "(cancelled)" or "(canceled)", any case, optional space.
+const CANCELLED_MARKER = /^(.*?)\s*\((?:cancelled|canceled)\)$/i
+
+/**
+ * Split a raw "Run" cell into its label and the cancelled marker, the rule
+ * Apps Script's `SheetOps.runCancellation` and Swift's `RunLabel` share
+ * (`fixtures/attendance/run-cancellation.json`). A marked row with nobody on it
+ * is a cancelled run; a marked row with a runner is a normal run under its label.
+ *
+ *   "River Loop (cancelled)"  ->  { label: "River Loop", marked: true }
+ *   "River Loop"              ->  { label: "River Loop", marked: false }
+ *
+ * @param {string | undefined} raw - the sheet's "Run" cell, as typed
+ * @returns {{ label: string, marked: boolean }}
+ */
+export function runCancellation(raw) {
+  const text = (raw ?? '').trim()
+  const match = text.match(CANCELLED_MARKER)
+  return match ? { label: match[1], marked: true } : { label: text, marked: false }
+}
+
 /**
  * Parse a raw "Run" cell into its clean label, normalized type and event.
+ * A cancelled marker never reaches the label, so the type and run id stay put.
  *
  * @param {string | undefined} raw - the sheet's "Run" cell, as typed
  * @returns {{ label: string, type: string, event: string | null }}
@@ -69,7 +91,7 @@ function stripFootnoteMarkers(label) {
  *   `type` is the normalized run type, `event` the holiday or race name, if any.
  */
 export function parseRunLabel(raw) {
-  const label = stripFootnoteMarkers(raw)
+  const label = stripFootnoteMarkers(runCancellation(raw).label)
 
   const race = label.match(RACE_LABEL)
   if (race) {
