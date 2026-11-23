@@ -4,9 +4,11 @@
 
 - Version 0.1.0 build 21 from `release/testflight-build-21`: main at `6dfd583` (PR #29, Run
   cancelled below) plus the version bump. Colin asked for it ("Merge it, turn on auto fix, then
-  push to TestFlight for me"). Build `bb233b2c-bb40-425e-aa0a-53b4d45f6ade` processed; internal
-  `IN_BETA_TESTING` for FCTC Internal, external `READY_FOR_BETA_SUBMISSION`. FCTC Friends waits
-  for Colin's word. Notes set from `ios/testflight-build-21.txt` (en-AU), written for every tester.
+  push to TestFlight for me"). Build `bb233b2c-bb40-425e-aa0a-53b4d45f6ade` is VALID. Colin then
+  released it to FCTC Friends ("Yes, send to friends"): FCTC Friends attached, beta app review
+  submitted and APPROVED at once, internal and external `IN_BETA_TESTING`, automatic notification
+  on. FCTC External was left off. Notes set from `ios/testflight-build-21.txt` (en-AU), written
+  for every tester.
 - Apps Script version 7 is live on the same deployment (`AKfycbyzp4i…`, Colin's go): it adds
   `setRunCancelled` and `capabilities.runCancellation`, so the button shows on build 21. Before
   the push, live version 6 matched `main` at `b0aa018` in all 13 files; version 7 matches
