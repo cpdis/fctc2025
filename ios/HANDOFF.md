@@ -1,5 +1,20 @@
 # iOS handoff
 
+## TestFlight build 19: the Recorded card's outline fits its corners (23 November 2026)
+
+- Version 0.1.0 build 19 from `release/testflight-build-18`: build 18 plus `a8fea02` and
+  `ab8b0c1`. Build `0837c2eb-489c-482d-a7f6-6dcaad32c884` is VALID. FCTC Internal only (internal
+  `IN_BETA_TESTING`, external `READY_FOR_BETA_SUBMISSION`). Notes match
+  `ios/testflight-build-19.txt` (read back, en-AU).
+- Colin's build 18 screenshot: the recorded card showed two corners. On iOS 26 and later a List
+  gives a row's background its section's corner shape; the fill (`.background(_:in: .rect(18))`)
+  was reshaped, but the overlay outline was a fixed 18-point `RoundedRectangle`. The same card
+  outside a List had one clean corner. The outline now uses `ContainerRelativeShape`. In a List
+  row, draw overlays with the container's shape, never a fixed radius.
+- Colin picked option C of three renders: 1.5 pt at 70% accent opacity (was 35%).
+- Verification: UI tests for the card (hero, launch) pass; simulator corner crops in light and
+  dark show one edge.
+
 ## TestFlight build 18: Today's Run shows when it is recorded (23 November 2026)
 
 - Version 0.1.0 build 18 from `release/testflight-build-18`: main at `493fe62` (PR #22 build 17
