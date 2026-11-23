@@ -208,6 +208,92 @@ struct RunCancellationTests {
         }
     }
 
+    @Test("Restore sends cancelled: false and adopts the plain run")
+    func engineRestore() async throws {
+        let setup = try await cancellationEngine(label: "Soft Sand (cancelled)")
+        #expect(setup.run.isCancelled)
+        await setup.transport.append(.response(completedResponse()))
+        var restored = setup.state
+        restored.runs[0].run = "Soft Sand"
+        await setup.transport.append(.response(try stateData(restored)))
+
+        let state = try await setup.engine.setRunCancelled(setup.run, cancelled: false)
+
+        let run = try #require(state.runs.first { $0.identity == setup.run.runIdentity })
+        #expect(!run.isCancelled)
+        #expect(run.needsAttendance)
+        let requests = try await setup.transport.requests.map { try JSONDecoder().decode(GuestJSON.self, from: $0) }
+        let restore = try #require(requests.first { $0["action"]?.string == "setRunCancelled" })
+        #expect(restore["cancelled"] == .bool(false))
+        #expect(restore["expectedRun"]?.string == "Soft Sand (cancelled)")
+    }
+
+    @Test("A cancel that lands is not reported as failed when the re-read fails")
+    func engineCompletedButOffline() async throws {
+        let setup = try await cancellationEngine()
+        await setup.transport.append(.response(completedResponse()))
+        // No getState answer follows: every re-read attempt fails.
+
+        let state = try await setup.engine.setRunCancelled(setup.run, cancelled: true)
+
+        let run = try #require(state.runs.first { $0.identity == setup.run.runIdentity })
+        #expect(run.run == "Soft Sand (cancelled)")
+        #expect(run.isCancelled)
+        #expect(try liveGuestOperations(setup.container).isEmpty)
+    }
+
+    @Test("A refused cancel keeps its reason; one never sent says so")
+    func engineFailureMessages() async throws {
+        let cases: [(StubTransport.Step, RunCancellationError)] = [
+            (.failure(.notSent), .notSent),
+            (.response(json(#"{"ok":false,"error":"busy","message":"Another change is being saved."}"#)), .refused(UserFacingError.busy)),
+        ]
+        for (step, expected) in cases {
+            let setup = try await cancellationEngine()
+            await setup.transport.append(step)
+            await #expect(throws: expected) { _ = try await setup.engine.setRunCancelled(setup.run, cancelled: true) }
+        }
+    }
+
+    @Test("A cancel made while a drain is running is closed and never sent")
+    func engineDuringDrain() async throws {
+        var state = try JSONDecoder().decode(SheetState.self, from: guestStateResponse())
+        state.capabilities?.runCancellation = true
+        state.runs[0].attendees = []; state.runs[0].plusOnes = 0
+        state.runs[0].namedGuestIds = []; state.runs[0].unnamedGuests = 0
+        let container = try guestContainer()
+        let transport = GatedTransport([try stateData(state)])
+        let engine = guestEngine(container, transport)
+        _ = try await engine.refreshState()
+        let run = RunSnapshot(record: state.runs[0], state: state, endpointIdentity: configuredAPI.endpoint?.absoluteString)
+        let draft = AttendanceDraft(rowIndex: run.rowIndex, expectedDate: run.date, expectedRun: run.run,
+            checks: ["Col": .manual], actualKm: 7.2, baseRevision: state.sheetRevision,
+            runIdentity: run.runIdentity, endpointIdentity: run.endpointIdentity, unnamedGuests: 0)
+        _ = try await engine.enqueue(draft: draft, mode: .merge, deviceName: nil)
+
+        // The save's request is held, so this drain is still running.
+        await transport.holdNextRequest()
+        let draining = Task { await engine.drain() }
+        try await transport.waitUntilHolding()
+
+        await #expect(throws: RunCancellationError.notSent) { _ = try await engine.setRunCancelled(run, cancelled: true) }
+        await transport.release()
+        await draining.value
+
+        let requests = try await transport.requests.map { try JSONDecoder().decode(GuestJSON.self, from: $0) }
+        #expect(!requests.contains { $0["action"]?.string == "setRunCancelled" })
+        #expect(try liveGuestOperations(container).isEmpty)
+    }
+
+    @Test("A reminder saved before a cancel still opens the run")
+    func reminderRoute() {
+        let cancelled = run("Fri, 8-May", "River Loop (cancelled)")
+        #expect(cancelled.matches(rowIndex: 70, date: "Fri, 8-May", run: "River Loop"))
+        #expect(cancelled.matches(rowIndex: 70, date: "Fri, 8-May", run: "River Loop (cancelled)"))
+        #expect(!cancelled.matches(rowIndex: 70, date: "Fri, 8-May", run: "Cruise"))
+        #expect(!cancelled.matches(rowIndex: 71, date: "Fri, 8-May", run: "River Loop"))
+    }
+
     @Test("A refused cancel hands back the runners the server saw")
     @MainActor
     func refusedShowsRunners() async throws {
@@ -285,9 +371,10 @@ private struct CancellationSetup {
 }
 
 /// The contract's shared season with its first run blank and cancellation advertised.
-private func cancellationEngine() async throws -> CancellationSetup {
+private func cancellationEngine(label: String = "Soft Sand") async throws -> CancellationSetup {
     var state = try JSONDecoder().decode(SheetState.self, from: guestStateResponse())
     state.capabilities?.runCancellation = true
+    state.runs[0].run = label
     state.runs[0].attendees = []
     state.runs[0].plusOnes = 0
     state.runs[0].namedGuestIds = []
@@ -313,4 +400,36 @@ private func conflictResponse(_ reason: String, operationId: String? = nil, stat
 private func liveGuestOperations(_ container: ModelContainer) throws -> [PendingGuestOperation] {
     try ModelContext(container).fetch(FetchDescriptor<PendingGuestOperation>())
         .filter { $0.phase != .completed && $0.phase != .superseded }
+}
+
+/// A transport that can hold one request, so a test can act while a drain is mid-send.
+private actor GatedTransport: HTTPTransport {
+    private var responses: [Data]
+    private(set) var requests: [Data] = []
+    private var holdNext = false
+    private var held: CheckedContinuation<Void, Never>?
+
+    init(_ responses: [Data]) { self.responses = responses }
+
+    func holdNextRequest() { holdNext = true }
+
+    func release() {
+        held?.resume()
+        held = nil
+    }
+
+    func waitUntilHolding() async throws {
+        for _ in 0..<10_000 where held == nil { await Task.yield() }
+        try #require(held != nil, "The drain never sent a request")
+    }
+
+    func post(_ body: Data) async throws -> Data {
+        requests.append(body)
+        if holdNext {
+            holdNext = false
+            await withCheckedContinuation { held = $0 }
+        }
+        guard !responses.isEmpty else { throw StubTransportFailure.offline }
+        return responses.removeFirst()
+    }
 }

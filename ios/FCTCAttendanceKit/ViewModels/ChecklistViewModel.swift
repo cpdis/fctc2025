@@ -112,7 +112,9 @@ public final class ChecklistViewModel {
     }
 
     public var canConfirm: Bool {
-        !isSubmitting && unresolvedGuestNames.isEmpty && draftDiffersFromSheet && !distanceIsMalformed
+        // A cancel or restore in flight replaces the draft when it lands.
+        !isSubmitting && !isChangingCancellation && unresolvedGuestNames.isEmpty
+            && draftDiffersFromSheet && !distanceIsMalformed
     }
 
     /// The distance text is not blank and not a number. `draft.actualKm` is nil

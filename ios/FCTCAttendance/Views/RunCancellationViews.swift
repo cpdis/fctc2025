@@ -9,7 +9,7 @@
 import FCTCAttendanceKit
 import SwiftUI
 
-/// Run cancelled, a destructive row below the roster (Colin's pick of three, 23 Nov 2026).
+/// Run cancelled, a destructive row below the roster.
 /// The confirmation is attached to the row: iOS 26 shows it as a popover there.
 struct CancelRunFooter: View {
     let run: RunSnapshot

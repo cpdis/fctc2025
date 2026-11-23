@@ -94,7 +94,9 @@ struct ChecklistView: View {
                     setCancelled(false)
                 }
             } else {
+                // A cancel or restore in flight replaces the draft when it lands.
                 checklistSections
+                    .disabled(viewModel.isChangingCancellation)
                 if canCancelRun {
                     CancelRunFooter(run: viewModel.run, isConfirming: $showingCancelConfirmation,
                                     isWorking: viewModel.isChangingCancellation) { setCancelled(true) }
@@ -208,6 +210,8 @@ struct ChecklistView: View {
             updateCachedValues()
             guard !didRunEntryPresentation else { return }
             didRunEntryPresentation = true
+            // A cancelled run takes no attendance; Restore Run comes first.
+            guard !viewModel.run.isCancelled else { return }
             switch presentation {
             case .dictation:
                 showingVoiceEntry = true
@@ -489,7 +493,7 @@ struct ChecklistView: View {
             } catch is CancellationError {
                 // A second tap while the first request ran; nothing failed.
             } catch {
-                cancelError = viewModel.errorMessage ?? UserFacingError.sync(error)
+                cancelError = viewModel.errorMessage
             }
         }
     }
@@ -515,8 +519,9 @@ struct ChecklistView: View {
     }
 
     private func checkSharedScreenshotInbox() {
-        // Never offer over the voice sheet or another presentation.
-        guard !showingScreenshotImport,
+        // Never offer over the voice sheet or another presentation, or on a cancelled run.
+        guard !viewModel.run.isCancelled,
+              !showingScreenshotImport,
               !showingVoiceEntry,
               !showingSharedScreenshotOffer,
               let count = try? runtime.sharedScreenshotInbox.list().count,

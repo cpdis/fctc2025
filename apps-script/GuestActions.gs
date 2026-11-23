@@ -220,7 +220,7 @@ function guestCancellationPlan_(store, request, plan) {
   }
   var parts = SheetOps.runCancellation(run.run), col = ctx.bounds.runCol;
   plan.sourceRevisions.sheetRevision = guestSheetRevision_(ctx, store.guestRevision);
-  var predicted = Object.assign({}, ctx, { grid: ctx.grid.map(function (r) { return r.slice(); }) });
+  plan.response = { written: 0, sheetRevision: plan.sourceRevisions.sheetRevision };
   if (parts.marked !== request.cancelled) {
     // A Run cell is plain text in the club's sheet. A formula there is unexpected,
     // and the date chain shows how far a broken formula can reach, so never replace one.
@@ -229,8 +229,9 @@ function guestCancellationPlan_(store, request, plan) {
     }
     var value = request.cancelled ? SheetOps.cancelledRunLabel(parts.label) : parts.label;
     guestPlanCell_(plan, ctx.sheetId, run.rowIndex, col, [value]);
+    var predicted = Object.assign({}, ctx, { grid: ctx.grid.map(function (r) { return r.slice(); }) });
     predicted.grid[run.rowIndex - 1][col - 1] = value;
+    plan.response = { written: 1, sheetRevision: guestSheetRevision_(predicted, store.guestRevision) };
   }
-  plan.response = { written: plan.targetState.cells.length, sheetRevision: guestSheetRevision_(predicted, store.guestRevision) };
   return plan;
 }

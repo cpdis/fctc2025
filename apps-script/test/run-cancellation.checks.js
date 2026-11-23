@@ -167,3 +167,25 @@ test('a cancel behind another client\'s unverified write waits and changes nothi
   assert.equal(cancel.conflict?.reason, 'pending_verification', JSON.stringify(cancel));
   assert.deepEqual(env.grid(), before);
 });
+
+test('a cancel for a changed run or with a non-boolean flag is refused without a write', () => {
+  const env = environment(); setup(env);
+  const before = env.grid();
+  const state = sharedState(env), run = state.runs[BLANK];
+  const fields = { spreadsheetId: state.spreadsheetId, seasonSheetId: state.seasonSheetId, runId: run.runId,
+    rowIndex: run.rowIndex, expectedDate: run.date };
+  const moved = env.post(mutation('setRunCancelled', { ...fields, expectedRun: 'Cruise', cancelled: true }));
+  assert.equal(moved.conflict?.reason, 'row_mismatch', JSON.stringify(moved));
+  const vague = env.post(mutation('setRunCancelled', { ...fields, expectedRun: run.run, cancelled: 'yes' }));
+  assert.equal(vague.conflict?.reason, 'invalid_operation', JSON.stringify(vague));
+  assert.deepEqual(env.grid(), before);
+});
+
+test('restoring a run that is not cancelled completes without a write', () => {
+  const env = environment(); setup(env);
+  const before = env.grid();
+  const restore = env.post(cancelRequest(env, BLANK, false));
+  assert.equal(restore.status, 'completed', JSON.stringify(restore));
+  assert.equal(restore.written, 0);
+  assert.deepEqual(env.grid(), before);
+});

@@ -80,6 +80,12 @@ public struct RunSnapshot: Hashable, Sendable, Identifiable, RunRowAttendance {
             < (rhs.scheduledAt ?? .distantFuture, rhs.rowIndex)
     }
 
+    /// A reminder or route that names this row. The label is compared without the
+    /// cancelled marker, so a reminder saved before a cancel still opens the run.
+    public func matches(rowIndex: Int, date: String, run label: String) -> Bool {
+        self.rowIndex == rowIndex && self.date == date && runName == RunLabel.cancellation(label).label
+    }
+
     public var detailLabel: String {
         let distance = approxKm.map {
             $0.formatted(.number.precision(.fractionLength(0...2)))

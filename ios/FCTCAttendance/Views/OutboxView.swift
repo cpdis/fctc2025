@@ -177,6 +177,7 @@ struct OutboxView: View {
         case "renameGuest": "Name change"
         case "commitPromotion": "Member promotion"
         case "importGuestHistory": "Guest history import"
+        case "setRunCancelled": operation.operation?.request["cancelled"] == .bool(true) ? "Run cancellation" : "Run restore"
         default: "Guest identity"
         }
     }
@@ -195,7 +196,7 @@ struct OutboxView: View {
             } else {
                 Text(operation.lastError ?? "Waiting to sync").font(.footnote).foregroundStyle(.secondary)
             }
-            if operation.operation?.action != "renameGuest" && (operation.phase == .rejected || (operation.phase == .conflict && operation.conflict?.reason != "identity_ambiguous")) {
+            if !["renameGuest", "setRunCancelled"].contains(operation.operation?.action ?? "") && (operation.phase == .rejected || (operation.phase == .conflict && operation.conflict?.reason != "identity_ambiguous")) {
                 Text("Open the guest history to review this change again.").font(.footnote).foregroundStyle(.secondary)
             }
         }

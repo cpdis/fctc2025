@@ -42,7 +42,9 @@ Even one matching display name requires selection or explicit `confirmDistinct: 
 `sheetRevision`, and `lifetimeTotals` keys. It adds:
 
 - `apiVersion: 2` and `capabilities: { apiVersion: 2, sharedGuests: Bool,
-  stableRunIdentity: Bool, guestHistory: Bool, guestPromotion: Bool, operationReceipts: Bool }`.
+  stableRunIdentity: Bool, guestHistory: Bool, guestPromotion: Bool, operationReceipts: Bool,
+  runCancellation: Bool }`. `runCancellation` is newer than the rest; a client reads a missing
+  value as `false`.
 - `spreadsheetId: String`, `seasonSheetId: Int`, `guests: [GuestSummary]`.
 - `guestRevision: String`, an opaque token for the guest registry and attendance.
 - `pendingOperationId: String?`, present or `null` when there is no pending operation.
@@ -87,6 +89,7 @@ The payload fields are visible in `requests` and documented below.
 | `addMember` | `name`, `baseRevision`, `seasonSheetId` (omit only for the active season) |
 | `addRun` | `date`, `meet`, `run`, `approxKm`, `spreadsheetId`, `seasonSheetId`, `baseRevision` |
 | `setupSharedGuests` | `spreadsheetId`, `seasonSheetIds: [Int]` |
+| `setRunCancelled` | Run identity, `rowIndex`, `expectedDate`, `expectedRun`, `cancelled: Bool` (no `baseRevision`; conflicts `run_has_attendance`, `unsafe_formula`, `row_mismatch`). `submitAttendance` to a cancelled run returns `run_cancelled`. See `apps-script/README.md`, "Run cancellation (v2)". |
 
 `HistoryAssignment` has run identity, `expectedDate`, `expectedRun`, and
 `assignment: "existing_unnamed_slot"`. Import consumes verified existing unnamed slots.

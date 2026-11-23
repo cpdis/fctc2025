@@ -9,7 +9,8 @@
 //
 //    drain result      what happens
 //    ----------------  ------------------------------------------------------
-//    completed         refresh the run's season and return it
+//    completed         refresh the run's season and return it (or, if that read
+//                      fails, the held season with the Run cell as written)
 //    checking          delivery unknown: keep it for the receipt check, throw
 //    anything else     close it (superseded, so no drain sends it) and throw
 //
@@ -19,15 +20,15 @@ import SwiftData
 
 /// A cancel or restore the sheet did not apply. Nothing is left queued.
 public enum RunCancellationError: LocalizedError, Sendable, Equatable {
-    /// It never reached the sheet: offline, busy, or behind another saved change.
+    /// It never reached the sheet: offline, or behind another saved change.
     case notSent
-    /// The sheet refused it for good, with this reason.
-    case rejected(String)
+    /// The sheet refused it, with this reason: busy, a rejected setup code, or for good.
+    case refused(String)
 
     public var errorDescription: String? {
         switch self {
         case .notSent: "The run was not changed. Try again when the sheet is reachable."
-        case .rejected(let message): message
+        case .refused(let message): message
         }
     }
 }
@@ -56,15 +57,26 @@ extension SyncEngine {
         }
         switch row.phase {
         case .completed:
-            return try await refreshState(seasonSheetId: identity.seasonSheetId)
+            // The change landed. A failed re-read must not report it as failed, so fall
+            // back to the season as this phone holds it, with the Run cell as written.
+            if let fresh = try? await refreshState(seasonSheetId: identity.seasonSheetId) { return fresh }
+            var saved = state
+            if let index = saved.runs.firstIndex(where: { $0.identity == identity }) {
+                saved.runs[index].run = cancelled ? "\(run.runName) (cancelled)" : run.runName
+            }
+            return saved
         case .checking:
             throw SheetAPIError.server(code: "pending_verification", message: row.lastError ?? UserFacingError.checkingSavedChanges)
         default:
-            let conflict = row.conflict, phase = row.phase, message = row.lastError
+            let conflict = row.conflict, message = row.lastError
             row.phase = .superseded
             try modelContext.save()
             if let conflict { throw conflict }
-            if phase == .rejected, let message { throw RunCancellationError.rejected(message) }
+            // Keep a refusal's own reason (busy, a rejected setup code). An offline or
+            // fenced row has the outbox's wording, which does not fit a cancel.
+            if let message, message != UserFacingError.offline, message != UserFacingError.checkingSavedChanges {
+                throw RunCancellationError.refused(message)
+            }
             throw RunCancellationError.notSent
         }
     }

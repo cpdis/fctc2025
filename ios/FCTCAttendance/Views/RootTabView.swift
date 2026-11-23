@@ -156,11 +156,8 @@ struct RootTabView: View {
         case .todayDictation:
             runsModel.todayRun.map { .checklist($0, .dictation) }
         case .checklist(let rowIndex, let date, let run):
-            // A reminder saved before a cancel names "River Loop"; the cached cell
-            // may now read "River Loop (cancelled)". Match without the marker, so
-            // the tap opens the cancelled run rather than nothing.
             routeTargets
-                .first { $0.rowIndex == rowIndex && $0.date == date && $0.runName == RunLabel.cancellation(run).label }
+                .first { $0.matches(rowIndex: rowIndex, date: date, run: run) }
                 .map { .checklist($0, .standard) }
         }
     }
@@ -169,7 +166,7 @@ struct RootTabView: View {
     /// Runs sits at its root, so the offer never interrupts a pushed screen.
     private func offerSharedScreenshots() {
         guard !showingSharedScreenshotOffer,
-              runsPath.isEmpty, runsModel.todayRun != nil,
+              runsPath.isEmpty, let todayRun = runsModel.todayRun, !todayRun.isCancelled,
               let count = try? runtime.sharedScreenshotInbox.list().count,
               count > 0
         else { return }

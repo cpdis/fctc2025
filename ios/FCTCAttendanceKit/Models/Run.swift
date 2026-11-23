@@ -87,7 +87,7 @@ extension RunRowAttendance {
 
     /// Marked "(cancelled)" with nobody on it. A marked row with a runner is a
     /// normal run, so a marker typed by hand never takes credit away.
-    public var isCancelled: Bool { RunLabel.cancellation(run).marked && !hasRecordedAttendance }
+    public var isCancelled: Bool { !hasRecordedAttendance && RunLabel.cancellation(run).marked }
 
     /// Blank and not cancelled: the rows catch-up, reminders and Home ask about.
     public var needsAttendance: Bool { !hasRecordedAttendance && !isCancelled }

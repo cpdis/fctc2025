@@ -1053,7 +1053,6 @@ var SheetOps = {
   dateOrdinal: dateOrdinal,
   numberOrNull: numberOrNull,
   isAttendedMark: isAttendedMark,
-  CANCELLED_MARKER: CANCELLED_MARKER,
   runCancellation: runCancellation,
   cancelledRunLabel: cancelledRunLabel,
   isCancelledRun: isCancelledRun,
