@@ -38,6 +38,33 @@ struct ViewModelTests {
         #expect(viewModel.todayRun?.rowIndex == 2)
     }
 
+    @Test("Today's card reads recorded from the sheet and waiting from this phone's outbox")
+    func todayStatus() {
+        let viewModel = HomeViewModel(engine: ViewModelSyncClient())
+        func status(_ today: RunSnapshot, _ submissions: [PendingSubmissionSnapshot] = []) -> TodayRunStatus {
+            viewModel.update(runs: [today], submissions: submissions, now: now, calendar: utcCalendar)
+            return viewModel.todayStatus
+        }
+        let empty = run(row: 42, dayOffset: 0)
+        let recorded = run(row: 42, dayOffset: 0, actualKm: 10.4, attendees: ["Aaron", "Col"], plusOnes: 1)
+
+        #expect(status(empty) == .open)
+        #expect(status(recorded) == .recorded(runners: 3))
+        #expect(status(run(row: 42, dayOffset: 0, plusOnes: 2)) == .recorded(runners: 2))
+        // An unsent recording waits, even over attendance the sheet already has.
+        #expect(status(empty, [submission(status: .queued)]) == .waiting)
+        #expect(status(recorded, [submission(status: .inFlight)]) == .waiting)
+        // A sent row, a conflict (the Conflicts tile owns it) and another run's row do not wait.
+        #expect(status(empty, [submission(status: .done)]) == .open)
+        #expect(status(empty, [submission(status: .conflict)]) == .open)
+        #expect(status(run(row: 43, dayOffset: 0), [submission(status: .queued)]) == .open)
+
+        // With no run today there is no card, and the status resets.
+        viewModel.update(runs: [run(row: 1, dayOffset: -1)], submissions: [], now: now, calendar: utcCalendar)
+        #expect(viewModel.todayRun == nil)
+        #expect(viewModel.todayStatus == .open)
+    }
+
     @Test("Home shows first-load progress only when the cache is empty")
     func homeInitialLoading() async {
         let client = ViewModelSyncClient(suspendRefresh: true)

@@ -28,6 +28,16 @@ public enum SyncStatus: Hashable, Sendable {
     }
 }
 
+/// What the Today's Run card says about today's attendance.
+public enum TodayRunStatus: Hashable, Sendable {
+    /// Nothing in the sheet and nothing waiting on this phone.
+    case open
+    /// A recording for today waits in this phone's outbox.
+    case waiting
+    /// The sheet holds today's attendance: members plus guests.
+    case recorded(runners: Int)
+}
+
 @MainActor
 @Observable
 public final class HomeViewModel {
@@ -36,6 +46,8 @@ public final class HomeViewModel {
     public private(set) var unsyncedCount = 0
     public private(set) var conflictCount = 0
     public private(set) var todayRun: RunSnapshot?
+    /// `.open` whenever `todayRun` is nil.
+    public private(set) var todayStatus: TodayRunStatus = .open
     public private(set) var syncBanner: SyncBanner?
     public private(set) var isInitialLoading = false
     public private(set) var initialLoadFailed = false
@@ -134,6 +146,19 @@ public final class HomeViewModel {
         unsyncedCount = submissions.filter(\.isOutstanding).count + pendingGuestChanges
         conflictCount = submissions.filter { $0.status == .conflict }.count + guestConflicts
         todayRun = earliestToday
+        todayStatus = earliestToday.map { Self.status(of: $0, submissions: submissions) } ?? .open
+    }
+
+    /// Home's runs come from the sheet cache with no outbox applied, so their
+    /// attendance is the sheet's. An unsent row for the run wins: an edit to a
+    /// recorded run is still unsent. A conflict is not waiting; the Conflicts
+    /// tile asks for its review. Rows match runs by the overlay's own rule.
+    static func status(of run: RunSnapshot, submissions: [PendingSubmissionSnapshot]) -> TodayRunStatus {
+        let waiting = submissions.contains {
+            ($0.status == .queued || $0.status == .inFlight) && EffectiveRuns.writes($0, to: run)
+        }
+        if waiting { return .waiting }
+        return run.hasRecordedAttendance ? .recorded(runners: run.attendees.count + run.plusOnes) : .open
     }
 
     public func refresh(hasCachedState: Bool = true) async {

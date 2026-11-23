@@ -18,6 +18,9 @@ final class FCTCAttendanceUITests: XCTestCase {
 
         let hero = app.buttons["home-todays-run"]
         XCTAssertTrue(hero.waitForExistence(timeout: 3))
+        // The fixture's today row already holds Col at 7.1 km, so the card is
+        // the quiet recorded one, not the Record call to action.
+        XCTAssertTrue(hero.label.hasSuffix("Recorded, 1 runner, 7.1 km, Edit"), hero.label)
         hero.tap()
 
         XCTAssertTrue(app.navigationBars["Review & Confirm"].waitForExistence(timeout: 3))
