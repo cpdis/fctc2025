@@ -3,9 +3,11 @@
 ## TestFlight build 19: the Recorded card's outline fits its corners (23 November 2026)
 
 - Version 0.1.0 build 19 from `release/testflight-build-18`: build 18 plus `a8fea02` and
-  `ab8b0c1`. Build `0837c2eb-489c-482d-a7f6-6dcaad32c884` is VALID. FCTC Internal only (internal
-  `IN_BETA_TESTING`, external `READY_FOR_BETA_SUBMISSION`). Notes match
-  `ios/testflight-build-19.txt` (read back, en-AU).
+  `ab8b0c1`. Build `0837c2eb-489c-482d-a7f6-6dcaad32c884` is VALID. Colin checked it through FCTC
+  Internal, then released it to everyone: FCTC Friends attached, beta app review APPROVED at
+  once, internal and external `IN_BETA_TESTING`, automatic notification on. Build 18 stayed
+  internal, so the build 19 notes (`ios/testflight-build-19.txt`, set again before the release,
+  en-AU) describe everything new since build 17.
 - Colin's build 18 screenshot: the recorded card showed two corners. On iOS 26 and later a List
   gives a row's background its section's corner shape; the fill (`.background(_:in: .rect(18))`)
   was reshaped, but the overlay outline was a fixed 18-point `RoundedRectangle`. The same card
