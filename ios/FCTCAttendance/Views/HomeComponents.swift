@@ -9,26 +9,42 @@
 import FCTCAttendanceKit
 import SwiftUI
 
+/// Today's run: a loud accent card while it needs recording, a quiet one once
+/// it is in or waiting to send. The change in volume carries the meaning, so
+/// it reads the same with every accent (Aaron's request, 23 Nov 2026).
 struct TodayRunHero: View {
     let run: RunSnapshot
+    let status: TodayRunStatus
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("TODAY'S RUN")
-                        .font(.caption.weight(.bold))
-                        .tracking(0.8)
-                        .foregroundStyle(.white.opacity(0.78))
-                    Text(run.run)
-                        .font(.title2.bold())
-                        .foregroundStyle(.white)
-                }
-                Spacer(minLength: 12)
-                Text(run.date)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.85))
+        switch status {
+        case .open: open
+        case .waiting: settled(title: "Waiting to sync", detail: "Saved on this phone", action: "View")
+        case .recorded(let runners): settled(title: "Recorded", detail: recordedDetail(runners), action: "Edit")
+        }
+    }
+
+    private func heading(primary: Color, secondary: Color) -> some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("TODAY'S RUN")
+                    .font(.caption.weight(.bold))
+                    .tracking(0.8)
+                    .foregroundStyle(secondary)
+                Text(run.run)
+                    .font(.title2.bold())
+                    .foregroundStyle(primary)
             }
+            Spacer(minLength: 12)
+            Text(run.date)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(secondary)
+        }
+    }
+
+    private var open: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            heading(primary: .white, secondary: .white.opacity(0.8))
 
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -56,6 +72,48 @@ struct TodayRunHero: View {
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Today's Run, \(run.detailLabel), \(run.date), Record")
+    }
+
+    /// The quiet card: a check when the sheet has the run, the Unsynced tile's
+    /// orange while this phone still holds it. Tapping opens the same checklist.
+    private func settled(title: String, detail: String, action: String) -> some View {
+        let isRecorded = status != .waiting
+        return VStack(alignment: .leading, spacing: 14) {
+            heading(primary: .primary, secondary: .secondary)
+            HStack(spacing: 12) {
+                Image(systemName: isRecorded ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath.circle.fill")
+                    .font(.system(size: 30, weight: .semibold))
+                    .foregroundStyle(isRecorded ? Color.accentColor : Color.orange)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.headline)
+                    Text(detail).font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 12)
+                Text(action)
+                    .font(.headline)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(18)
+        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 18))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18)
+                .strokeBorder(Color.accentColor.opacity(isRecorded ? 0.35 : 0), lineWidth: 1.5)
+        }
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+        // Commas, not the visual "·", so VoiceOver pauses instead of saying "dot".
+        .accessibilityLabel("Today's Run, \(run.detailLabel), \(run.date), \(title), "
+            + "\(detail.replacingOccurrences(of: " · ", with: ", ")), \(action)")
+    }
+
+    /// "7 runners · 10.4 km": the sheet's headcount, and the distance once known.
+    private func recordedDetail(_ runners: Int) -> String {
+        let count = runners == 1 ? "1 runner" : "\(runners) runners"
+        guard let km = run.actualKm else { return count }
+        return "\(count) · \(km.formatted(.number.precision(.fractionLength(0...2)))) km"
     }
 }
 

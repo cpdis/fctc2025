@@ -101,7 +101,7 @@ struct HomeView: View {
                             Button {
                                 path.append(.checklist(todayRun, .standard))
                             } label: {
-                                TodayRunHero(run: todayRun)
+                                TodayRunHero(run: todayRun, status: viewModel.todayStatus)
                             }
                             .buttonStyle(.pressable)
                             .staggeredEntrance(2, hasEntered: hasEntered)
