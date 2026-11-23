@@ -1,0 +1,17 @@
+The Recorded card wore a border that wandered,
+Two corners, not one, while the run pages pondered.
+Now the line hugs the edge as a good line should do,
+And it's stronger and clearer, in your colour too.
+
+Filament Coffee Track Club: a cleaner edge on the Recorded card
+
+Update the existing app. Do not delete it: your sheet connection, saved guests and pending attendance stay on your phone. Nothing to set up again.
+
+New since build 18:
+• Once today's run is recorded, the card's outline now follows its rounded corners. Build 18 showed a second, tighter corner outside the card.
+• The outline is a little stronger, in your accent colour.
+
+Please check:
+• Once today's run is recorded, look at the card's corners on Runs. The coloured line should sit on the card's edge all the way round, with no grey gap at the corners.
+
+Share feedback through TestFlight.
