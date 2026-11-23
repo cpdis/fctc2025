@@ -38,6 +38,13 @@ struct ChecklistView: View {
     @State private var didRunEntryPresentation = false
     /// A Confirm that failed, shown as an alert rather than a row below the fold.
     @State private var confirmError: String?
+    /// Run cancelled (U4): its confirmation, a failed cancel or restore, and
+    /// this phone's outbox as snapshots, refreshed with the streaks.
+    @State private var showingCancelConfirmation = false
+    @State private var cancelError: String?
+    @State private var submissionSnapshots: [PendingSubmissionSnapshot] = []
+    /// The catch-up alert follows a confirm or a cancel.
+    @State private var catchUpTitle = "Attendance recorded"
     /// Each roster member's runs and streak, recomputed when a streak input
     /// changes (`streakFingerprint`), never per render.
     @State private var memberStats: [String: MemberStats] = [:]
@@ -82,126 +89,15 @@ struct ChecklistView: View {
         @Bindable var viewModel = viewModel
 
         List {
-            // The smart modalities lead the screen (Colin's review, 2026-08-14):
-            // hiding them in the collapsed toolbar buried the app's best features.
-            Section {
-                HStack(spacing: 12) {
-                    Button {
-                        showingScreenshotImport = true
-                    } label: {
-                        ModalityButtonLabel(
-                            title: "Import Poll",
-                            systemImage: "photo.badge.plus"
-                        )
-                    }
-                    .disabled(viewModel.roster.isEmpty)
-                    .accessibilityHint("Imports voter names as attendance suggestions.")
-                    .accessibilityIdentifier("import-poll")
-
-                    Button {
-                        showingVoiceEntry = true
-                    } label: {
-                        ModalityButtonLabel(
-                            title: "Dictate",
-                            systemImage: "waveform"
-                        )
-                    }
-                    .accessibilityHint("Dictate names, guests, and actual kilometres.")
-                    .accessibilityIdentifier("dictate-attendance")
+            if viewModel.run.isCancelled {
+                CancelledRunSections(run: viewModel.run, isWorking: viewModel.isChangingCancellation) {
+                    setCancelled(false)
                 }
-                .buttonStyle(.pressable)
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-            }
-
-            Section {
-                kmLayout {
-                    Label("Actual km", systemImage: "figure.run")
-                    if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 16) }
-                    TextField("0", text: $viewModel.actualKmText)
-                        .keyboardType(.decimalPad)
-                        .focused($kilometresFocused)
-                        .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
-                        .frame(
-                            minWidth: kmMinWidth,
-                            idealWidth: kmIdealWidth,
-                            maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : kmMaxWidth
-                        )
-                        .accessibilityLabel("Actual kilometres")
-                        // The error also rides in the hint, so a VoiceOver user
-                        // who lands on the field hears what is wrong.
-                        .accessibilityHint(viewModel.distanceIsMalformed ? DistanceText.malformedMessage : "")
-                        .accessibilityIdentifier("actual-km")
-                }
-
-                NavigationLink {
-                    GuestEditorView(runtime: runtime, viewModel: viewModel)
-                } label: {
-                    HStack {
-                        Label("Guests", systemImage: "person.2")
-                        Spacer(minLength: 16)
-                        Text(viewModel.draft.plusOnes, format: .number)
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                            .contentTransition(.numericText(value: Double(viewModel.draft.plusOnes)))
-                            .animation(Motion.snappy, value: viewModel.draft.plusOnes)
-                    }
-                }
-                .accessibilityLabel("Guests, \(viewModel.draft.plusOnes)")
-                .accessibilityIdentifier("guest-editor")
-            } footer: {
-                if viewModel.distanceIsMalformed {
-                    // Text stays primary for contrast; the icon carries the colour.
-                    Label(DistanceText.malformedMessage, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.primary, .red)
-                        .accessibilityIdentifier("actual-km-error")
-                }
-            }
-
-            Section {
-                ForEach(filteredRoster, id: \.self) { name in
-                    MemberCheckRow(
-                        name: name,
-                        provenance: viewModel.draft.checks[name],
-                        isSuggested: viewModel.isSuggested(name),
-                        stats: memberStats[name]
-                            ?? MemberStats(attendanceCount: 0, lastAttendedAt: nil, currentStreak: 0),
-                        action: {
-                            toggleCount += 1
-                            viewModel.toggleMember(name)
-                        }
-                    )
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if viewModel.draft.isChecked(name) {
-                            Button("Uncheck", systemImage: "xmark.circle") {
-                                viewModel.uncheckMember(name)
-                            }
-                            .tint(.orange)
-                            .accessibilityLabel("Uncheck \(name)")
-                        }
-                    }
-                }
-
-                if filteredRoster.isEmpty && !searchText.isEmpty {
-                    ContentUnavailableView.search(text: searchText)
-                }
-
-                QuickAddPersonRow(viewModel: viewModel)
-            } header: {
-                AttendanceCountHeader(draft: viewModel.draft)
-            }
-
-            if !viewModel.unresolvedGuestNames.isEmpty {
-                Section {
-                    NavigationLink("Review suggested guest names") { GuestEditorView(runtime: runtime, viewModel: viewModel) }
-                    Text("Select each suggested guest before confirming attendance.").font(.footnote).foregroundStyle(.secondary)
-                }
-            }
-            if let message = viewModel.errorMessage {
-                Section {
-                    Label(message, systemImage: "exclamationmark.triangle.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.primary, .red)
+            } else {
+                checklistSections
+                if canCancelRun {
+                    CancelRunFooter(run: viewModel.run, isConfirming: $showingCancelConfirmation,
+                                    isWorking: viewModel.isChangingCancellation) { setCancelled(true) }
                 }
             }
         }
@@ -222,27 +118,30 @@ struct ChecklistView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Find a person")
         .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Confirm") {
-                    if viewModel.requiresRecordedChoice {
-                        showingRecordedChoice = true
-                    } else {
-                        submit(mode: .merge)
+            // A cancelled run has nothing to confirm or search.
+            if !viewModel.run.isCancelled {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Confirm") {
+                        if viewModel.requiresRecordedChoice {
+                            showingRecordedChoice = true
+                        } else {
+                            submit(mode: .merge)
+                        }
                     }
+                    .fontWeight(.semibold)
+                    .disabled(!viewModel.canConfirm)
+                    .accessibilityHint(
+                        viewModel.canConfirm
+                            ? "Queues these attendance changes."
+                            : "Change attendance before confirming."
+                    )
+                    .accessibilityIdentifier("confirm-attendance")
                 }
-                .fontWeight(.semibold)
-                .disabled(!viewModel.canConfirm)
-                .accessibilityHint(
-                    viewModel.canConfirm
-                        ? "Queues these attendance changes."
-                        : "Change attendance before confirming."
-                )
-                .accessibilityIdentifier("confirm-attendance")
+                // Inside the tab shell, automatic placement moves search into a
+                // navigation-bar drawer that stays hidden until a pull-down. Pin it
+                // to the bottom bar, where it sat before the tabs (U11).
+                DefaultToolbarItem(kind: .search, placement: .bottomBar)
             }
-            // Inside the tab shell, automatic placement moves search into a
-            // navigation-bar drawer that stays hidden until a pull-down. Pin it
-            // to the bottom bar, where it sat before the tabs (U11).
-            DefaultToolbarItem(kind: .search, placement: .bottomBar)
             // Shown only for the distance field: the quick-add row and the
             // search field have their own Return key.
             ToolbarItemGroup(placement: .keyboard) {
@@ -331,7 +230,8 @@ struct ChecklistView: View {
             delete: runtime.sharedScreenshotInbox.clear
         ))
         .actionErrorAlert("Could not confirm", message: $confirmError)
-        .alert("Attendance recorded", isPresented: $showingCatchUp) {
+        .actionErrorAlert("Could not change the run", message: $cancelError)
+        .alert(catchUpTitle, isPresented: $showingCatchUp) {
             Button("Next unrecorded run") { finishConfirmation(with: nextCatchUpRun) }
                 .accessibilityIdentifier("catchup-next")
             Button("Skip") { skipNextCatchUpRun() }
@@ -341,6 +241,139 @@ struct ChecklistView: View {
         } message: {
             Text("An older run still needs attendance.")
         }
+    }
+
+    /// Review & Confirm's checklist: the modalities, distance and guests, the roster.
+    @ViewBuilder private var checklistSections: some View {
+        @Bindable var viewModel = viewModel
+        // The smart modalities lead the screen (Colin's review, 2026-08-14):
+        // hiding them in the collapsed toolbar buried the app's best features.
+        Section {
+            HStack(spacing: 12) {
+                Button {
+                    showingScreenshotImport = true
+                } label: {
+                    ModalityButtonLabel(
+                        title: "Import Poll",
+                        systemImage: "photo.badge.plus"
+                    )
+                }
+                .disabled(viewModel.roster.isEmpty)
+                .accessibilityHint("Imports voter names as attendance suggestions.")
+                .accessibilityIdentifier("import-poll")
+
+                Button {
+                    showingVoiceEntry = true
+                } label: {
+                    ModalityButtonLabel(
+                        title: "Dictate",
+                        systemImage: "waveform"
+                    )
+                }
+                .accessibilityHint("Dictate names, guests, and actual kilometres.")
+                .accessibilityIdentifier("dictate-attendance")
+            }
+            .buttonStyle(.pressable)
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+        }
+
+        Section {
+            kmLayout {
+                Label("Actual km", systemImage: "figure.run")
+                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 16) }
+                TextField("0", text: $viewModel.actualKmText)
+                    .keyboardType(.decimalPad)
+                    .focused($kilometresFocused)
+                    .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
+                    .frame(
+                        minWidth: kmMinWidth,
+                        idealWidth: kmIdealWidth,
+                        maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : kmMaxWidth
+                    )
+                    .accessibilityLabel("Actual kilometres")
+                    // The error also rides in the hint, so a VoiceOver user
+                    // who lands on the field hears what is wrong.
+                    .accessibilityHint(viewModel.distanceIsMalformed ? DistanceText.malformedMessage : "")
+                    .accessibilityIdentifier("actual-km")
+            }
+
+            NavigationLink {
+                GuestEditorView(runtime: runtime, viewModel: viewModel)
+            } label: {
+                HStack {
+                    Label("Guests", systemImage: "person.2")
+                    Spacer(minLength: 16)
+                    Text(viewModel.draft.plusOnes, format: .number)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .contentTransition(.numericText(value: Double(viewModel.draft.plusOnes)))
+                        .animation(Motion.snappy, value: viewModel.draft.plusOnes)
+                }
+            }
+            .accessibilityLabel("Guests, \(viewModel.draft.plusOnes)")
+            .accessibilityIdentifier("guest-editor")
+        } footer: {
+            if viewModel.distanceIsMalformed {
+                // Text stays primary for contrast; the icon carries the colour.
+                Label(DistanceText.malformedMessage, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.primary, .red)
+                    .accessibilityIdentifier("actual-km-error")
+            }
+        }
+
+        Section {
+            ForEach(filteredRoster, id: \.self) { name in
+                MemberCheckRow(
+                    name: name,
+                    provenance: viewModel.draft.checks[name],
+                    isSuggested: viewModel.isSuggested(name),
+                    stats: memberStats[name]
+                        ?? MemberStats(attendanceCount: 0, lastAttendedAt: nil, currentStreak: 0),
+                    action: {
+                        toggleCount += 1
+                        viewModel.toggleMember(name)
+                    }
+                )
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    if viewModel.draft.isChecked(name) {
+                        Button("Uncheck", systemImage: "xmark.circle") {
+                            viewModel.uncheckMember(name)
+                        }
+                        .tint(.orange)
+                        .accessibilityLabel("Uncheck \(name)")
+                    }
+                }
+            }
+
+            if filteredRoster.isEmpty && !searchText.isEmpty {
+                ContentUnavailableView.search(text: searchText)
+            }
+
+            QuickAddPersonRow(viewModel: viewModel)
+        } header: {
+            AttendanceCountHeader(draft: viewModel.draft)
+        }
+
+        if !viewModel.unresolvedGuestNames.isEmpty {
+            Section {
+                NavigationLink("Review suggested guest names") { GuestEditorView(runtime: runtime, viewModel: viewModel) }
+                Text("Select each suggested guest before confirming attendance.").font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+        if let message = viewModel.errorMessage {
+            Section {
+                Label(message, systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.primary, .red)
+            }
+        }
+    }
+
+    /// R3: a blank shared run that nobody is recording, on a server that can cancel.
+    private var canCancelRun: Bool {
+        viewModel.canCancelRun(serverSupports: exactState?.capabilities?.canCancelRuns == true,
+                               submissions: submissionSnapshots)
     }
 
     private var guestReview: (([String]) -> Void)? {
@@ -408,9 +441,10 @@ struct ChecklistView: View {
     /// The streak label reads the effective season, so attendance recorded
     /// here shows at once, offline included (KTD11).
     private func updateMemberStats() {
+        submissionSnapshots = cachedSubmissions.map(PendingSubmissionSnapshot.init)
         let effective = EffectiveRuns(
             cached: scopedRuns,
-            submissions: cachedSubmissions.map(PendingSubmissionSnapshot.init),
+            submissions: submissionSnapshots,
             endpoint: runtime.config.endpoint?.absoluteString,
             refreshedAt: exactCache?.refreshedAt
         )
@@ -427,6 +461,7 @@ struct ChecklistView: View {
                     after: viewModel.run,
                     among: snapshots
                 ) {
+                    catchUpTitle = "Attendance recorded"
                     nextCatchUpRun = next
                     showingCatchUp = true
                 } else {
@@ -436,6 +471,25 @@ struct ChecklistView: View {
                 // A second tap while the first submit ran; nothing failed.
             } catch {
                 confirmError = viewModel.errorMessage ?? UserFacingError.sync(error)
+            }
+        }
+    }
+
+    /// Cancel or restore this run. After a cancel the screen shows the cancelled
+    /// state, and offers the next older blank run as a confirm does.
+    private func setCancelled(_ cancelled: Bool) {
+        Task {
+            do {
+                try await viewModel.setCancelled(cancelled)
+                if cancelled, let next = CatchUpPlanner.nextOlderUnrecorded(after: viewModel.run, among: scopedRuns) {
+                    catchUpTitle = "Run cancelled"
+                    nextCatchUpRun = next
+                    showingCatchUp = true
+                }
+            } catch is CancellationError {
+                // A second tap while the first request ran; nothing failed.
+            } catch {
+                cancelError = viewModel.errorMessage ?? UserFacingError.sync(error)
             }
         }
     }
