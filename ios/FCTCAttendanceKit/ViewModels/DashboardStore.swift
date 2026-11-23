@@ -55,6 +55,12 @@
 //    loadFirstRuns() ─> seasonSnapshot(each earlier year) ─all ok─> firstRuns over every season
 //                                                          └─throws─> live season only; call again
 //
+//  "Been a while…" (`BeenAWhile`) counts back from today, not from the data,
+//  so it also moves when the Perth day does:
+//
+//    update, loadFirstRuns() ─┐
+//    advanceDay() (new day) ──┴─> BeenAWhile(live runs + loaded history, roster, today)
+//
 
 import Foundation
 import Observation
@@ -136,6 +142,11 @@ public final class DashboardStore {
     /// is shown. The live season alone until every earlier listed season has
     /// loaded (`loadFirstRuns()`), since a missing season would drop club days.
     public private(set) var firstRuns: [String: FirstRun] = [:]
+    /// Members who ran in the last 12 weeks but not the last 4, counted back
+    /// from today (`BeenAWhile`). Built from the live season and every earlier
+    /// season loaded so far, whatever view is shown; the Dashboard shows it on
+    /// the live season only.
+    public private(set) var beenAWhile: [BeenAWhile.Runner] = []
 
     /// The season shown; nil for All time or before the live season loads.
     public var shownSeason: Int? {
@@ -189,9 +200,15 @@ public final class DashboardStore {
     /// Moves with every engine swap and live-season change only: picking a
     /// view does not touch first runs.
     @ObservationIgnored private var historyGeneration = 0
+    /// The clock `beenAWhile` counts back from, and the Perth day it last used.
+    @ObservationIgnored private let now: () -> Date
+    @ObservationIgnored private var today: ClubDate?
 
-    public init(engine: any SyncEngineClient) {
+    /// - Parameter now: the clock for `beenAWhile`; the app passes its own
+    ///   (`AppRuntime.now`), so a UI-test launch can pin it.
+    public init(engine: any SyncEngineClient, now: @escaping () -> Date = { .now }) {
         self.engine = engine
+        self.now = now
     }
 
     /// A new connection: forget last season and rebuild on the next `update`,
@@ -223,6 +240,15 @@ public final class DashboardStore {
         }
         rebuild()
         rebuildFirstRuns()
+        rebuildBeenAWhile()
+    }
+
+    /// Rebuilds `beenAWhile` when the Perth day has moved since it was built,
+    /// so a Dashboard left open overnight counts from the new day. Cheap: call
+    /// it whenever the Dashboard appears or the app becomes active.
+    public func advanceDay() {
+        guard ClubDate(now(), calendar: ClubDate.calendar) != today else { return }
+        rebuildBeenAWhile()
     }
 
     /// Shows `period`: the live season, an earlier listed one from its
@@ -374,6 +400,7 @@ public final class DashboardStore {
         }
         isLoadingHistory = false
         rebuildFirstRuns()
+        rebuildBeenAWhile()
     }
 
     /// First runs over every season once each earlier one has loaded, else
@@ -389,6 +416,19 @@ public final class DashboardStore {
             ? inputs.runs + earlier.flatMap { history[$0] ?? [] }
             : inputs.runs
         firstRuns = FirstRuns.build(runs: runs, before: inputs.priors?.rebased(live: inputs.runs, onto: runs))
+    }
+
+    /// The been-a-while list for today over the live season and every earlier
+    /// season loaded so far: in January its window reaches into December.
+    private func rebuildBeenAWhile() {
+        let day = ClubDate(now(), calendar: ClubDate.calendar)
+        today = day
+        guard let inputs, let day else {
+            beenAWhile = []
+            return
+        }
+        let runs = inputs.runs + history.values.flatMap(\.self)
+        beenAWhile = BeenAWhile(runs: runs, roster: inputs.roster, today: day).runners
     }
 
     /// Drops the earlier seasons and any fetch still in flight.

@@ -261,6 +261,62 @@ final class DashboardUITests: XCTestCase {
         XCTAssertFalse(element("vs-last-year").exists)
     }
 
+    // MARK: - Been a while
+
+    /// Grant's "Been a while…" card lists members who ran in the last 12
+    /// weeks but not the last 4: in the small fixture, Dan B alone (his last
+    /// run is 8 weeks back). A row opens the runner screen.
+    func testBeenAWhileListsDanB() {
+        launch()
+        openDashboard()
+        let card = element("been-a-while")
+        scrollTo(card)
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertEqual(rows(in: card), ["Dan B"])
+        let danB = element("been-a-while-row-Dan B")
+        let spoken = danB.value as? String ?? ""
+        XCTAssertTrue(spoken.contains("8 weeks ago"), spoken)
+        XCTAssertFalse(element("been-a-while-row-Aaron").exists, "Aaron ran this week")
+
+        tap(danB)
+        XCTAssertTrue(app.navigationBars["Dan B"].waitForExistence(timeout: 5))
+    }
+
+    /// The profiling fixture's drop-outs, latest last run first. An earlier
+    /// season has no today to count back from, so the card goes.
+    func testBeenAWhileOrderAndLiveSeasonOnly() {
+        launch(["-ui-shared-guests", "-ui-dashboard-full"])
+        openDashboard()
+        let card = element("been-a-while")
+        scrollTo(card)
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertEqual(rows(in: card), ["Liam", "Rhys", "Jack"])
+        settle()
+        capture("been-a-while")
+
+        let year = Calendar.current.component(.year, from: .now)
+        app.swipeDown(velocity: .fast)
+        app.swipeDown(velocity: .fast)
+        let menu = element("dashboard-season")
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        menu.tap()
+        app.buttons[String(year - 1)].tap()
+        XCTAssertTrue(menu.waitForValue(String(year - 1)))
+        let log = element("dashboard-run-log")
+        scrollTo(log)
+        XCTAssertTrue(log.exists)
+        XCTAssertFalse(card.exists, "An earlier season has no been-a-while card")
+    }
+
+    /// The card's row names, top to bottom.
+    private func rows(in card: XCUIElement) -> [String] {
+        card.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'been-a-while-row-'"))
+            .allElementsBoundByIndex
+            .sorted { ($0.frame.minY, $0.frame.minX) < ($1.frame.minY, $1.frame.minX) }
+            .map { String($0.identifier.dropFirst("been-a-while-row-".count)) }
+    }
+
     // MARK: - Helpers
 
     /// The shared fake with the dashboard season, unless a test passes its own.

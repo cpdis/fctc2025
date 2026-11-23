@@ -158,6 +158,11 @@ public struct ClubDate: Hashable, Comparable, Sendable, CustomStringConvertible 
         return result
     }
 
+    /// Whole days from this day to `other`: negative when `other` is earlier.
+    public func days(to other: ClubDate) -> Int {
+        Self.calendar.dateComponents([.day], from: noon, to: other.noon).day ?? 0
+    }
+
     /// True when this day falls on or before the same month and day of any year.
     /// Month and day (not day of year) keep 25 Sep against 25 Sep across a leap year.
     public func isOnOrBefore(monthDayOf other: ClubDate) -> Bool {

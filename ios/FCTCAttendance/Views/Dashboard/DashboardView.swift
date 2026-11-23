@@ -14,8 +14,8 @@
 //  snapshot; All time joins every season and compares with nothing.
 //
 //  Cards, top to bottom, in the approved mockup's order: the headline, Together
-//  beside On a roll, The Wall, Vs last year, Every run, the Leaderboard and the
-//  Run log. Every pushed screen reads the store's current model, so it updates
+//  beside On a roll, The Wall, Been a while… (live season only, Grant's 23 Nov
+//  2026 ask), Vs last year, Every run, the Leaderboard and the Run log. Every pushed screen reads the store's current model, so it updates
 //  the moment attendance is recorded, offline included (AE8).
 //
 
@@ -43,6 +43,7 @@ struct DashboardView: View {
     /// Flips once, so the top cards stagger in on first sight only.
     @State private var hasEntered = false
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -62,6 +63,15 @@ struct DashboardView: View {
             .navigationTitle("Dashboard")
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: DashboardRoute.self) { destination(for: $0) }
+        }
+        // "Been a while…" counts back from today. Check the Perth day once a
+        // minute while active, as Events does; it never fetches sheet data.
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            while true {
+                store.advanceDay()
+                do { try await Task.sleep(for: .seconds(60)) } catch { return }
+            }
         }
     }
 
@@ -152,6 +162,12 @@ struct DashboardView: View {
 
         WallCard(wall: model.recentWall, accent: accent, open: openRunner)
             .staggeredEntrance(2, hasEntered: hasEntered)
+
+        // The live season only, while anyone qualifies: an earlier season or
+        // All time has no today to count back from.
+        if store.showing == .live, !store.beenAWhile.isEmpty {
+            BeenAWhileCard(runners: store.beenAWhile)
+        }
 
         // All time compares with nothing, as on the web.
         if model.period != .allTime {
